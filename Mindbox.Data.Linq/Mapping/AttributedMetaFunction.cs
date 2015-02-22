@@ -86,7 +86,7 @@ namespace System.Data.Linq.Mapping
 			if (tbl != null) {
 				return tbl.RowType.GetInheritanceType(type);
 			} 
-			return new AttributedRootType(model, null, type);
+			return model.CreateRootType(null, type);
 		}
 
 		public override MetaModel Model {

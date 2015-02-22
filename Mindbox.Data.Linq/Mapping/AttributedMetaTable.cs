@@ -17,7 +17,7 @@ namespace System.Data.Linq.Mapping
 		{
 			this.model = model;
 			tableName = string.IsNullOrEmpty(attr.Name) ? rowType.Name : attr.Name;
-			this.rowType = new AttributedRootType(model, this, rowType);
+			this.rowType = model.CreateRootType(this, rowType);
 		}
 
 

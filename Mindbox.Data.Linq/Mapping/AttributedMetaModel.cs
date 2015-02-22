@@ -217,6 +217,11 @@ namespace System.Data.Linq.Mapping
 			return table;
 		}
 
+		internal virtual AttributedRootType CreateRootType(AttributedMetaTable table, Type type)
+		{
+			return new AttributedRootType(this, table, type);
+		}
+
 
 		private void InitStaticTables()
 		{

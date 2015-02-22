@@ -61,11 +61,14 @@
     <Compile Include="Mapping\AttributedMetaAssociation.cs" />
     <Compile Include="Mapping\AttributedMetaDataMember.cs" />
     <Compile Include="Mapping\AttributedMetaFunction.cs" />
+    <Compile Include="Mindbox.Data.Linq\Mapping\MindboxMappingConfiguration.cs" />
+    <Compile Include="Mindbox.Data.Linq\Mapping\MindboxMetaModel.cs" />
     <Compile Include="Mapping\AttributedMetaModel.cs" />
     <Compile Include="Mapping\AttributedMetaParameter.cs" />
     <Compile Include="Mapping\AttributedMetaTable.cs" />
     <Compile Include="Mapping\AttributedMetaType.cs" />
     <Compile Include="Mapping\AttributedRootType.cs" />
+    <Compile Include="Mindbox.Data.Linq\Mapping\MindboxMappingSource.cs" />
     <Compile Include="Mapping\AttributeMappingSource.cs" />
     <Compile Include="Mapping\Attributes.cs" />
     <Compile Include="Mapping\InheritanceBaseFinder.cs" />
@@ -82,6 +85,7 @@
     <Compile Include="Mapping\MethodFinder.cs" />
     <Compile Include="Mapping\XmlMappingReader.cs" />
     <Compile Include="Mapping\XmlMappingSource.cs" />
+    <Compile Include="Mindbox.Data.Linq\Mapping\MindboxRootType.cs" />
     <Compile Include="misc\SecurityUtils.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="Provider\IDataServices.cs" />

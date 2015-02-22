@@ -6,7 +6,7 @@ using LinqToSqlShared.Mapping;
 
 namespace System.Data.Linq.Mapping
 {
-	internal sealed class AttributedRootType : AttributedMetaType 
+	internal class AttributedRootType : AttributedMetaType 
 	{
 		private readonly Dictionary<Type, MetaType> types;
 		private readonly ReadOnlyCollection<MetaType> inheritanceTypes;
@@ -18,9 +18,8 @@ namespace System.Data.Linq.Mapping
 		{
 
 			// check for inheritance and create all other types
-			var inheritanceAttributes = 
-				(InheritanceMappingAttribute[])type.GetCustomAttributes(typeof(InheritanceMappingAttribute), true);
-			if (inheritanceAttributes.Length > 0) 
+			var inheritanceAttributes = GetInheritanceMappingAttributes(type, model);
+			if (inheritanceAttributes.Count > 0) 
 			{
 				if (Discriminator == null)
 					throw Error.NoDiscriminatorFound(type);
@@ -115,7 +114,20 @@ namespace System.Data.Linq.Mapping
 			return metaType;
 		}
 
-	
+
+		protected virtual ICollection<InheritanceMappingAttribute> GetInheritanceMappingAttributes(
+			Type type,
+			AttributedMetaModel model)
+		{
+			if (type == null)
+				throw new ArgumentNullException("type");
+			if (model == null)
+				throw new ArgumentNullException("model");
+
+			return (InheritanceMappingAttribute[])type.GetCustomAttributes(typeof(InheritanceMappingAttribute), true);
+		}
+
+
 		private void Validate()
 		{
 			var memberToColumn = new Dictionary<object, string>();
