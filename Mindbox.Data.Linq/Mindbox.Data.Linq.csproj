@@ -17,7 +17,7 @@
     <DebugType>full</DebugType>
     <Optimize>false</Optimize>
     <OutputPath>bin\Debug\</OutputPath>
-    <DefineConstants>TRACE;DEBUG;SYSTEM_DATA_LINQ</DefineConstants>
+    <DefineConstants>TRACE;DEBUG;SYSTEM_DATA_LINQ, ILGEN</DefineConstants>
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
   </PropertyGroup>
@@ -25,7 +25,7 @@
     <DebugType>pdbonly</DebugType>
     <Optimize>true</Optimize>
     <OutputPath>bin\Release\</OutputPath>
-    <DefineConstants>TRACE;SYSTEM_DATA_LINQ</DefineConstants>
+    <DefineConstants>TRACE;SYSTEM_DATA_LINQ, ILGEN</DefineConstants>
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
   </PropertyGroup>
@@ -82,7 +82,7 @@
     <Compile Include="SqlClient\Common\SqlVisitor.cs" />
     <Compile Include="SqlClient\Common\TypeSystem.cs" />
     <Compile Include="SqlClient\Common\TypeSystemProvider.cs" />
-    <Compile Include="SqlClient\Error.cs" />
+    <Compile Include="Error.cs" />
     <Compile Include="SqlClient\OptimizationFlags.cs" />
     <Compile Include="SqlClient\PerfTimer.cs" />
     <Compile Include="SqlClient\Query\ContainsRowNumberChecker.cs" />
@@ -136,6 +136,9 @@
     <Compile Include="SqlClient\SqlMethods.cs" />
     <Compile Include="SqlClient\SqlProvider.cs" />
     <Compile Include="SqlClient\SqlTypeSystemProvider.cs" />
+    <Compile Include="SqlClient\Strings.cs" />
+    <Compile Include="SqlClient\ThisAssembly.cs" />
+    <Compile Include="Strings.cs" />
     <Compile Include="SubqueryRules.cs" />
     <Compile Include="Types.cs" />
   </ItemGroup>
