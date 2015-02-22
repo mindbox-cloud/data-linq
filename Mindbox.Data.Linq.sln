@@ -5,6 +5,8 @@ VisualStudioVersion = 12.0.31101.0
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Mindbox.Data.Linq", "Mindbox.Data.Linq\Mindbox.Data.Linq.csproj", "{47EE70C4-FF67-4810-9AC6-D72A61ABA852}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Mindbox.Data.Linq.Tests", "Mindbox.Data.Linq.Tests\Mindbox.Data.Linq.Tests.csproj", "{415717E3-CF8E-44A8-8EAB-09E332E2970C}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -15,6 +17,10 @@ Global
 		{47EE70C4-FF67-4810-9AC6-D72A61ABA852}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{47EE70C4-FF67-4810-9AC6-D72A61ABA852}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{47EE70C4-FF67-4810-9AC6-D72A61ABA852}.Release|Any CPU.Build.0 = Release|Any CPU
+		{415717E3-CF8E-44A8-8EAB-09E332E2970C}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{415717E3-CF8E-44A8-8EAB-09E332E2970C}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{415717E3-CF8E-44A8-8EAB-09E332E2970C}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{415717E3-CF8E-44A8-8EAB-09E332E2970C}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
