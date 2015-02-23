@@ -1,0 +1,177 @@
+﻿using System.Collections.Generic;
+using System.Data.Entity.ModelConfiguration.Configuration;
+using System.Linq;
+using System.Linq.Expressions;
+
+namespace System.Data.Entity.ModelConfiguration
+{
+	/// <summary>
+	/// Allows configuration to be performed for an entity type in a model.
+	/// </summary>
+	/// <typeparam name="TEntityType">The entity type being configured.</typeparam>
+	public class EntityTypeConfiguration<TEntityType> : StructuralTypeConfiguration<TEntityType>
+		where TEntityType : class
+	{
+		/// <summary>
+		/// Initializes a new instance of EntityTypeConfiguration
+		/// </summary>
+		public EntityTypeConfiguration()
+		{
+			throw new NotImplementedException();
+		}
+
+
+		/// <summary>
+		/// Configures the primary key property(s) for this entity type.
+		/// </summary>
+		/// <typeparam name="TKey"> The type of the key. </typeparam>
+		/// <param name="keyExpression"> A lambda expression representing the property to be used as the primary key. C#: t => t.Id VB.Net: Function(t) t.Id If the primary key is made up of multiple properties then specify an anonymous type including the properties. C#: t => new { t.Id1, t.Id2 } VB.Net: Function(t) New With { t.Id1, t.Id2 } </param>
+		/// <returns> The same EntityTypeConfiguration instance so that multiple calls can be chained. </returns>
+		public EntityTypeConfiguration<TEntityType> HasKey<TKey>(Expression<Func<TEntityType, TKey>> keyExpression)
+		{
+			if (keyExpression == null)
+				throw new ArgumentNullException("keyExpression");
+
+			throw new NotImplementedException();
+		}
+
+		/// <summary>
+		/// Excludes a property from the model so that it will not be mapped to the database.
+		/// </summary>
+		/// <typeparam name="TProperty"> The type of the property to be ignored. </typeparam>
+		/// <param name="propertyExpression"> A lambda expression representing the property to be configured. C#: t => t.MyProperty VB.Net: Function(t) t.MyProperty </param>
+		/// <returns> The same EntityTypeConfiguration instance so that multiple calls can be chained. </returns>
+		public EntityTypeConfiguration<TEntityType> Ignore<TProperty>(Expression<Func<TEntityType, TProperty>> propertyExpression)
+		{
+			if (propertyExpression == null)
+				throw new ArgumentNullException("propertyExpression");
+
+			throw new NotImplementedException();
+		}
+
+		/// <summary>
+		/// Configures the table name that this entity type is mapped to.
+		/// </summary>
+		/// <param name="tableName"> The name of the table. </param>
+		/// <returns> The same EntityTypeConfiguration instance so that multiple calls can be chained. </returns>
+		public EntityTypeConfiguration<TEntityType> ToTable(string tableName)
+		{
+			if (string.IsNullOrEmpty(tableName))
+				throw new ArgumentException("string.IsNullOrEmpty(tableName)", "tableName");
+
+			throw new NotImplementedException();
+		}
+
+		/// <summary>
+		/// Configures the table name that this entity type is mapped to.
+		/// </summary>
+		/// <param name="tableName"> The name of the table. </param>
+		/// <param name="schemaName"> The database schema of the table. </param>
+		/// <returns> The same EntityTypeConfiguration instance so that multiple calls can be chained. </returns>
+		public EntityTypeConfiguration<TEntityType> ToTable(string tableName, string schemaName)
+		{
+			if (string.IsNullOrEmpty(tableName))
+				throw new ArgumentException("string.IsNullOrEmpty(tableName)", "tableName");
+
+			throw new NotImplementedException();
+		}
+
+		/// <summary>
+		/// Allows advanced configuration related to how this entity type is mapped to the database schema.
+		/// By default, any configuration will also apply to any type derived from this entity type.
+		/// Derived types can be configured via the overload of Map that configures a derived type or
+		/// by using an EntityTypeConfiguration for the derived type.
+		/// The properties of an entity can be split between multiple tables using multiple Map calls.
+		/// Calls to Map are additive, subsequent calls will not override configuration already preformed via Map.
+		/// </summary>
+		/// <param name="entityMappingConfigurationAction">
+		/// An action that performs configuration against an
+		/// <see
+		///     cref="EntityMappingConfiguration{TEntityType}" />
+		/// .
+		/// </param>
+		/// <returns> The same EntityTypeConfiguration instance so that multiple calls can be chained. </returns>
+		public EntityTypeConfiguration<TEntityType> Map(
+			Action<EntityMappingConfiguration<TEntityType>> entityMappingConfigurationAction)
+		{
+			if (entityMappingConfigurationAction == null)
+				throw new ArgumentNullException("entityMappingConfigurationAction");
+
+			throw new NotImplementedException();
+		}
+
+		/// <summary>
+		/// Allows advanced configuration related to how a derived entity type is mapped to the database schema.
+		/// Calls to Map are additive, subsequent calls will not override configuration already preformed via Map.
+		/// </summary>
+		/// <typeparam name="TDerived"> The derived entity type to be configured. </typeparam>
+		/// <param name="derivedTypeMapConfigurationAction">
+		/// An action that performs configuration against an
+		/// <see
+		///     cref="EntityMappingConfiguration{TEntityType}" />
+		/// .
+		/// </param>
+		/// <returns> The same EntityTypeConfiguration instance so that multiple calls can be chained. </returns>
+		public EntityTypeConfiguration<TEntityType> Map<TDerived>(
+			Action<EntityMappingConfiguration<TDerived>> derivedTypeMapConfigurationAction)
+			where TDerived : class, TEntityType
+		{
+			if (derivedTypeMapConfigurationAction == null)
+				throw new ArgumentNullException("derivedTypeMapConfigurationAction");
+
+			throw new NotImplementedException();
+		}
+
+		/// <summary>
+		/// Configures an optional relationship from this entity type.
+		/// Instances of the entity type will be able to be saved to the database without this relationship being specified.
+		/// The foreign key in the database will be nullable.
+		/// </summary>
+		/// <typeparam name="TTargetEntity"> The type of the entity at the other end of the relationship. </typeparam>
+		/// <param name="navigationPropertyExpression"> A lambda expression representing the navigation property for the relationship. C#: t => t.MyProperty VB.Net: Function(t) t.MyProperty </param>
+		/// <returns> A configuration object that can be used to further configure the relationship. </returns>
+		public OptionalNavigationPropertyConfiguration<TEntityType, TTargetEntity> HasOptional<TTargetEntity>(
+			Expression<Func<TEntityType, TTargetEntity>> navigationPropertyExpression)
+			where TTargetEntity : class
+		{
+			if (navigationPropertyExpression == null)
+				throw new ArgumentNullException("navigationPropertyExpression");
+
+			throw new NotImplementedException();
+		}
+
+		/// <summary>
+		/// Configures a required relationship from this entity type.
+		/// Instances of the entity type will not be able to be saved to the database unless this relationship is specified.
+		/// The foreign key in the database will be non-nullable.
+		/// </summary>
+		/// <typeparam name="TTargetEntity"> The type of the entity at the other end of the relationship. </typeparam>
+		/// <param name="navigationPropertyExpression"> A lambda expression representing the navigation property for the relationship. C#: t => t.MyProperty VB.Net: Function(t) t.MyProperty </param>
+		/// <returns> A configuration object that can be used to further configure the relationship. </returns>
+		public RequiredNavigationPropertyConfiguration<TEntityType, TTargetEntity> HasRequired<TTargetEntity>(
+			Expression<Func<TEntityType, TTargetEntity>> navigationPropertyExpression)
+			where TTargetEntity : class
+		{
+			if (navigationPropertyExpression == null)
+				throw new ArgumentNullException("navigationPropertyExpression");
+
+			throw new NotImplementedException();
+		}
+
+		/// <summary>
+		/// Configures a many relationship from this entity type.
+		/// </summary>
+		/// <typeparam name="TTargetEntity"> The type of the entity at the other end of the relationship. </typeparam>
+		/// <param name="navigationPropertyExpression"> A lambda expression representing the navigation property for the relationship. C#: t => t.MyProperty VB.Net: Function(t) t.MyProperty </param>
+		/// <returns> A configuration object that can be used to further configure the relationship. </returns>
+		public ManyNavigationPropertyConfiguration<TEntityType, TTargetEntity> HasMany<TTargetEntity>(
+			Expression<Func<TEntityType, ICollection<TTargetEntity>>> navigationPropertyExpression)
+			where TTargetEntity : class
+		{
+			if (navigationPropertyExpression == null)
+				throw new ArgumentNullException("navigationPropertyExpression");
+
+			throw new NotImplementedException();
+		}
+	}
+}

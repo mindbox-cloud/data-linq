@@ -31,6 +31,7 @@
   </PropertyGroup>
   <ItemGroup>
     <Reference Include="System" />
+    <Reference Include="System.ComponentModel.DataAnnotations" />
     <Reference Include="System.Core" />
     <Reference Include="Microsoft.CSharp" />
     <Reference Include="System.Data" />
@@ -163,8 +164,34 @@
     <Compile Include="SqlClient\ThisAssembly.cs" />
     <Compile Include="Strings.cs" />
     <Compile Include="SubqueryRules.cs" />
+    <Compile Include="System.Data.Entity\ModelConfiguration\Configuration\AssociationMappingConfiguration.cs" />
+    <Compile Include="System.Data.Entity\ModelConfiguration\Configuration\BinaryPropertyConfiguration.cs" />
+    <Compile Include="System.Data.Entity\ModelConfiguration\Configuration\CascadableNavigationPropertyConfiguration.cs" />
+    <Compile Include="System.Data.Entity\ModelConfiguration\Configuration\DateTimePropertyConfiguration.cs" />
+    <Compile Include="System.Data.Entity\ModelConfiguration\Configuration\DecimalPropertyConfiguration.cs" />
+    <Compile Include="System.Data.Entity\ModelConfiguration\Configuration\DependentNavigationPropertyConfiguration.cs" />
+    <Compile Include="System.Data.Entity\ModelConfiguration\Configuration\EntityMappingConfiguration.cs" />
+    <Compile Include="System.Data.Entity\ModelConfiguration\Configuration\ForeignKeyAssociationMappingConfiguration.cs" />
+    <Compile Include="System.Data.Entity\ModelConfiguration\Configuration\ForeignKeyNavigationPropertyConfiguration.cs" />
+    <Compile Include="System.Data.Entity\ModelConfiguration\Configuration\LengthColumnConfiguration.cs" />
+    <Compile Include="System.Data.Entity\ModelConfiguration\Configuration\LengthPropertyConfiguration.cs" />
+    <Compile Include="System.Data.Entity\ModelConfiguration\Configuration\ManyNavigationPropertyConfiguration.cs" />
+    <Compile Include="System.Data.Entity\ModelConfiguration\Configuration\ManyToManyAssociationMappingConfiguration.cs" />
+    <Compile Include="System.Data.Entity\ModelConfiguration\Configuration\ManyToManyNavigationPropertyConfiguration.cs" />
+    <Compile Include="System.Data.Entity\ModelConfiguration\Configuration\NotNullConditionConfiguration.cs" />
+    <Compile Include="System.Data.Entity\ModelConfiguration\Configuration\OptionalNavigationPropertyConfiguration.cs" />
+    <Compile Include="System.Data.Entity\ModelConfiguration\Configuration\PrimitiveColumnConfiguration.cs" />
+    <Compile Include="System.Data.Entity\ModelConfiguration\Configuration\PrimitivePropertyConfiguration.cs" />
+    <Compile Include="System.Data.Entity\ModelConfiguration\Configuration\PropertyMappingConfiguration.cs" />
+    <Compile Include="System.Data.Entity\ModelConfiguration\Configuration\RequiredNavigationPropertyConfiguration.cs" />
+    <Compile Include="System.Data.Entity\ModelConfiguration\Configuration\StringColumnConfiguration.cs" />
+    <Compile Include="System.Data.Entity\ModelConfiguration\Configuration\StringPropertyConfiguration.cs" />
+    <Compile Include="System.Data.Entity\ModelConfiguration\Configuration\StructuralTypeConfiguration.cs" />
+    <Compile Include="System.Data.Entity\ModelConfiguration\Configuration\ValueConditionConfiguration.cs" />
+    <Compile Include="System.Data.Entity\ModelConfiguration\EntityTypeConfiguration.cs" />
     <Compile Include="Types.cs" />
   </ItemGroup>
+  <ItemGroup />
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
        Other similar extension points exist, see Microsoft.Common.targets.
