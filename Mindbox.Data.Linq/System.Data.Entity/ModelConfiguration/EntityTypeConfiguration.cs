@@ -1,7 +1,9 @@
 ﻿using System.Collections.Generic;
 using System.Data.Entity.ModelConfiguration.Configuration;
+using System.Data.Linq.Mapping;
 using System.Linq;
 using System.Linq.Expressions;
+using Mindbox.Data.Linq.Mapping.Entity;
 
 namespace System.Data.Entity.ModelConfiguration
 {
@@ -9,15 +11,28 @@ namespace System.Data.Entity.ModelConfiguration
 	/// Allows configuration to be performed for an entity type in a model.
 	/// </summary>
 	/// <typeparam name="TEntityType">The entity type being configured.</typeparam>
-	public class EntityTypeConfiguration<TEntityType> : StructuralTypeConfiguration<TEntityType>
+	public class EntityTypeConfiguration<TEntityType> : StructuralTypeConfiguration<TEntityType>, IEntityTypeConfiguration
 		where TEntityType : class
 	{
+		private TableAttribute tableAttribute;
+
+
 		/// <summary>
 		/// Initializes a new instance of EntityTypeConfiguration
 		/// </summary>
 		public EntityTypeConfiguration()
 		{
-			throw new NotImplementedException();
+		}
+
+
+		Type IEntityTypeConfiguration.EntityType
+		{
+			get { return typeof(TEntityType); }
+		}
+
+		TableAttribute IEntityTypeConfiguration.TableAttribute
+		{
+			get { return tableAttribute; }
 		}
 
 
@@ -59,7 +74,7 @@ namespace System.Data.Entity.ModelConfiguration
 			if (string.IsNullOrEmpty(tableName))
 				throw new ArgumentException("string.IsNullOrEmpty(tableName)", "tableName");
 
-			throw new NotImplementedException();
+			return ToTable(tableName, null);
 		}
 
 		/// <summary>
@@ -73,7 +88,12 @@ namespace System.Data.Entity.ModelConfiguration
 			if (string.IsNullOrEmpty(tableName))
 				throw new ArgumentException("string.IsNullOrEmpty(tableName)", "tableName");
 
-			throw new NotImplementedException();
+			if ((tableAttribute != null) && !string.IsNullOrEmpty(tableAttribute.Name))
+				throw new InvalidOperationException("(tableAttribute != null) && !string.IsNullOrEmpty(tableAttribute.Name)");
+
+			tableAttribute = tableAttribute ?? new TableAttribute();
+			tableAttribute.Name = string.IsNullOrEmpty(schemaName) ? tableName : schemaName + "." + tableName;
+			return this;
 		}
 
 		/// <summary>

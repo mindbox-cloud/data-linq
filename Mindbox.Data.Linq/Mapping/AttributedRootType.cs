@@ -135,8 +135,8 @@ namespace System.Data.Linq.Mapping
 			{
 				if (inheritanceType != this)
 				{
-					var attrs = (TableAttribute[])inheritanceType.Type.GetCustomAttributes(typeof(TableAttribute), false);
-					if (attrs.Length > 0)
+					var attrs = ((AttributedMetaModel)Model).GetTableAttributes(inheritanceType.Type, false);
+					if (attrs.Any())
 						throw Error.InheritanceSubTypeIsAlsoRoot(inheritanceType.Type);
 				}
 

@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Data.Entity;
 using System.Data.Linq.Mapping;
 using System.Linq;
 using System.Text;
@@ -11,6 +12,23 @@ namespace Mindbox.Data.Linq.Mapping
 	{
 		private readonly Dictionary<Type, List<InheritanceMappingAttribute>> additionalInheritanceAttributesByRootType =
 			new Dictionary<Type, List<InheritanceMappingAttribute>>();
+
+		private readonly DbModelBuilder modelBuilder = new DbModelBuilder();
+
+		private readonly Dictionary<Type, TableAttribute> additionalTableAttributesByRootType = 
+			new Dictionary<Type, TableAttribute>();
+
+
+		public bool IsFrozen { get; private set; }
+
+		public DbModelBuilder ModelBuilder
+		{
+			get
+			{
+				CheckNotFrozen();
+				return modelBuilder;
+			}
+		}
 
 
 		public void AddInheritance<TRoot, T>(object code)
@@ -36,13 +54,12 @@ namespace Mindbox.Data.Linq.Mapping
 			});
 		}
 
-
-		public bool IsFrozen { get; private set; }
-
-
 		public void Freeze()
 		{
 			IsFrozen = true;
+
+			foreach (var tableAttributeByRootType in modelBuilder.GetTableAttributesByRootType())
+				additionalTableAttributesByRootType.Add(tableAttributeByRootType.RootType, tableAttributeByRootType.Attribute);
 		}
 
 
@@ -55,6 +72,15 @@ namespace Mindbox.Data.Linq.Mapping
 			return additionalInheritanceAttributesByRootType.TryGetValue(rootType, out additionalInheritanceAttributes) ? 
 				additionalInheritanceAttributes.ToList() : 
 				new List<InheritanceMappingAttribute>();
+		}
+
+		internal TableAttribute TryGetTableAttribute(Type rootType)
+		{
+			if (rootType == null)
+				throw new ArgumentNullException("rootType");
+
+			TableAttribute tableAttribute;
+			return additionalTableAttributesByRootType.TryGetValue(rootType, out tableAttribute) ? tableAttribute : null;
 		}
 
 

@@ -1,6 +1,8 @@
 ﻿using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
+using Mindbox.Data.Linq.Mapping;
+using Mindbox.Data.Linq.Mapping.Entity;
 
 namespace System.Data.Entity.ModelConfiguration.Configuration
 {
@@ -10,6 +12,9 @@ namespace System.Data.Entity.ModelConfiguration.Configuration
 	/// </summary>
 	public class ConfigurationRegistrar
 	{
+		private readonly List<IEntityTypeConfiguration> entityTypeConfigurations = new List<IEntityTypeConfiguration>();
+
+
 		/// <summary>
 		/// Discovers all types that inherit from <see cref="EntityTypeConfiguration" /> or
 		/// <see cref="ComplexTypeConfiguration" /> in the given assembly and adds an instance
@@ -43,7 +48,20 @@ namespace System.Data.Entity.ModelConfiguration.Configuration
 			if (entityTypeConfiguration == null)
 				throw new ArgumentNullException("entityTypeConfiguration");
 
-			throw new NotImplementedException();
+			entityTypeConfigurations.Add(entityTypeConfiguration);
+			return this;
+		}
+
+
+		internal IEnumerable<TableAttributeByRootType> GetTableAttributesByRootType()
+		{
+			foreach (var entityTypeConfiguration in entityTypeConfigurations)
+				if (entityTypeConfiguration.TableAttribute != null)
+					yield return new TableAttributeByRootType
+					{
+						RootType = entityTypeConfiguration.EntityType,
+						Attribute = entityTypeConfiguration.TableAttribute
+					};
 		}
 	}
 }

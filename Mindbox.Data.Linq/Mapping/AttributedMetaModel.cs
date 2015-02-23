@@ -11,18 +11,6 @@ namespace System.Data.Linq.Mapping
 {
 	internal class AttributedMetaModel : MetaModel 
 	{
-		private static Type GetRoot(Type derivedType)
-		{
-			while (derivedType != null && derivedType != typeof(object))
-			{
-				var attrs = (TableAttribute[])derivedType.GetCustomAttributes(typeof(TableAttribute), false);
-				if (attrs.Length > 0)
-					return derivedType;
-				derivedType = derivedType.BaseType;
-			}
-			return null;
-		}
-
 		private static bool IsUserFunction(MethodInfo method)
 		{
 			return Attribute.GetCustomAttribute(method, typeof(FunctionAttribute), false) != null;
@@ -193,8 +181,8 @@ namespace System.Data.Linq.Mapping
 				return table;
 
 			var root = GetRoot(rowType) ?? rowType;
-			var attrs = (TableAttribute[])root.GetCustomAttributes(typeof(TableAttribute), true);
-			if (attrs.Length == 0)
+			var attrs = GetTableAttributes(root, true);
+			if (!attrs.Any())
 			{
 				metaTables.Add(rowType, null);
 				return null;
@@ -202,7 +190,7 @@ namespace System.Data.Linq.Mapping
 
 			if (!metaTables.TryGetValue(root, out table))
 			{
-				table = new AttributedMetaTable(this, attrs[0], root);
+				table = new AttributedMetaTable(this, attrs.First(), root);
 				foreach (var inheritanceType in table.RowType.InheritanceTypes)
 					metaTables.Add(inheritanceType.Type, table);
 			}
@@ -220,6 +208,14 @@ namespace System.Data.Linq.Mapping
 		internal virtual AttributedRootType CreateRootType(AttributedMetaTable table, Type type)
 		{
 			return new AttributedRootType(this, table, type);
+		}
+
+		internal virtual IReadOnlyCollection<TableAttribute> GetTableAttributes(Type type, bool shouldInherit)
+		{
+			if (type == null)
+				throw new ArgumentNullException("type");
+
+			return (TableAttribute[])type.GetCustomAttributes(typeof(TableAttribute), shouldInherit);
 		}
 
 
@@ -318,6 +314,18 @@ namespace System.Data.Linq.Mapping
 			{
 				metaModelLock.ReleaseWriterLock();
 			}
+		}
+
+		private Type GetRoot(Type derivedType)
+		{
+			while (derivedType != null && derivedType != typeof(object))
+			{
+				var attrs = GetTableAttributes(derivedType, false);
+				if (attrs.Any())
+					return derivedType;
+				derivedType = derivedType.BaseType;
+			}
+			return null;
 		}
 	}
 }

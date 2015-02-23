@@ -2,24 +2,25 @@
 using System.Data.Entity.ModelConfiguration;
 using System.Data.Entity.ModelConfiguration.Configuration;
 using System.Linq;
+using Mindbox.Data.Linq.Mapping;
 
 namespace System.Data.Entity
 {
 	/// <summary>
 	/// DbModelBuilder is used to map CLR classes to a database schema.
 	/// </summary>
-	public abstract class DbModelBuilder
+	public class DbModelBuilder
 	{
+		private readonly ConfigurationRegistrar configurations = new ConfigurationRegistrar();
+
+
 		/// <summary>
 		/// Gets the <see cref="ConfigurationRegistrar" /> for this DbModelBuilder.
 		/// The registrar allows derived entity and complex type configurations to be registered with this builder.
 		/// </summary>
 		public virtual ConfigurationRegistrar Configurations
 		{
-			get
-			{
-				throw new NotImplementedException();
-			}
+			get { return configurations; }
 		}
 
 
@@ -89,6 +90,12 @@ namespace System.Data.Entity
 				throw new ArgumentNullException("entityType");
 
 			throw new NotImplementedException();
+		}
+
+
+		internal IEnumerable<TableAttributeByRootType> GetTableAttributesByRootType()
+		{
+			return configurations.GetTableAttributesByRootType();
 		}
 	}
 }
