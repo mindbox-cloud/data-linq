@@ -164,9 +164,11 @@
     <Compile Include="SqlClient\ThisAssembly.cs" />
     <Compile Include="Strings.cs" />
     <Compile Include="SubqueryRules.cs" />
+    <Compile Include="System.Data.Entity\DbModelBuilder.cs" />
     <Compile Include="System.Data.Entity\ModelConfiguration\Configuration\AssociationMappingConfiguration.cs" />
     <Compile Include="System.Data.Entity\ModelConfiguration\Configuration\BinaryPropertyConfiguration.cs" />
     <Compile Include="System.Data.Entity\ModelConfiguration\Configuration\CascadableNavigationPropertyConfiguration.cs" />
+    <Compile Include="System.Data.Entity\ModelConfiguration\Configuration\ConfigurationRegistrar.cs" />
     <Compile Include="System.Data.Entity\ModelConfiguration\Configuration\DateTimePropertyConfiguration.cs" />
     <Compile Include="System.Data.Entity\ModelConfiguration\Configuration\DecimalPropertyConfiguration.cs" />
     <Compile Include="System.Data.Entity\ModelConfiguration\Configuration\DependentNavigationPropertyConfiguration.cs" />
