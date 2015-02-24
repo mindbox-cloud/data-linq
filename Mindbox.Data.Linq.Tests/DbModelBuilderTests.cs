@@ -15,12 +15,19 @@ namespace Mindbox.Data.Linq.Tests
 		[TestMethod]
 		public void TableAttributeViaAttribute()
 		{
+			var incompatibilityDetected = false;
 			var configuration = new MindboxMappingConfiguration();
+			configuration.EntityFrameworkIncompatibility += (sender, incompatibility) =>
+			{
+				if (incompatibility == EntityFrameworkIncompatibility.TableAttribute)
+					incompatibilityDetected = true;
+			};
 			var mappingSource = new MindboxMappingSource(configuration);
 			var metaTable = mappingSource.GetModel(typeof(DataContext)).GetTable(typeof(TestEntity4));
 
 			Assert.IsNotNull(metaTable);
 			Assert.AreEqual("administration.Staff", metaTable.TableName);
+			Assert.IsTrue(incompatibilityDetected);
 		}
 
 		[TestMethod]

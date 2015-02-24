@@ -24,6 +24,9 @@ namespace Mindbox.Data.Linq.Mapping
 			var tableAttributes = base.GetTableAttributes(type, shouldInherit).ToList();
 
 			var configuration = ((MindboxMappingSource)MappingSource).Configuration;
+			if (tableAttributes.Any())
+				configuration.OnEntityFrameworkIncompatibility(EntityFrameworkIncompatibility.TableAttribute);
+
 			var additionalTableAttribute = configuration.TryGetTableAttribute(type);
 			if (additionalTableAttribute != null)
 				tableAttributes.Add(additionalTableAttribute);

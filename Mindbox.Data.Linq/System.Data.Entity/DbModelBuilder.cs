@@ -97,5 +97,10 @@ namespace System.Data.Entity
 		{
 			return configurations.GetTableAttributesByRootType();
 		}
+
+		internal void Validate()
+		{
+			configurations.Validate();
+		}
 	}
 }

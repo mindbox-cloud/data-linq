@@ -63,5 +63,12 @@ namespace System.Data.Entity.ModelConfiguration.Configuration
 						Attribute = entityTypeConfiguration.TableAttribute
 					};
 		}
+
+		internal void Validate()
+		{
+			foreach (var entityTypeConfiguration in entityTypeConfigurations)
+				if (entityTypeConfiguration.TableAttribute == null)
+					throw new InvalidOperationException("Table mapping not set for " + entityTypeConfiguration.EntityType + ".");
+		}
 	}
 }

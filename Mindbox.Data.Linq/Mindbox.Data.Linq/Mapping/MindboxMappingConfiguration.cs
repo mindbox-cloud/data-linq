@@ -18,6 +18,8 @@ namespace Mindbox.Data.Linq.Mapping
 		private readonly Dictionary<Type, TableAttribute> additionalTableAttributesByRootType = 
 			new Dictionary<Type, TableAttribute>();
 
+		private EventHandler<EntityFrameworkIncompatibility> entityFrameworkIncompatibilityHandler;
+
 
 		public bool IsFrozen { get; private set; }
 
@@ -27,6 +29,20 @@ namespace Mindbox.Data.Linq.Mapping
 			{
 				CheckNotFrozen();
 				return modelBuilder;
+			}
+		}
+
+		public event EventHandler<EntityFrameworkIncompatibility> EntityFrameworkIncompatibility
+		{
+			add
+			{
+				CheckNotFrozen();
+				entityFrameworkIncompatibilityHandler += value;
+			}
+			remove
+			{
+				CheckNotFrozen();
+				entityFrameworkIncompatibilityHandler -= value;
 			}
 		}
 
@@ -58,6 +74,7 @@ namespace Mindbox.Data.Linq.Mapping
 		{
 			IsFrozen = true;
 
+			modelBuilder.Validate();
 			foreach (var tableAttributeByRootType in modelBuilder.GetTableAttributesByRootType())
 				additionalTableAttributesByRootType.Add(tableAttributeByRootType.RootType, tableAttributeByRootType.Attribute);
 		}
@@ -83,11 +100,25 @@ namespace Mindbox.Data.Linq.Mapping
 			return additionalTableAttributesByRootType.TryGetValue(rootType, out tableAttribute) ? tableAttribute : null;
 		}
 
+		internal void OnEntityFrameworkIncompatibility(EntityFrameworkIncompatibility entityFrameworkIncompatibility)
+		{
+			CheckFrozen();
+
+			if (entityFrameworkIncompatibilityHandler != null)
+				entityFrameworkIncompatibilityHandler(this, entityFrameworkIncompatibility);
+		}
+
 
 		private void CheckNotFrozen()
 		{
 			if (IsFrozen)
 				throw new InvalidOperationException("IsFrozen");
+		}
+
+		private void CheckFrozen()
+		{
+			if (!IsFrozen)
+				throw new InvalidOperationException("!IsFrozen");
 		}
 	}
 }
