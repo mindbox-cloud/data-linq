@@ -30,7 +30,8 @@ namespace System.Data.Entity.ModelConfiguration.Configuration
 		/// <returns> The same StringPropertyConfiguration instance so that multiple calls can be chained. </returns>
 		public new StringPropertyConfiguration HasMaxLength(int? value)
 		{
-			throw new NotImplementedException();
+			base.HasMaxLength(value);
+			return this;
 		}
 
 		/// <summary>
@@ -40,7 +41,8 @@ namespace System.Data.Entity.ModelConfiguration.Configuration
 		/// <returns> The same StringPropertyConfiguration instance so that multiple calls can be chained. </returns>
 		public new StringPropertyConfiguration IsFixedLength()
 		{
-			throw new NotImplementedException();
+			base.IsFixedLength();
+			return this;
 		}
 
 		/// <summary>
@@ -50,7 +52,8 @@ namespace System.Data.Entity.ModelConfiguration.Configuration
 		/// <returns> The same StringPropertyConfiguration instance so that multiple calls can be chained. </returns>
 		public new StringPropertyConfiguration IsVariableLength()
 		{
-			throw new NotImplementedException();
+			base.IsVariableLength();
+			return this;
 		}
 
 		/// <summary>
@@ -61,7 +64,8 @@ namespace System.Data.Entity.ModelConfiguration.Configuration
 		/// <returns> The same StringPropertyConfiguration instance so that multiple calls can be chained. </returns>
 		public new StringPropertyConfiguration IsOptional()
 		{
-			throw new NotImplementedException();
+			base.IsOptional();
+			return this;
 		}
 
 		/// <summary>
@@ -71,7 +75,8 @@ namespace System.Data.Entity.ModelConfiguration.Configuration
 		/// <returns> The same StringPropertyConfiguration instance so that multiple calls can be chained. </returns>
 		public new StringPropertyConfiguration IsRequired()
 		{
-			throw new NotImplementedException();
+			base.IsRequired();
+			return this;
 		}
 
 		/// <summary>
@@ -116,7 +121,8 @@ namespace System.Data.Entity.ModelConfiguration.Configuration
 		/// <returns> The same StringPropertyConfiguration instance so that multiple calls can be chained. </returns>
 		public new StringPropertyConfiguration HasColumnName(string columnName)
 		{
-			throw new NotImplementedException();
+			base.HasColumnName(columnName);
+			return this;
 		}
 
 		/// <summary>
@@ -126,7 +132,8 @@ namespace System.Data.Entity.ModelConfiguration.Configuration
 		/// <returns> The same StringPropertyConfiguration instance so that multiple calls can be chained. </returns>
 		public new StringPropertyConfiguration HasColumnType(string columnType)
 		{
-			throw new NotImplementedException();
+			base.HasColumnType(columnType);
+			return this;
 		}
 
 		/// <summary>

@@ -63,7 +63,7 @@ namespace Mindbox.Data.Linq.Tests
 			}
 		}
 
-		[Column(Storage = "userName", CanBeNull = false)]
+		[Column(Storage = "userName", CanBeNull = false, DbType = "nvarchar(100) not null")]
 		public string UserName
 		{
 			get

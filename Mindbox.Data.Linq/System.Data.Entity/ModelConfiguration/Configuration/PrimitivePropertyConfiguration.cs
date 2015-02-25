@@ -13,6 +13,7 @@ namespace System.Data.Entity.ModelConfiguration.Configuration
 		private readonly PropertyInfo property;
 		private string columnName;
 		private string columnType;
+		private bool? canBeNull;
 
 
 		internal PrimitivePropertyConfiguration(PropertyInfo property)
@@ -31,7 +32,11 @@ namespace System.Data.Entity.ModelConfiguration.Configuration
 		/// <returns> The same PrimitivePropertyConfiguration instance so that multiple calls can be chained. </returns>
 		public PrimitivePropertyConfiguration IsOptional()
 		{
-			throw new NotImplementedException();
+			if (canBeNull == false)
+				throw new InvalidOperationException("canBeNull == false");
+
+			canBeNull = true;
+			return this;
 		}
 
 		/// <summary>
@@ -41,7 +46,11 @@ namespace System.Data.Entity.ModelConfiguration.Configuration
 		/// <returns> The same PrimitivePropertyConfiguration instance so that multiple calls can be chained. </returns>
 		public PrimitivePropertyConfiguration IsRequired()
 		{
-			throw new NotImplementedException();
+			if (canBeNull == true)
+				throw new InvalidOperationException("canBeNull == true");
+
+			canBeNull = false;
+			return this;
 		}
 
 		/// <summary>
@@ -126,23 +135,41 @@ namespace System.Data.Entity.ModelConfiguration.Configuration
 		}
 
 
+		protected virtual string BuildDbTypeWithoutNullability(Linq.Mapping.ColumnAttribute columnAttribute)
+		{
+			if (columnAttribute == null)
+				throw new ArgumentNullException("columnAttribute");
+
+			return columnType;
+		}
+
+
 		internal ColumnAttributeByMember GetColumnAttribute()
 		{
 			var columnAttribute = new Linq.Mapping.ColumnAttribute
 			{
 				Name = columnName,
-				DbType = columnType
+				CanBeNull = canBeNull ?? 
+					TypeSystem.IsNullableType(property.PropertyType) || !property.PropertyType.IsValueType
 			};
-			if (columnType != null)
-			{
-				var canBeNull = TypeSystem.IsNullableType(property.PropertyType) || !property.PropertyType.IsValueType;
-				columnAttribute.DbType = columnType + (canBeNull ? " null" : " not null");
-			}
+			columnAttribute.DbType = BuildDbType(columnAttribute);
 			return new ColumnAttributeByMember
 			{
 				Member = property,
 				Attribute = columnAttribute
 			};
+		}
+
+
+		private string BuildDbType(Linq.Mapping.ColumnAttribute columnAttribute)
+		{
+			if (columnAttribute == null)
+				throw new ArgumentNullException("columnAttribute");
+
+			var dbTypeWithoutNullability = BuildDbTypeWithoutNullability(columnAttribute);
+			return dbTypeWithoutNullability == null ? 
+				null : 
+				dbTypeWithoutNullability + (columnAttribute.CanBeNull ? " null" : " not null");
 		}
 	}
 }

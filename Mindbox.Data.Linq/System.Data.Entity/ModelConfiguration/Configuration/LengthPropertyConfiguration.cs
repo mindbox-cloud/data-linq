@@ -1,4 +1,6 @@
-﻿using System.Reflection;
+﻿using System.Data.Linq.Mapping;
+using System.Globalization;
+using System.Reflection;
 
 namespace System.Data.Entity.ModelConfiguration.Configuration
 {
@@ -7,6 +9,10 @@ namespace System.Data.Entity.ModelConfiguration.Configuration
 	/// </summary>
 	public abstract class LengthPropertyConfiguration : PrimitivePropertyConfiguration
 	{
+		private int? maxLength;
+		private bool? hasVariableLength;
+
+
 		internal LengthPropertyConfiguration(PropertyInfo property) 
 			: base(property)
 		{
@@ -29,7 +35,13 @@ namespace System.Data.Entity.ModelConfiguration.Configuration
 		/// <returns> The same LengthPropertyConfiguration instance so that multiple calls can be chained. </returns>
 		public LengthPropertyConfiguration HasMaxLength(int? value)
 		{
-			throw new NotImplementedException();
+			if (value <= 0)
+				throw new ArgumentException("value <= 0", "value");
+			if ((maxLength != null) && (maxLength != value))
+				throw new ArgumentException("(maxLength != null) && (maxLength != value)", "value");
+
+			maxLength = value;
+			return this;
 		}
 
 		/// <summary>
@@ -39,7 +51,11 @@ namespace System.Data.Entity.ModelConfiguration.Configuration
 		/// <returns> The same LengthPropertyConfiguration instance so that multiple calls can be chained. </returns>
 		public LengthPropertyConfiguration IsFixedLength()
 		{
-			throw new NotImplementedException();
+			if (hasVariableLength == true)
+				throw new InvalidOperationException("hasVariableLength == true");
+
+			hasVariableLength = false;
+			return this;
 		}
 
 		/// <summary>
@@ -49,7 +65,23 @@ namespace System.Data.Entity.ModelConfiguration.Configuration
 		/// <returns> The same LengthPropertyConfiguration instance so that multiple calls can be chained. </returns>
 		public LengthPropertyConfiguration IsVariableLength()
 		{
-			throw new NotImplementedException();
+			if (hasVariableLength == false)
+				throw new InvalidOperationException("hasVariableLength == false");
+
+			hasVariableLength = true;
+			return this;
+		}
+
+
+		protected override string BuildDbTypeWithoutNullability(ColumnAttribute columnAttribute)
+		{
+			if (columnAttribute == null)
+				throw new ArgumentNullException("columnAttribute");
+
+			var baseDbType = base.BuildDbTypeWithoutNullability(columnAttribute);
+			return (baseDbType == null) || (maxLength == null) ? 
+				baseDbType : 
+				baseDbType + "(" + maxLength.Value.ToString(CultureInfo.InvariantCulture) + ")";
 		}
 	}
 }

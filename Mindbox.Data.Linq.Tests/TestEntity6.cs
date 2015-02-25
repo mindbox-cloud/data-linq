@@ -62,7 +62,6 @@ namespace Mindbox.Data.Linq.Tests
 			}
 		}
 
-		[Column(Storage = "userName", CanBeNull = false)]
 		public string UserName
 		{
 			get
@@ -80,7 +79,6 @@ namespace Mindbox.Data.Linq.Tests
 			}
 		}
 
-		[Column(Name = "PasswordHash", Storage = "passwordHash", CanBeNull = true, DbType = "char(40) null")]
 		public string PasswordHash
 		{
 			get
@@ -340,6 +338,18 @@ namespace Mindbox.Data.Linq.Tests
 				Property(entity => entity.IsBlocked)
 					.HasColumnName("IsBlocked")
 					.HasColumnType("bit");
+				Property(entity => entity.UserName)
+					.HasColumnName("UserName")
+					.HasColumnType("nvarchar")
+					.HasMaxLength(100)
+					.IsVariableLength()
+					.IsRequired();
+				Property(entity => entity.PasswordHash)
+					.HasColumnName("PasswordHash")
+					.HasColumnType("char")
+					.HasMaxLength(40)
+					.IsFixedLength()
+					.IsOptional();
 			}
 		}
 	}
