@@ -1,4 +1,5 @@
 ﻿using System.ComponentModel.DataAnnotations.Schema;
+using System.Data.Linq.Mapping;
 
 namespace System.Data.Entity.ModelConfiguration.Configuration
 {
@@ -7,6 +8,10 @@ namespace System.Data.Entity.ModelConfiguration.Configuration
 	/// </summary>
 	public class PrimitivePropertyConfiguration
 	{
+		private string columnName;
+		private string columnType;
+
+
 		/// <summary>
 		/// Configures the property to be optional.
 		/// The database column used to store this property will be nullable.
@@ -69,7 +74,13 @@ namespace System.Data.Entity.ModelConfiguration.Configuration
 		/// <returns> The same PrimitivePropertyConfiguration instance so that multiple calls can be chained. </returns>
 		public PrimitivePropertyConfiguration HasColumnType(string columnType)
 		{
-			throw new NotImplementedException();
+			if (string.IsNullOrEmpty(columnType))
+				throw new ArgumentException("string.IsNullOrEmpty(columnType)", "columnType");
+			if ((this.columnType != null) && (this.columnType != columnType))
+				throw new ArgumentException("(this.columnType != null) && (this.columnType != columnType)", "columnType");
+
+			this.columnType = columnType;
+			return this;
 		}
 
 		/// <summary>
@@ -79,7 +90,13 @@ namespace System.Data.Entity.ModelConfiguration.Configuration
 		/// <returns> The same PrimitivePropertyConfiguration instance so that multiple calls can be chained. </returns>
 		public PrimitivePropertyConfiguration HasColumnName(string columnName)
 		{
-			throw new NotImplementedException();
+			if (string.IsNullOrEmpty(columnName))
+				throw new ArgumentException("string.IsNullOrEmpty(columnName)", "columnName");
+			if ((this.columnName != null) && (this.columnName != columnName))
+				throw new ArgumentException("(this.columnName != null) && (this.columnName != columnName)", "columnName");
+
+			this.columnName = columnName;
+			return this;
 		}
 
 		/// <summary>
@@ -94,6 +111,16 @@ namespace System.Data.Entity.ModelConfiguration.Configuration
 				throw new ArgumentOutOfRangeException("columnOrder");
 
 			throw new NotImplementedException();
+		}
+
+
+		internal Linq.Mapping.ColumnAttribute GetColumnAttribute()
+		{
+			return new Linq.Mapping.ColumnAttribute
+			{
+				Name = columnName,
+				DbType = columnType
+			};
 		}
 	}
 }

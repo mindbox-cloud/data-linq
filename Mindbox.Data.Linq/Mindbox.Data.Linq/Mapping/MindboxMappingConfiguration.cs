@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Data.Entity;
 using System.Data.Linq.Mapping;
 using System.Linq;
+using System.Reflection;
 using System.Text;
 using System.Threading.Tasks;
 
@@ -19,6 +20,9 @@ namespace Mindbox.Data.Linq.Mapping
 			new Dictionary<Type, TableAttribute>();
 
 		private EventHandler<EntityFrameworkIncompatibility> entityFrameworkIncompatibilityHandler;
+
+		private readonly Dictionary<MemberInfo, ColumnAttribute> additionalColumnAttributesByMember =
+			new Dictionary<MemberInfo, ColumnAttribute>();
 
 
 		public bool IsFrozen { get; private set; }
@@ -77,6 +81,8 @@ namespace Mindbox.Data.Linq.Mapping
 			modelBuilder.Validate();
 			foreach (var tableAttributeByRootType in modelBuilder.GetTableAttributesByRootType())
 				additionalTableAttributesByRootType.Add(tableAttributeByRootType.RootType, tableAttributeByRootType.Attribute);
+			foreach (var columnAttributeByMember in modelBuilder.GetColumnAttributesByMember())
+				additionalColumnAttributesByMember.Add(columnAttributeByMember.Member, columnAttributeByMember.Attribute);
 		}
 
 
@@ -84,6 +90,7 @@ namespace Mindbox.Data.Linq.Mapping
 		{
 			if (rootType == null)
 				throw new ArgumentNullException("rootType");
+			CheckFrozen();
 
 			List<InheritanceMappingAttribute> additionalInheritanceAttributes;
 			return additionalInheritanceAttributesByRootType.TryGetValue(rootType, out additionalInheritanceAttributes) ? 
@@ -95,6 +102,7 @@ namespace Mindbox.Data.Linq.Mapping
 		{
 			if (rootType == null)
 				throw new ArgumentNullException("rootType");
+			CheckFrozen();
 
 			TableAttribute tableAttribute;
 			return additionalTableAttributesByRootType.TryGetValue(rootType, out tableAttribute) ? tableAttribute : null;
@@ -106,6 +114,16 @@ namespace Mindbox.Data.Linq.Mapping
 
 			if (entityFrameworkIncompatibilityHandler != null)
 				entityFrameworkIncompatibilityHandler(this, entityFrameworkIncompatibility);
+		}
+
+		internal ColumnAttribute TryGetColumnAttribute(MemberInfo member)
+		{
+			if (member == null)
+				throw new ArgumentNullException("member");
+			CheckFrozen();
+
+			ColumnAttribute columnAttribute;
+			return additionalColumnAttributesByMember.TryGetValue(member, out columnAttribute) ? columnAttribute : null;
 		}
 
 

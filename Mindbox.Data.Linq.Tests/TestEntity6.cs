@@ -167,7 +167,6 @@ namespace Mindbox.Data.Linq.Tests
 			}
 		}
 
-		[Column(Storage = "isBlocked")]
 		public bool IsBlocked
 		{
 			get { return isBlocked; }
@@ -338,6 +337,9 @@ namespace Mindbox.Data.Linq.Tests
 			public TestEntity6Configuration()
 			{
 				ToTable("Staff", "administration");
+				Property(entity => entity.IsBlocked)
+					.HasColumnName("IsBlocked")
+					.HasColumnType("bit not null");
 			}
 		}
 	}

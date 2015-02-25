@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Data.Linq.Mapping;
+using System.Reflection;
 using System.Text;
 using System.Linq;
 
@@ -38,7 +39,25 @@ namespace Mindbox.Data.Linq.Mapping
 					tableAttributes.Add(currentTypeAdditionalTableAttribute);
 			}
 
+			if (!shouldInherit && (tableAttributes.Count > 1))
+				throw new InvalidOperationException("!shouldInherit && (tableAttributes.Count > 1)");
+
 			return tableAttributes;
+		}
+
+		internal override ColumnAttribute TryGetColumnAttribute(MemberInfo member)
+		{
+			if (member == null)
+				throw new ArgumentNullException("member");
+
+			var baseAttribute = base.TryGetColumnAttribute(member);
+
+			var configuration = ((MindboxMappingSource)MappingSource).Configuration;
+			var additionalAttribute = configuration.TryGetColumnAttribute(member);
+			if ((baseAttribute != null) && (additionalAttribute != null))
+				throw new InvalidOperationException("(baseAttribute != null) && (additionalAttribute != null)");
+
+			return baseAttribute ?? additionalAttribute;
 		}
 	}
 }

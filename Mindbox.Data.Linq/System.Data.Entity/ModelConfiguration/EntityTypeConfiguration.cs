@@ -3,7 +3,9 @@ using System.Data.Entity.ModelConfiguration.Configuration;
 using System.Data.Linq.Mapping;
 using System.Linq;
 using System.Linq.Expressions;
+using Mindbox.Data.Linq.Mapping;
 using Mindbox.Data.Linq.Mapping.Entity;
+using ColumnAttribute = System.ComponentModel.DataAnnotations.Schema.ColumnAttribute;
 
 namespace System.Data.Entity.ModelConfiguration
 {
@@ -15,14 +17,6 @@ namespace System.Data.Entity.ModelConfiguration
 		where TEntityType : class
 	{
 		private TableAttribute tableAttribute;
-
-
-		/// <summary>
-		/// Initializes a new instance of EntityTypeConfiguration
-		/// </summary>
-		public EntityTypeConfiguration()
-		{
-		}
 
 
 		Type IEntityTypeConfiguration.EntityType
@@ -56,7 +50,8 @@ namespace System.Data.Entity.ModelConfiguration
 		/// <typeparam name="TProperty"> The type of the property to be ignored. </typeparam>
 		/// <param name="propertyExpression"> A lambda expression representing the property to be configured. C#: t => t.MyProperty VB.Net: Function(t) t.MyProperty </param>
 		/// <returns> The same EntityTypeConfiguration instance so that multiple calls can be chained. </returns>
-		public EntityTypeConfiguration<TEntityType> Ignore<TProperty>(Expression<Func<TEntityType, TProperty>> propertyExpression)
+		public EntityTypeConfiguration<TEntityType> Ignore<TProperty>(
+			Expression<Func<TEntityType, TProperty>> propertyExpression)
 		{
 			if (propertyExpression == null)
 				throw new ArgumentNullException("propertyExpression");
@@ -192,6 +187,17 @@ namespace System.Data.Entity.ModelConfiguration
 				throw new ArgumentNullException("navigationPropertyExpression");
 
 			throw new NotImplementedException();
+		}
+
+
+		IEnumerable<ColumnAttributeByMember> IEntityTypeConfiguration.GetColumnAttributesByMember()
+		{
+			foreach (var propertyConfigurationByProperty in PropertyConfigurationsByProperty)
+				yield return new ColumnAttributeByMember
+				{
+					Member = propertyConfigurationByProperty.Key,
+					Attribute = propertyConfigurationByProperty.Value.GetColumnAttribute()
+				};
 		}
 	}
 }

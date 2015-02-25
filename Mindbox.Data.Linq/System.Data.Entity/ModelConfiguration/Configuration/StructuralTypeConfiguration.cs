@@ -1,4 +1,7 @@
-﻿using System.Linq.Expressions;
+﻿using System.Collections.Generic;
+using System.Linq.Expressions;
+using System.Reflection;
+using Mindbox.Expressions;
 
 namespace System.Data.Entity.ModelConfiguration.Configuration
 {
@@ -9,6 +12,12 @@ namespace System.Data.Entity.ModelConfiguration.Configuration
 	public abstract class StructuralTypeConfiguration<TStructuralType>
 		where TStructuralType : class
 	{
+		protected StructuralTypeConfiguration()
+		{
+			PropertyConfigurationsByProperty = new Dictionary<PropertyInfo, PrimitivePropertyConfiguration>();
+		}
+
+
 		/// <summary>
 		/// Configures a <see cref="T:System.struct" /> property that is defined on this type.
 		/// </summary>
@@ -19,7 +28,17 @@ namespace System.Data.Entity.ModelConfiguration.Configuration
 			Expression<Func<TStructuralType, T>> propertyExpression)
 			where T : struct
 		{
-			throw new NotImplementedException();
+			if (propertyExpression == null)
+				throw new ArgumentNullException("propertyExpression");
+
+			var property = ReflectionExpressions.GetPropertyInfo(propertyExpression);
+			PrimitivePropertyConfiguration propertyConfiguration;
+			if (!PropertyConfigurationsByProperty.TryGetValue(property, out propertyConfiguration))
+			{
+				propertyConfiguration = new PrimitivePropertyConfiguration();
+				PropertyConfigurationsByProperty.Add(property, propertyConfiguration);
+			}
+			return propertyConfiguration;
 		}
 
 		/// <summary>
@@ -136,5 +155,8 @@ namespace System.Data.Entity.ModelConfiguration.Configuration
 		{
 			throw new NotImplementedException();
 		}
+
+
+		protected Dictionary<PropertyInfo, PrimitivePropertyConfiguration> PropertyConfigurationsByProperty { get; private set; }
 	}
 }

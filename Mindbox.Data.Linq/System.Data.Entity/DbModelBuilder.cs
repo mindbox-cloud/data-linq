@@ -98,6 +98,11 @@ namespace System.Data.Entity
 			return configurations.GetTableAttributesByRootType();
 		}
 
+		internal IEnumerable<ColumnAttributeByMember> GetColumnAttributesByMember()
+		{
+			return configurations.GetColumnAttributesByMember();
+		}
+
 		internal void Validate()
 		{
 			configurations.Validate();

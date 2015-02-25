@@ -70,5 +70,12 @@ namespace System.Data.Entity.ModelConfiguration.Configuration
 				if (entityTypeConfiguration.TableAttribute == null)
 					throw new InvalidOperationException("Table mapping not set for " + entityTypeConfiguration.EntityType + ".");
 		}
+
+		internal IEnumerable<ColumnAttributeByMember> GetColumnAttributesByMember()
+		{
+			foreach (var entityTypeConfiguration in entityTypeConfigurations)
+				foreach (var columnAttributeByMember in entityTypeConfiguration.GetColumnAttributesByMember())
+					yield return columnAttributeByMember;
+		}
 	}
 }

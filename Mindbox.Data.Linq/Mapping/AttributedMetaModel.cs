@@ -218,6 +218,14 @@ namespace System.Data.Linq.Mapping
 			return (TableAttribute[])type.GetCustomAttributes(typeof(TableAttribute), shouldInherit);
 		}
 
+		internal virtual ColumnAttribute TryGetColumnAttribute(MemberInfo member)
+		{
+			if (member == null)
+				throw new ArgumentNullException("member");
+
+			return (ColumnAttribute)Attribute.GetCustomAttribute(member, typeof(ColumnAttribute));
+		}
+
 
 		private void InitStaticTables()
 		{

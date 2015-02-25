@@ -168,7 +168,7 @@ namespace Mindbox.Data.Linq.Tests
 			}
 		}
 
-		[Column(Storage = "isBlocked")]
+		[Column(Storage = "isBlocked", DbType = "bit not null")]
 		public bool IsBlocked
 		{
 			get { return isBlocked; }

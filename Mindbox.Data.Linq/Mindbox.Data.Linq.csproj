@@ -30,6 +30,9 @@
     <WarningLevel>4</WarningLevel>
   </PropertyGroup>
   <ItemGroup>
+    <Reference Include="Mindbox.Expressions">
+      <HintPath>..\packages\Mindbox.Expressions.2.0.5420.33605\lib\net45\Mindbox.Expressions.dll</HintPath>
+    </Reference>
     <Reference Include="System" />
     <Reference Include="System.ComponentModel.DataAnnotations" />
     <Reference Include="System.Core" />
@@ -104,6 +107,7 @@
     <Compile Include="Mapping\XmlMappingReader.cs" />
     <Compile Include="Mapping\XmlMappingSource.cs" />
     <Compile Include="Mindbox.Data.Linq\Mapping\MindboxRootType.cs" />
+    <Compile Include="Mindbox.Data.Linq\Mapping\ColumnAttributeByMember.cs" />
     <Compile Include="Mindbox.Data.Linq\Mapping\TableAttributeByRootType.cs" />
     <Compile Include="misc\SecurityUtils.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
@@ -212,7 +216,9 @@
     <Compile Include="System.Data.Entity\ModelConfiguration\EntityTypeConfiguration.cs" />
     <Compile Include="EntitySet.cs" />
   </ItemGroup>
-  <ItemGroup />
+  <ItemGroup>
+    <None Include="packages.config" />
+  </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
        Other similar extension points exist, see Microsoft.Common.targets.

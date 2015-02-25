@@ -11,5 +11,8 @@ namespace Mindbox.Data.Linq.Mapping.Entity
 	{
 		Type EntityType { get; }
 		TableAttribute TableAttribute { get; }
+
+
+		IEnumerable<ColumnAttributeByMember> GetColumnAttributesByMember();
 	}
 }
