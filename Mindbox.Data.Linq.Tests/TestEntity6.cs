@@ -339,7 +339,7 @@ namespace Mindbox.Data.Linq.Tests
 				ToTable("Staff", "administration");
 				Property(entity => entity.IsBlocked)
 					.HasColumnName("IsBlocked")
-					.HasColumnType("bit not null");
+					.HasColumnType("bit");
 			}
 		}
 	}

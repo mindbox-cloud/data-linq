@@ -192,12 +192,8 @@ namespace System.Data.Entity.ModelConfiguration
 
 		IEnumerable<ColumnAttributeByMember> IEntityTypeConfiguration.GetColumnAttributesByMember()
 		{
-			foreach (var propertyConfigurationByProperty in PropertyConfigurationsByProperty)
-				yield return new ColumnAttributeByMember
-				{
-					Member = propertyConfigurationByProperty.Key,
-					Attribute = propertyConfigurationByProperty.Value.GetColumnAttribute()
-				};
+			foreach (var propertyConfiguration in PropertyConfigurationsByProperty.Values)
+				yield return propertyConfiguration.GetColumnAttribute();
 		}
 	}
 }

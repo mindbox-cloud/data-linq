@@ -1,10 +1,18 @@
-﻿namespace System.Data.Entity.ModelConfiguration.Configuration
+﻿using System.Reflection;
+
+namespace System.Data.Entity.ModelConfiguration.Configuration
 {
 	/// <summary>
 	/// Used to configure a property with length facets for an entity type or complex type.
 	/// </summary>
 	public abstract class LengthPropertyConfiguration : PrimitivePropertyConfiguration
 	{
+		internal LengthPropertyConfiguration(PropertyInfo property) 
+			: base(property)
+		{
+		}
+
+
 		/// <summary>
 		/// Configures the property to allow the maximum length supported by the database provider.
 		/// </summary>

@@ -35,7 +35,7 @@ namespace System.Data.Entity.ModelConfiguration.Configuration
 			PrimitivePropertyConfiguration propertyConfiguration;
 			if (!PropertyConfigurationsByProperty.TryGetValue(property, out propertyConfiguration))
 			{
-				propertyConfiguration = new PrimitivePropertyConfiguration();
+				propertyConfiguration = new PrimitivePropertyConfiguration(property);
 				PropertyConfigurationsByProperty.Add(property, propertyConfiguration);
 			}
 			return propertyConfiguration;

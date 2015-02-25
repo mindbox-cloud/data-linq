@@ -117,6 +117,5 @@ namespace Mindbox.Data.Linq.Tests
 			if (PropertyChanged != null)
 				PropertyChanged(this, new PropertyChangedEventArgs(propertyName));
 		}
-
 	}
 }

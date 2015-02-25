@@ -1,4 +1,5 @@
 ﻿using System.ComponentModel.DataAnnotations.Schema;
+using System.Reflection;
 
 namespace System.Data.Entity.ModelConfiguration.Configuration
 {
@@ -7,6 +8,12 @@ namespace System.Data.Entity.ModelConfiguration.Configuration
 	/// </summary>
 	public class DateTimePropertyConfiguration : PrimitivePropertyConfiguration
 	{
+		internal DateTimePropertyConfiguration(PropertyInfo property) 
+			: base(property)
+		{
+		}
+
+
 		/// <summary>
 		/// Configures the property to be optional.
 		/// The database column used to store this property will be nullable.

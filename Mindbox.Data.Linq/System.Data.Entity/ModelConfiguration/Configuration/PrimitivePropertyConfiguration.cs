@@ -1,5 +1,7 @@
 ﻿using System.ComponentModel.DataAnnotations.Schema;
-using System.Data.Linq.Mapping;
+using System.Data.Linq.SqlClient;
+using System.Reflection;
+using Mindbox.Data.Linq.Mapping;
 
 namespace System.Data.Entity.ModelConfiguration.Configuration
 {
@@ -8,8 +10,18 @@ namespace System.Data.Entity.ModelConfiguration.Configuration
 	/// </summary>
 	public class PrimitivePropertyConfiguration
 	{
+		private readonly PropertyInfo property;
 		private string columnName;
 		private string columnType;
+
+
+		internal PrimitivePropertyConfiguration(PropertyInfo property)
+		{
+			if (property == null)
+				throw new ArgumentNullException("property");
+
+			this.property = property;
+		}
 
 
 		/// <summary>
@@ -114,12 +126,22 @@ namespace System.Data.Entity.ModelConfiguration.Configuration
 		}
 
 
-		internal Linq.Mapping.ColumnAttribute GetColumnAttribute()
+		internal ColumnAttributeByMember GetColumnAttribute()
 		{
-			return new Linq.Mapping.ColumnAttribute
+			var columnAttribute = new Linq.Mapping.ColumnAttribute
 			{
 				Name = columnName,
 				DbType = columnType
+			};
+			if (columnType != null)
+			{
+				var canBeNull = TypeSystem.IsNullableType(property.PropertyType) || !property.PropertyType.IsValueType;
+				columnAttribute.DbType = columnType + (canBeNull ? " null" : " not null");
+			}
+			return new ColumnAttributeByMember
+			{
+				Member = property,
+				Attribute = columnAttribute
 			};
 		}
 	}

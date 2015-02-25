@@ -1,4 +1,5 @@
 ﻿using System.ComponentModel.DataAnnotations.Schema;
+using System.Reflection;
 
 namespace System.Data.Entity.ModelConfiguration.Configuration
 {
@@ -7,6 +8,12 @@ namespace System.Data.Entity.ModelConfiguration.Configuration
 	/// </summary>
 	public class BinaryPropertyConfiguration : LengthPropertyConfiguration
 	{
+		internal BinaryPropertyConfiguration(PropertyInfo property) 
+			: base(property)
+		{
+		}
+
+
 		/// <summary>
 		/// Configures the property to allow the maximum length supported by the database provider.
 		/// </summary>
