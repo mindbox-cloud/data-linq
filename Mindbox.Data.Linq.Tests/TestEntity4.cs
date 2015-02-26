@@ -135,7 +135,13 @@ namespace Mindbox.Data.Linq.Tests
 			}
 		}
 
-		[Column(Storage = "rowVersion", AutoSync = AutoSync.Always, CanBeNull = false, IsDbGenerated = true, IsVersion = true)]
+		[Column(
+			Storage = "rowVersion", 
+			AutoSync = AutoSync.Always, 
+			CanBeNull = false, 
+			IsDbGenerated = true, 
+			IsVersion = true,
+			DbType = "rowversion not null")]
 		public Binary RowVersion
 		{
 			get

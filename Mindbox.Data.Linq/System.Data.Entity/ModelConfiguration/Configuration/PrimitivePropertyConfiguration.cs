@@ -1,4 +1,5 @@
 ﻿using System.ComponentModel.DataAnnotations.Schema;
+using System.Data.Linq.Mapping;
 using System.Data.Linq.SqlClient;
 using System.Reflection;
 using Mindbox.Data.Linq.Mapping;
@@ -14,6 +15,8 @@ namespace System.Data.Entity.ModelConfiguration.Configuration
 		private string columnName;
 		private string columnType;
 		private bool? canBeNull;
+		private bool? isConcurrencyToken;
+		private DatabaseGeneratedOption? databaseGeneratedOption;
 
 
 		internal PrimitivePropertyConfiguration(PropertyInfo property)
@@ -60,7 +63,8 @@ namespace System.Data.Entity.ModelConfiguration.Configuration
 		public PrimitivePropertyConfiguration HasDatabaseGeneratedOption(
 			DatabaseGeneratedOption? databaseGeneratedOption)
 		{
-			throw new NotImplementedException();
+			this.databaseGeneratedOption = databaseGeneratedOption;
+			return this;
 		}
 
 		/// <summary>
@@ -69,7 +73,8 @@ namespace System.Data.Entity.ModelConfiguration.Configuration
 		/// <returns> The same PrimitivePropertyConfiguration instance so that multiple calls can be chained. </returns>
 		public PrimitivePropertyConfiguration IsConcurrencyToken()
 		{
-			throw new NotImplementedException();
+			isConcurrencyToken = true;
+			return this;
 		}
 
 		/// <summary>
@@ -79,7 +84,8 @@ namespace System.Data.Entity.ModelConfiguration.Configuration
 		/// <returns> The same PrimitivePropertyConfiguration instance so that multiple calls can be chained. </returns>
 		public PrimitivePropertyConfiguration IsConcurrencyToken(bool? concurrencyToken)
 		{
-			throw new NotImplementedException();
+			isConcurrencyToken = concurrencyToken;
+			return this;
 		}
 
 		/// <summary>
@@ -141,8 +147,26 @@ namespace System.Data.Entity.ModelConfiguration.Configuration
 			{
 				Name = columnName,
 				CanBeNull = canBeNull ?? 
-					TypeSystem.IsNullableType(property.PropertyType) || !property.PropertyType.IsValueType
+					TypeSystem.IsNullableType(property.PropertyType) || !property.PropertyType.IsValueType,
+				IsVersion = isConcurrencyToken ?? false
 			};
+			switch (databaseGeneratedOption)
+			{
+				case DatabaseGeneratedOption.Identity:
+					columnAttribute.AutoSync = AutoSync.OnInsert;
+					columnAttribute.IsDbGenerated = true;
+					break;
+
+				case DatabaseGeneratedOption.Computed:
+					columnAttribute.AutoSync = AutoSync.Always;
+					columnAttribute.IsDbGenerated = true;
+					break;
+
+				default:
+					columnAttribute.AutoSync = AutoSync.Never;
+					columnAttribute.IsDbGenerated = false;
+					break;
+			}
 			columnAttribute.DbType = BuildDbType(columnAttribute);
 			return new ColumnAttributeByMember
 			{

@@ -81,7 +81,17 @@ namespace System.Data.Entity.ModelConfiguration.Configuration
 		/// <returns> A configuration object that can be used to configure the property. </returns>
 		public BinaryPropertyConfiguration Property(Expression<Func<TStructuralType, byte[]>> propertyExpression)
 		{
-			throw new NotImplementedException();
+			if (propertyExpression == null)
+				throw new ArgumentNullException("propertyExpression");
+
+			var property = ReflectionExpressions.GetPropertyInfo(propertyExpression);
+			PrimitivePropertyConfiguration propertyConfiguration;
+			if (!PropertyConfigurationsByProperty.TryGetValue(property, out propertyConfiguration))
+			{
+				propertyConfiguration = new BinaryPropertyConfiguration(property);
+				PropertyConfigurationsByProperty.Add(property, propertyConfiguration);
+			}
+			return (BinaryPropertyConfiguration)propertyConfiguration;
 		}
 
 		/// <summary>

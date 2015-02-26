@@ -1,5 +1,6 @@
 ﻿using System.ComponentModel.DataAnnotations.Schema;
 using System.Reflection;
+using ColumnAttribute = System.Data.Linq.Mapping.ColumnAttribute;
 
 namespace System.Data.Entity.ModelConfiguration.Configuration
 {
@@ -8,6 +9,9 @@ namespace System.Data.Entity.ModelConfiguration.Configuration
 	/// </summary>
 	public class BinaryPropertyConfiguration : LengthPropertyConfiguration
 	{
+		private bool? isRowVersion;
+
+
 		internal BinaryPropertyConfiguration(PropertyInfo property) 
 			: base(property)
 		{
@@ -30,7 +34,8 @@ namespace System.Data.Entity.ModelConfiguration.Configuration
 		/// <returns> The same BinaryPropertyConfiguration instance so that multiple calls can be chained. </returns>
 		public new BinaryPropertyConfiguration HasMaxLength(int? value)
 		{
-			throw new NotImplementedException();
+			base.HasMaxLength(value);
+			return this;
 		}
 
 		/// <summary>
@@ -40,7 +45,8 @@ namespace System.Data.Entity.ModelConfiguration.Configuration
 		/// <returns> The same BinaryPropertyConfiguration instance so that multiple calls can be chained. </returns>
 		public new BinaryPropertyConfiguration IsFixedLength()
 		{
-			throw new NotImplementedException();
+			base.IsFixedLength();
+			return this;
 		}
 
 		/// <summary>
@@ -71,7 +77,8 @@ namespace System.Data.Entity.ModelConfiguration.Configuration
 		/// <returns> The same BinaryPropertyConfiguration instance so that multiple calls can be chained. </returns>
 		public new BinaryPropertyConfiguration IsRequired()
 		{
-			throw new NotImplementedException();
+			base.IsRequired();
+			return this;
 		}
 
 		/// <summary>
@@ -87,7 +94,8 @@ namespace System.Data.Entity.ModelConfiguration.Configuration
 		public new BinaryPropertyConfiguration HasDatabaseGeneratedOption(
 			DatabaseGeneratedOption? databaseGeneratedOption)
 		{
-			throw new NotImplementedException();
+			base.HasDatabaseGeneratedOption(databaseGeneratedOption);
+			return this;
 		}
 
 		/// <summary>
@@ -96,7 +104,8 @@ namespace System.Data.Entity.ModelConfiguration.Configuration
 		/// <returns> The same BinaryPropertyConfiguration instance so that multiple calls can be chained. </returns>
 		public new BinaryPropertyConfiguration IsConcurrencyToken()
 		{
-			throw new NotImplementedException();
+			base.IsConcurrencyToken();
+			return this;
 		}
 
 		/// <summary>
@@ -149,7 +158,20 @@ namespace System.Data.Entity.ModelConfiguration.Configuration
 		/// <returns> The same BinaryPropertyConfiguration instance so that multiple calls can be chained. </returns>
 		public BinaryPropertyConfiguration IsRowVersion()
 		{
-			throw new NotImplementedException();
+			IsConcurrencyToken();
+			IsRequired();
+			HasDatabaseGeneratedOption(DatabaseGeneratedOption.Computed);
+			isRowVersion = true;
+			return this;
+		}
+
+
+		protected override string BuildDbTypeWithoutNullability(ColumnAttribute columnAttribute)
+		{
+			if (columnAttribute == null)
+				throw new ArgumentNullException("columnAttribute");
+
+			return (isRowVersion ?? false) ? "rowversion" : base.BuildDbTypeWithoutNullability(columnAttribute);
 		}
 	}
 }

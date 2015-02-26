@@ -30,7 +30,7 @@ namespace Mindbox.Data.Linq.Tests
 		private string lastName;
 		private string comment;
 
-		private Binary rowVersion;
+		private byte[] rowVersion;
 		private DateTime? accountExpirationDateTimeUtc;
 
 		private readonly EntitySet<TestEntity7> personalPermissions;
@@ -130,8 +130,7 @@ namespace Mindbox.Data.Linq.Tests
 			}
 		}
 
-		[Column(Storage = "rowVersion", AutoSync = AutoSync.Always, CanBeNull = false, IsDbGenerated = true, IsVersion = true)]
-		public Binary RowVersion
+		public byte[] RowVersion
 		{
 			get
 			{
@@ -338,6 +337,7 @@ namespace Mindbox.Data.Linq.Tests
 				Property(entity => entity.Comment).IsMaxLength().IsRequired();
 				Property(entity => entity.CreationDateTimeUtc);
 				Property(entity => entity.AccountExpirationDateTimeUtc);
+				Property(entity => entity.RowVersion).IsRowVersion();
 			}
 		}
 	}

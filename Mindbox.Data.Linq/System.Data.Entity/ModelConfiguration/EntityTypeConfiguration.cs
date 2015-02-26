@@ -3,9 +3,10 @@ using System.Data.Entity.ModelConfiguration.Configuration;
 using System.Data.Linq.Mapping;
 using System.Linq;
 using System.Linq.Expressions;
+using System.Reflection;
 using Mindbox.Data.Linq.Mapping;
 using Mindbox.Data.Linq.Mapping.Entity;
-using ColumnAttribute = System.ComponentModel.DataAnnotations.Schema.ColumnAttribute;
+using Mindbox.Expressions;
 
 namespace System.Data.Entity.ModelConfiguration
 {
@@ -17,6 +18,7 @@ namespace System.Data.Entity.ModelConfiguration
 		where TEntityType : class
 	{
 		private TableAttribute tableAttribute;
+		private PropertyInfo primaryKeyProperty;
 
 
 		Type IEntityTypeConfiguration.EntityType
@@ -41,7 +43,8 @@ namespace System.Data.Entity.ModelConfiguration
 			if (keyExpression == null)
 				throw new ArgumentNullException("keyExpression");
 
-			throw new NotImplementedException();
+			primaryKeyProperty = ReflectionExpressions.GetPropertyInfo(keyExpression);
+			return this;
 		}
 
 		/// <summary>
@@ -193,7 +196,12 @@ namespace System.Data.Entity.ModelConfiguration
 		IEnumerable<ColumnAttributeByMember> IEntityTypeConfiguration.GetColumnAttributesByMember()
 		{
 			foreach (var propertyConfiguration in PropertyConfigurationsByProperty.Values)
-				yield return propertyConfiguration.GetColumnAttribute();
+			{
+				var columnAttributeByMember = propertyConfiguration.GetColumnAttribute();
+				if (columnAttributeByMember.Member == primaryKeyProperty)
+					columnAttributeByMember.Attribute.IsPrimaryKey = true;
+				yield return columnAttributeByMember;
+			}
 		}
 	}
 }
