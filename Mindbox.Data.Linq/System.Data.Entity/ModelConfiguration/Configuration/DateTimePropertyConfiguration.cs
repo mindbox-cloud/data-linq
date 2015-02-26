@@ -8,6 +8,9 @@ namespace System.Data.Entity.ModelConfiguration.Configuration
 	/// </summary>
 	public class DateTimePropertyConfiguration : PrimitivePropertyConfiguration
 	{
+		private byte? precision;
+
+
 		internal DateTimePropertyConfiguration(PropertyInfo property) 
 			: base(property)
 		{
@@ -110,6 +113,12 @@ namespace System.Data.Entity.ModelConfiguration.Configuration
 		public DateTimePropertyConfiguration HasPrecision(byte value)
 		{
 			throw new NotImplementedException();
+		}
+
+
+		protected override string TryBuildDefaultColumnType()
+		{
+			return precision >= 7 ? "datetime2" : "datetime";
 		}
 	}
 }

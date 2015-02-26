@@ -148,7 +148,6 @@ namespace Mindbox.Data.Linq.Tests
 			}
 		}
 
-		[Column(Storage = "accountExpirationDateTimeUtc")]
 		public DateTime? AccountExpirationDateTimeUtc
 		{
 			get { return accountExpirationDateTimeUtc; }
@@ -195,7 +194,6 @@ namespace Mindbox.Data.Linq.Tests
 			}
 		}
 
-		[Column(Storage = "creationDateTimeUtc", CanBeNull = false)]
 		public DateTime CreationDateTimeUtc
 		{
 			get
@@ -338,6 +336,8 @@ namespace Mindbox.Data.Linq.Tests
 				Property(entity => entity.FirstName).HasMaxLength(255);
 				Property(entity => entity.LastName).HasMaxLength(255);
 				Property(entity => entity.Comment).IsMaxLength().IsRequired();
+				Property(entity => entity.CreationDateTimeUtc);
+				Property(entity => entity.AccountExpirationDateTimeUtc);
 			}
 		}
 	}

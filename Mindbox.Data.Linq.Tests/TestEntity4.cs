@@ -153,7 +153,7 @@ namespace Mindbox.Data.Linq.Tests
 			}
 		}
 
-		[Column(Storage = "accountExpirationDateTimeUtc")]
+		[Column(Storage = "accountExpirationDateTimeUtc", DbType = "datetime null")]
 		public DateTime? AccountExpirationDateTimeUtc
 		{
 			get { return accountExpirationDateTimeUtc; }
@@ -201,7 +201,7 @@ namespace Mindbox.Data.Linq.Tests
 			}
 		}
 
-		[Column(Storage = "creationDateTimeUtc", CanBeNull = false)]
+		[Column(Storage = "creationDateTimeUtc", CanBeNull = false, DbType = "datetime not null")]
 		public DateTime CreationDateTimeUtc
 		{
 			get
