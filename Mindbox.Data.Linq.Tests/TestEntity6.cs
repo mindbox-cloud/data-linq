@@ -96,7 +96,6 @@ namespace Mindbox.Data.Linq.Tests
 			}
 		}
 
-		[Column(Storage = "email", CanBeNull = true)]
 		public string Email
 		{
 			get
@@ -114,7 +113,6 @@ namespace Mindbox.Data.Linq.Tests
 			}
 		}
 
-		[Column(Storage = "staffTypeSystemName", CanBeNull = false)]
 		public string StaffTypeSystemName
 		{
 			get
@@ -215,7 +213,6 @@ namespace Mindbox.Data.Linq.Tests
 			}
 		}
 
-		[Column(Storage = "firstName", CanBeNull = true)]
 		public string FirstName
 		{
 			get
@@ -233,7 +230,6 @@ namespace Mindbox.Data.Linq.Tests
 			}
 		}
 
-		[Column(Storage = "lastName", CanBeNull = true)]
 		public string LastName
 		{
 			get
@@ -251,7 +247,6 @@ namespace Mindbox.Data.Linq.Tests
 			}
 		}
 
-		[Column(Storage = "comment", CanBeNull = false)]
 		public string Comment
 		{
 			get
@@ -335,21 +330,14 @@ namespace Mindbox.Data.Linq.Tests
 			public TestEntity6Configuration()
 			{
 				ToTable("Staff", "administration");
-				Property(entity => entity.IsBlocked)
-					.HasColumnName("IsBlocked")
-					.HasColumnType("bit");
-				Property(entity => entity.UserName)
-					.HasColumnName("UserName")
-					.HasColumnType("nvarchar")
-					.HasMaxLength(100)
-					.IsVariableLength()
-					.IsRequired();
-				Property(entity => entity.PasswordHash)
-					.HasColumnName("PasswordHash")
-					.HasColumnType("char")
-					.HasMaxLength(40)
-					.IsFixedLength()
-					.IsOptional();
+				Property(entity => entity.IsBlocked);
+				Property(entity => entity.UserName).HasMaxLength(100).IsRequired();
+				Property(entity => entity.PasswordHash).HasMaxLength(40).IsFixedLength().IsUnicode(false).IsOptional();
+				Property(entity => entity.Email).HasMaxLength(254);
+				Property(entity => entity.StaffTypeSystemName).HasMaxLength(250).IsRequired();
+				Property(entity => entity.FirstName).HasMaxLength(255);
+				Property(entity => entity.LastName).HasMaxLength(255);
+				Property(entity => entity.Comment).IsMaxLength().IsRequired();
 			}
 		}
 	}

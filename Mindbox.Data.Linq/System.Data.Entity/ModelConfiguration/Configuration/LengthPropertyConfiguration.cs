@@ -10,13 +10,16 @@ namespace System.Data.Entity.ModelConfiguration.Configuration
 	public abstract class LengthPropertyConfiguration : PrimitivePropertyConfiguration
 	{
 		private int? maxLength;
-		private bool? hasVariableLength;
+		private bool hasMaxPossibleLength;
 
-
+	
 		internal LengthPropertyConfiguration(PropertyInfo property) 
 			: base(property)
 		{
 		}
+
+
+		protected bool? HasVariableLength { get; private set; }
 
 
 		/// <summary>
@@ -25,7 +28,9 @@ namespace System.Data.Entity.ModelConfiguration.Configuration
 		/// <returns> The same LengthPropertyConfiguration instance so that multiple calls can be chained. </returns>
 		public LengthPropertyConfiguration IsMaxLength()
 		{
-			throw new NotImplementedException();
+			hasMaxPossibleLength = true;
+			maxLength = null;
+			return this;
 		}
 
 		/// <summary>
@@ -37,10 +42,9 @@ namespace System.Data.Entity.ModelConfiguration.Configuration
 		{
 			if (value <= 0)
 				throw new ArgumentException("value <= 0", "value");
-			if ((maxLength != null) && (maxLength != value))
-				throw new ArgumentException("(maxLength != null) && (maxLength != value)", "value");
 
 			maxLength = value;
+			hasMaxPossibleLength = false;
 			return this;
 		}
 
@@ -51,10 +55,7 @@ namespace System.Data.Entity.ModelConfiguration.Configuration
 		/// <returns> The same LengthPropertyConfiguration instance so that multiple calls can be chained. </returns>
 		public LengthPropertyConfiguration IsFixedLength()
 		{
-			if (hasVariableLength == true)
-				throw new InvalidOperationException("hasVariableLength == true");
-
-			hasVariableLength = false;
+			HasVariableLength = false;
 			return this;
 		}
 
@@ -65,10 +66,7 @@ namespace System.Data.Entity.ModelConfiguration.Configuration
 		/// <returns> The same LengthPropertyConfiguration instance so that multiple calls can be chained. </returns>
 		public LengthPropertyConfiguration IsVariableLength()
 		{
-			if (hasVariableLength == false)
-				throw new InvalidOperationException("hasVariableLength == false");
-
-			hasVariableLength = true;
+			HasVariableLength = true;
 			return this;
 		}
 
@@ -79,9 +77,10 @@ namespace System.Data.Entity.ModelConfiguration.Configuration
 				throw new ArgumentNullException("columnAttribute");
 
 			var baseDbType = base.BuildDbTypeWithoutNullability(columnAttribute);
-			return (baseDbType == null) || (maxLength == null) ? 
-				baseDbType : 
-				baseDbType + "(" + maxLength.Value.ToString(CultureInfo.InvariantCulture) + ")";
+			if (baseDbType == null)
+				return null;
+			var lengthSpecification = (hasMaxPossibleLength ? "max" : (maxLength ?? 15).ToString(CultureInfo.InvariantCulture));
+			return baseDbType + "(" + lengthSpecification + ")";
 		}
 	}
 }

@@ -99,7 +99,7 @@ namespace Mindbox.Data.Linq.Tests
 			}
 		}
 
-		[Column(Storage = "email", CanBeNull = true)]
+		[Column(Storage = "email", CanBeNull = true, DbType = "nvarchar(254) null")]
 		public string Email
 		{
 			get
@@ -117,7 +117,7 @@ namespace Mindbox.Data.Linq.Tests
 			}
 		}
 
-		[Column(Storage = "staffTypeSystemName", CanBeNull = false)]
+		[Column(Storage = "staffTypeSystemName", CanBeNull = false, DbType = "nvarchar(250) not null")]
 		public string StaffTypeSystemName
 		{
 			get
@@ -219,7 +219,7 @@ namespace Mindbox.Data.Linq.Tests
 			}
 		}
 
-		[Column(Storage = "firstName", CanBeNull = true)]
+		[Column(Storage = "firstName", CanBeNull = true, DbType = "nvarchar(255) null")]
 		public string FirstName
 		{
 			get
@@ -237,7 +237,7 @@ namespace Mindbox.Data.Linq.Tests
 			}
 		}
 
-		[Column(Storage = "lastName", CanBeNull = true)]
+		[Column(Storage = "lastName", CanBeNull = true, DbType = "nvarchar(255) null")]
 		public string LastName
 		{
 			get
@@ -255,7 +255,7 @@ namespace Mindbox.Data.Linq.Tests
 			}
 		}
 
-		[Column(Storage = "comment", CanBeNull = false)]
+		[Column(Storage = "comment", CanBeNull = false, DbType = "nvarchar(max) not null")]
 		public string Comment
 		{
 			get

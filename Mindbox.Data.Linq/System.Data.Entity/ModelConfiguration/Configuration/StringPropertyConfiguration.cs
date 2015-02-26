@@ -8,6 +8,9 @@ namespace System.Data.Entity.ModelConfiguration.Configuration
 	/// </summary>
 	public class StringPropertyConfiguration : LengthPropertyConfiguration
 	{
+		private bool? isUnicode = true;
+
+
 		internal StringPropertyConfiguration(PropertyInfo property) 
 			: base(property)
 		{
@@ -20,7 +23,8 @@ namespace System.Data.Entity.ModelConfiguration.Configuration
 		/// <returns> The same StringPropertyConfiguration instance so that multiple calls can be chained. </returns>
 		public new StringPropertyConfiguration IsMaxLength()
 		{
-			throw new NotImplementedException();
+			base.IsMaxLength();
+			return this;
 		}
 
 		/// <summary>
@@ -153,7 +157,8 @@ namespace System.Data.Entity.ModelConfiguration.Configuration
 		/// <returns> The same StringPropertyConfiguration instance so that multiple calls can be chained. </returns>
 		public StringPropertyConfiguration IsUnicode()
 		{
-			throw new NotImplementedException();
+			isUnicode = true;
+			return this;
 		}
 
 		/// <summary>
@@ -163,7 +168,16 @@ namespace System.Data.Entity.ModelConfiguration.Configuration
 		/// <returns> The same StringPropertyConfiguration instance so that multiple calls can be chained. </returns>
 		public StringPropertyConfiguration IsUnicode(bool? unicode)
 		{
-			throw new NotImplementedException();
+			isUnicode = unicode;
+			return this;
+		}
+
+
+		protected override string TryBuildDefaultColumnType()
+		{
+			return (HasVariableLength ?? true) ?
+				((isUnicode ?? false) ? "nvarchar" : "varchar") :
+				((isUnicode ?? false) ? "nchar" : "char");
 		}
 	}
 }

@@ -32,9 +32,6 @@ namespace System.Data.Entity.ModelConfiguration.Configuration
 		/// <returns> The same PrimitivePropertyConfiguration instance so that multiple calls can be chained. </returns>
 		public PrimitivePropertyConfiguration IsOptional()
 		{
-			if (canBeNull == false)
-				throw new InvalidOperationException("canBeNull == false");
-
 			canBeNull = true;
 			return this;
 		}
@@ -46,9 +43,6 @@ namespace System.Data.Entity.ModelConfiguration.Configuration
 		/// <returns> The same PrimitivePropertyConfiguration instance so that multiple calls can be chained. </returns>
 		public PrimitivePropertyConfiguration IsRequired()
 		{
-			if (canBeNull == true)
-				throw new InvalidOperationException("canBeNull == true");
-
 			canBeNull = false;
 			return this;
 		}
@@ -95,12 +89,7 @@ namespace System.Data.Entity.ModelConfiguration.Configuration
 		/// <returns> The same PrimitivePropertyConfiguration instance so that multiple calls can be chained. </returns>
 		public PrimitivePropertyConfiguration HasColumnType(string columnType)
 		{
-			if (string.IsNullOrEmpty(columnType))
-				throw new ArgumentException("string.IsNullOrEmpty(columnType)", "columnType");
-			if ((this.columnType != null) && (this.columnType != columnType))
-				throw new ArgumentException("(this.columnType != null) && (this.columnType != columnType)", "columnType");
-
-			this.columnType = columnType;
+			this.columnType = string.IsNullOrEmpty(columnType) ? null : columnType;
 			return this;
 		}
 
@@ -111,12 +100,7 @@ namespace System.Data.Entity.ModelConfiguration.Configuration
 		/// <returns> The same PrimitivePropertyConfiguration instance so that multiple calls can be chained. </returns>
 		public PrimitivePropertyConfiguration HasColumnName(string columnName)
 		{
-			if (string.IsNullOrEmpty(columnName))
-				throw new ArgumentException("string.IsNullOrEmpty(columnName)", "columnName");
-			if ((this.columnName != null) && (this.columnName != columnName))
-				throw new ArgumentException("(this.columnName != null) && (this.columnName != columnName)", "columnName");
-
-			this.columnName = columnName;
+			this.columnName = string.IsNullOrEmpty(columnName) ? null : columnName;
 			return this;
 		}
 
@@ -140,7 +124,14 @@ namespace System.Data.Entity.ModelConfiguration.Configuration
 			if (columnAttribute == null)
 				throw new ArgumentNullException("columnAttribute");
 
-			return columnType;
+			return columnType ?? TryBuildDefaultColumnType();
+		}
+
+		protected virtual string TryBuildDefaultColumnType()
+		{
+			if ((property.PropertyType == typeof(bool)) || (property.PropertyType == typeof(bool?)))
+				return "bit";
+			return null;
 		}
 
 
