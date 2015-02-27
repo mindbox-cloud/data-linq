@@ -18,6 +18,9 @@ namespace System.Data.Entity.ModelConfiguration.Configuration
 		}
 
 
+		protected Dictionary<PropertyInfo, PrimitivePropertyConfiguration> PropertyConfigurationsByProperty { get; private set; }
+
+
 		/// <summary>
 		/// Configures a <see cref="T:System.struct" /> property that is defined on this type.
 		/// </summary>
@@ -195,8 +198,5 @@ namespace System.Data.Entity.ModelConfiguration.Configuration
 		{
 			throw new NotImplementedException();
 		}
-
-
-		protected Dictionary<PropertyInfo, PrimitivePropertyConfiguration> PropertyConfigurationsByProperty { get; private set; }
 	}
 }

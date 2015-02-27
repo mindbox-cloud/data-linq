@@ -1,5 +1,10 @@
-﻿using System.Linq;
+﻿using System.ComponentModel.DataAnnotations.Schema;
+using System.Data.Linq.Mapping;
+using System.Linq;
 using System.Linq.Expressions;
+using System.Reflection;
+using Mindbox.Data.Linq.Mapping;
+using Mindbox.Expressions;
 
 namespace System.Data.Entity.ModelConfiguration.Configuration
 {
@@ -11,6 +16,17 @@ namespace System.Data.Entity.ModelConfiguration.Configuration
 		ForeignKeyNavigationPropertyConfiguration
 		where TDependentEntityType : class
 	{
+		private readonly bool isRequired;
+		private PropertyInfo foreignKeyProperty;
+
+
+		internal DependentNavigationPropertyConfiguration(PropertyInfo associationProperty, bool isRequired)
+			: base(associationProperty)
+		{
+			this.isRequired = isRequired;
+		}
+
+
 		/// <summary>
 		/// Configures the relationship to use foreign key property(s) that are exposed in the object model.
 		/// If the foreign key property(s) are not exposed in the object model then use the Map method.
@@ -24,7 +40,48 @@ namespace System.Data.Entity.ModelConfiguration.Configuration
 			if (foreignKeyExpression == null)
 				throw new ArgumentNullException("foreignKeyExpression");
 
-			throw new NotImplementedException();
+			foreignKeyProperty = ReflectionExpressions.GetPropertyInfo(foreignKeyExpression);
+			return this;
+		}
+
+
+		internal override ColumnAttributeByMember TryGetColumnAttribute(DbModelBuilder dbModelBuilder)
+		{
+			if (dbModelBuilder == null)
+				throw new ArgumentNullException("dbModelBuilder");
+
+			if (foreignKeyProperty == null)
+				return base.TryGetColumnAttribute(dbModelBuilder);
+
+			var primaryKeyPropertyConfiguration =
+				dbModelBuilder.GetPrimaryKeyPropertyConfigurationByEntityType(typeof(TDependentEntityType));
+			var foreignKeyPropertyConfiguration = primaryKeyPropertyConfiguration.Clone(foreignKeyProperty);
+			if (isRequired)
+				foreignKeyPropertyConfiguration.IsRequired();
+			else
+				foreignKeyPropertyConfiguration.IsOptional();
+			foreignKeyPropertyConfiguration.HasDatabaseGeneratedOption(DatabaseGeneratedOption.None);
+			return foreignKeyPropertyConfiguration.GetColumnAttribute();
+		}
+
+		internal override AssociationAttributeByMember GetAssociationAttribute(DbModelBuilder dbModelBuilder)
+		{
+			if (dbModelBuilder == null)
+				throw new ArgumentNullException("dbModelBuilder");
+
+			var primaryKeyPropertyConfiguration =
+				dbModelBuilder.GetPrimaryKeyPropertyConfigurationByEntityType(typeof(TDependentEntityType));
+			return new AssociationAttributeByMember
+			{
+				Member = AssociationProperty,
+				Attribute = new AssociationAttribute
+				{
+					IsForeignKey = true,
+					Name = Guid.NewGuid().ToString(),
+					ThisKey = foreignKeyProperty.Name,
+					OtherKey = primaryKeyPropertyConfiguration.Property.Name
+				}
+			};
 		}
 	}
 }

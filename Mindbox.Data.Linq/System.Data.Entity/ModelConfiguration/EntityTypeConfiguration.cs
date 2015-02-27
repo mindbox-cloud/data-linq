@@ -19,6 +19,8 @@ namespace System.Data.Entity.ModelConfiguration
 	{
 		private TableAttribute tableAttribute;
 		private PropertyInfo primaryKeyProperty;
+		private readonly Dictionary<PropertyInfo, IRequiredNavigationPropertyConfiguration> requiredAssociationsByProperty =
+			new Dictionary<PropertyInfo, IRequiredNavigationPropertyConfiguration>();
 
 
 		Type IEntityTypeConfiguration.EntityType
@@ -173,7 +175,15 @@ namespace System.Data.Entity.ModelConfiguration
 			if (navigationPropertyExpression == null)
 				throw new ArgumentNullException("navigationPropertyExpression");
 
-			throw new NotImplementedException();
+			var navigationProperty = ReflectionExpressions.GetPropertyInfo(navigationPropertyExpression);
+			IRequiredNavigationPropertyConfiguration propertyConfiguration;
+			if (!requiredAssociationsByProperty.TryGetValue(navigationProperty, out propertyConfiguration))
+			{
+				propertyConfiguration = 
+					new RequiredNavigationPropertyConfiguration<TEntityType, TTargetEntity>(navigationProperty);
+				requiredAssociationsByProperty.Add(navigationProperty, propertyConfiguration);
+			}
+			return (RequiredNavigationPropertyConfiguration<TEntityType, TTargetEntity>)propertyConfiguration;
 		}
 
 		/// <summary>
@@ -193,15 +203,65 @@ namespace System.Data.Entity.ModelConfiguration
 		}
 
 
-		IEnumerable<ColumnAttributeByMember> IEntityTypeConfiguration.GetColumnAttributesByMember()
+		IEnumerable<ColumnAttributeByMember> IEntityTypeConfiguration.GetColumnAttributesByMember(DbModelBuilder dbModelBuilder)
 		{
+			if (dbModelBuilder == null)
+				throw new ArgumentNullException("dbModelBuilder");
+
 			foreach (var propertyConfiguration in PropertyConfigurationsByProperty.Values)
 			{
 				var columnAttributeByMember = propertyConfiguration.GetColumnAttribute();
-				if (columnAttributeByMember.Member == primaryKeyProperty)
-					columnAttributeByMember.Attribute.IsPrimaryKey = true;
+				AdjustIsPrimaryKey(columnAttributeByMember);
 				yield return columnAttributeByMember;
 			}
+
+			foreach (var requiredAssociationByProperty in requiredAssociationsByProperty.Values)
+			{
+				var columnAttributeByMember = requiredAssociationByProperty.TryGetColumnAttribute(dbModelBuilder);
+				if (columnAttributeByMember != null)
+				{
+					AdjustIsPrimaryKey(columnAttributeByMember);
+					yield return columnAttributeByMember;
+				}
+			}
+		}
+
+		PrimitivePropertyConfiguration IEntityTypeConfiguration.GetPrimaryKeyPropertyConfiguration()
+		{
+			if (primaryKeyProperty == null)
+				throw new InvalidOperationException("primaryKeyProperty == null");
+
+			return PropertyConfigurationsByProperty[primaryKeyProperty];
+		}
+
+		IEnumerable<AssociationAttributeByMember> IEntityTypeConfiguration.GetAssociationAttributesByMember(
+			DbModelBuilder dbModelBuilder)
+		{
+			if (dbModelBuilder == null)
+				throw new ArgumentNullException("dbModelBuilder");
+
+			foreach (var requiredAssociationByProperty in requiredAssociationsByProperty.Values)
+				yield return requiredAssociationByProperty.GetAssociationAttribute(dbModelBuilder);
+		}
+
+
+		private void AdjustIsPrimaryKey(ColumnAttribute columnAttribute, MemberInfo member)
+		{
+			if (columnAttribute == null)
+				throw new ArgumentNullException("columnAttribute");
+			if (member == null)
+				throw new ArgumentNullException("member");
+
+			if (member == primaryKeyProperty)
+				columnAttribute.IsPrimaryKey = true;
+		}
+
+		private void AdjustIsPrimaryKey(ColumnAttributeByMember columnAttributeByMember)
+		{
+			if (columnAttributeByMember == null)
+				throw new ArgumentNullException("columnAttributeByMember");
+
+			AdjustIsPrimaryKey(columnAttributeByMember.Attribute, columnAttributeByMember.Member);
 		}
 	}
 }

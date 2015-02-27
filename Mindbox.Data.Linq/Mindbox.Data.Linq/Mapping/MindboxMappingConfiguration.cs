@@ -24,6 +24,9 @@ namespace Mindbox.Data.Linq.Mapping
 		private readonly Dictionary<MemberInfo, ColumnAttribute> additionalColumnAttributesByMember =
 			new Dictionary<MemberInfo, ColumnAttribute>();
 
+		private readonly Dictionary<MemberInfo, AssociationAttribute> additionalAssociationAttributesByMember =
+			new Dictionary<MemberInfo, AssociationAttribute>();
+
 
 		public bool IsFrozen { get; private set; }
 
@@ -83,6 +86,10 @@ namespace Mindbox.Data.Linq.Mapping
 				additionalTableAttributesByRootType.Add(tableAttributeByRootType.RootType, tableAttributeByRootType.Attribute);
 			foreach (var columnAttributeByMember in modelBuilder.GetColumnAttributesByMember())
 				additionalColumnAttributesByMember.Add(columnAttributeByMember.Member, columnAttributeByMember.Attribute);
+			foreach (var associationAttributeByMember in modelBuilder.GetAssociationAttributesByMember())
+				additionalAssociationAttributesByMember.Add(
+					associationAttributeByMember.Member, 
+					associationAttributeByMember.Attribute);
 		}
 
 
@@ -124,6 +131,18 @@ namespace Mindbox.Data.Linq.Mapping
 
 			ColumnAttribute columnAttribute;
 			return additionalColumnAttributesByMember.TryGetValue(member, out columnAttribute) ? columnAttribute : null;
+		}
+
+		internal AssociationAttribute TryGetAssociationAttribute(MemberInfo member)
+		{
+			if (member == null)
+				throw new ArgumentNullException("member");
+			CheckFrozen();
+
+			AssociationAttribute associationAttribute;
+			return additionalAssociationAttributesByMember.TryGetValue(member, out associationAttribute) ?
+				associationAttribute :
+				null;
 		}
 
 

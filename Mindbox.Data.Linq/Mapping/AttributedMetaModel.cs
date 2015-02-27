@@ -226,6 +226,14 @@ namespace System.Data.Linq.Mapping
 			return (ColumnAttribute)Attribute.GetCustomAttribute(member, typeof(ColumnAttribute));
 		}
 
+		internal virtual AssociationAttribute TryGetAssociationAttribute(MemberInfo member)
+		{
+			if (member == null)
+				throw new ArgumentNullException("member");
+
+			return (AssociationAttribute)Attribute.GetCustomAttribute(member, typeof(AssociationAttribute));
+		}
+
 
 		private void InitStaticTables()
 		{

@@ -130,7 +130,7 @@ namespace System.Data.Linq.Mapping
 			type = TypeSystem.GetMemberType(member);
 			isNullableType = TypeSystem.IsNullableType(type);
 			columnAttribute = ((AttributedMetaModel)metaType.Model).TryGetColumnAttribute(member);
-			associationAttribute = (AssociationAttribute)Attribute.GetCustomAttribute(member, typeof(AssociationAttribute));
+			associationAttribute = ((AttributedMetaModel)metaType.Model).TryGetAssociationAttribute(member);
 			var attr = (columnAttribute == null) ? associationAttribute : (DataAttribute)columnAttribute;
 			if (attr != null && attr.Storage != null) 
 			{

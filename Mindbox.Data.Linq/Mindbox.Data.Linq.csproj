@@ -81,7 +81,9 @@
     <Compile Include="Mapping\TableAttribute.cs" />
     <Compile Include="Mapping\UpdateCheck.cs" />
     <Compile Include="Mindbox.Data.Linq\EntityFrameworkIncompatibility.cs" />
+    <Compile Include="Mindbox.Data.Linq\Mapping\AssociationAttributeByMember.cs" />
     <Compile Include="Mindbox.Data.Linq\Mapping\Entity\IEntityTypeConfiguration.cs" />
+    <Compile Include="Mindbox.Data.Linq\Mapping\Entity\IRequiredNavigationPropertyConfiguration.cs" />
     <Compile Include="Mindbox.Data.Linq\Mapping\MindboxMappingConfiguration.cs" />
     <Compile Include="Mindbox.Data.Linq\Mapping\MindboxMetaModel.cs" />
     <Compile Include="Mapping\AttributedMetaModel.cs" />

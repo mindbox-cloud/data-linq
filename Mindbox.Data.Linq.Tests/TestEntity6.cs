@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.ComponentModel;
+using System.ComponentModel.DataAnnotations.Schema;
 using System.Data.Entity.ModelConfiguration;
 using System.Data.Linq;
 using System.Data.Linq.Mapping;
@@ -44,7 +45,6 @@ namespace Mindbox.Data.Linq.Tests
 		}
 
 
-		[Column(Storage = "id", AutoSync = AutoSync.OnInsert, IsPrimaryKey = true, IsDbGenerated = true)]
 		public int Id
 		{
 			get
@@ -175,7 +175,6 @@ namespace Mindbox.Data.Linq.Tests
 			}
 		}
 
-		[Column(Storage = "creatorId", CanBeNull = false)]
 		public int CreatorId
 		{
 			get
@@ -272,12 +271,6 @@ namespace Mindbox.Data.Linq.Tests
 			set { personalPermissions.Assign(value); }
 		}
 
-		[Association(
-			Name = "Staff_Creator",
-			Storage = "creator",
-			ThisKey = "CreatorId",
-			OtherKey = "Id",
-			IsForeignKey = true)]
 		public TestEntity6 Creator
 		{
 			get { return creator.Entity; }
@@ -327,6 +320,8 @@ namespace Mindbox.Data.Linq.Tests
 			public TestEntity6Configuration()
 			{
 				ToTable("Staff", "administration");
+				HasKey(entity => entity.Id);
+				Property(entity => entity.Id).HasDatabaseGeneratedOption(DatabaseGeneratedOption.Identity);
 				Property(entity => entity.IsBlocked);
 				Property(entity => entity.UserName).HasMaxLength(100).IsRequired();
 				Property(entity => entity.PasswordHash).HasMaxLength(40).IsFixedLength().IsUnicode(false).IsOptional();
@@ -338,6 +333,7 @@ namespace Mindbox.Data.Linq.Tests
 				Property(entity => entity.CreationDateTimeUtc);
 				Property(entity => entity.AccountExpirationDateTimeUtc);
 				Property(entity => entity.RowVersion).IsRowVersion();
+				HasRequired(entity => entity.Creator).WithMany().HasForeignKey(entity => entity.CreatorId);
 			}
 		}
 	}

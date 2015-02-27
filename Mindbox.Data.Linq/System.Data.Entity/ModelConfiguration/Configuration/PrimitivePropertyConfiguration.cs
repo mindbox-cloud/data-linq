@@ -11,7 +11,6 @@ namespace System.Data.Entity.ModelConfiguration.Configuration
 	/// </summary>
 	public class PrimitivePropertyConfiguration
 	{
-		private readonly PropertyInfo property;
 		private string columnName;
 		private string columnType;
 		private bool? canBeNull;
@@ -24,8 +23,11 @@ namespace System.Data.Entity.ModelConfiguration.Configuration
 			if (property == null)
 				throw new ArgumentNullException("property");
 
-			this.property = property;
+			Property = property;
 		}
+
+
+		internal PropertyInfo Property { get; private set; }
 
 
 		/// <summary>
@@ -130,16 +132,23 @@ namespace System.Data.Entity.ModelConfiguration.Configuration
 			if (columnAttribute == null)
 				throw new ArgumentNullException("columnAttribute");
 
-			return columnType ?? TryBuildDefaultColumnType();
+			var dbType = GetEffectiveColumnType();
+			if (databaseGeneratedOption == DatabaseGeneratedOption.Identity)
+				dbType += " identity";
+			return dbType;
 		}
 
-		protected virtual string TryBuildDefaultColumnType()
+
+		internal virtual string GetEffectiveColumnType()
 		{
-			if ((property.PropertyType == typeof(bool)) || (property.PropertyType == typeof(bool?)))
+			if (columnType != null)
+				return columnType;
+			if ((Property.PropertyType == typeof(bool)) || (Property.PropertyType == typeof(bool?)))
 				return "bit";
+			if ((Property.PropertyType == typeof(int)) || (Property.PropertyType == typeof(int?)))
+				return "int";
 			return null;
 		}
-
 
 		internal ColumnAttributeByMember GetColumnAttribute()
 		{
@@ -147,7 +156,7 @@ namespace System.Data.Entity.ModelConfiguration.Configuration
 			{
 				Name = columnName,
 				CanBeNull = canBeNull ?? 
-					TypeSystem.IsNullableType(property.PropertyType) || !property.PropertyType.IsValueType,
+					TypeSystem.IsNullableType(Property.PropertyType) || !Property.PropertyType.IsValueType,
 				IsVersion = isConcurrencyToken ?? false
 			};
 			switch (databaseGeneratedOption)
@@ -170,9 +179,19 @@ namespace System.Data.Entity.ModelConfiguration.Configuration
 			columnAttribute.DbType = BuildDbType(columnAttribute);
 			return new ColumnAttributeByMember
 			{
-				Member = property,
+				Member = Property,
 				Attribute = columnAttribute
 			};
+		}
+
+		internal virtual PrimitivePropertyConfiguration Clone(PropertyInfo newProperty)
+		{
+			if (newProperty == null)
+				throw new ArgumentNullException("newProperty");
+
+			var clone = (PrimitivePropertyConfiguration)MemberwiseClone();
+			clone.Property = newProperty;
+			return clone;
 		}
 
 

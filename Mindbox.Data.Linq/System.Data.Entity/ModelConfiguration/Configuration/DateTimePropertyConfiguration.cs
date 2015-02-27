@@ -116,9 +116,9 @@ namespace System.Data.Entity.ModelConfiguration.Configuration
 		}
 
 
-		protected override string TryBuildDefaultColumnType()
+		internal override string GetEffectiveColumnType()
 		{
-			return precision >= 7 ? "datetime2" : "datetime";
+			return base.GetEffectiveColumnType() ?? (precision >= 7 ? "datetime2" : "datetime");
 		}
 	}
 }

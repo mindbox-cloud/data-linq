@@ -45,7 +45,12 @@ namespace Mindbox.Data.Linq.Tests
 		}
 
 
-		[Column(Storage = "id", AutoSync = AutoSync.OnInsert, IsPrimaryKey = true, IsDbGenerated = true)]
+		[Column(
+			Storage = "id", 
+			AutoSync = AutoSync.OnInsert, 
+			IsPrimaryKey = true, 
+			IsDbGenerated = true,
+			DbType = "int identity not null")]
 		public int Id
 		{
 			get
@@ -189,7 +194,7 @@ namespace Mindbox.Data.Linq.Tests
 			}
 		}
 
-		[Column(Storage = "creatorId", CanBeNull = false)]
+		[Column(Storage = "creatorId", CanBeNull = false, DbType = "int not null")]
 		public int CreatorId
 		{
 			get

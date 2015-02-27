@@ -173,11 +173,12 @@ namespace System.Data.Entity.ModelConfiguration.Configuration
 		}
 
 
-		protected override string TryBuildDefaultColumnType()
+		internal override string GetEffectiveColumnType()
 		{
-			return (HasVariableLength ?? true) ?
-				((isUnicode ?? false) ? "nvarchar" : "varchar") :
-				((isUnicode ?? false) ? "nchar" : "char");
+			return base.GetEffectiveColumnType() ?? 
+				((HasVariableLength ?? true) ?
+					((isUnicode ?? false) ? "nvarchar" : "varchar") :
+					((isUnicode ?? false) ? "nchar" : "char"));
 		}
 	}
 }

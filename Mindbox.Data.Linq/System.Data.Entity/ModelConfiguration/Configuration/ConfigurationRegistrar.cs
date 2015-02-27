@@ -1,4 +1,5 @@
 ﻿using System.Collections.Generic;
+using System.Data.Linq.Mapping;
 using System.Linq;
 using System.Reflection;
 using Mindbox.Data.Linq.Mapping;
@@ -12,7 +13,19 @@ namespace System.Data.Entity.ModelConfiguration.Configuration
 	/// </summary>
 	public class ConfigurationRegistrar
 	{
-		private readonly List<IEntityTypeConfiguration> entityTypeConfigurations = new List<IEntityTypeConfiguration>();
+		private readonly DbModelBuilder dbModelBuilder;
+
+		private readonly Dictionary<Type, IEntityTypeConfiguration> entityTypeConfigurationsByEntityType = 
+			new Dictionary<Type, IEntityTypeConfiguration>();
+
+
+		internal ConfigurationRegistrar(DbModelBuilder dbModelBuilder)
+		{
+			if (dbModelBuilder == null)
+				throw new ArgumentNullException("dbModelBuilder");
+
+			this.dbModelBuilder = dbModelBuilder;
+		}
 
 
 		/// <summary>
@@ -48,14 +61,14 @@ namespace System.Data.Entity.ModelConfiguration.Configuration
 			if (entityTypeConfiguration == null)
 				throw new ArgumentNullException("entityTypeConfiguration");
 
-			entityTypeConfigurations.Add(entityTypeConfiguration);
+			entityTypeConfigurationsByEntityType.Add(typeof(TEntityType), entityTypeConfiguration);
 			return this;
 		}
 
 
 		internal IEnumerable<TableAttributeByRootType> GetTableAttributesByRootType()
 		{
-			foreach (var entityTypeConfiguration in entityTypeConfigurations)
+			foreach (var entityTypeConfiguration in entityTypeConfigurationsByEntityType.Values)
 				if (entityTypeConfiguration.TableAttribute != null)
 					yield return new TableAttributeByRootType
 					{
@@ -66,16 +79,32 @@ namespace System.Data.Entity.ModelConfiguration.Configuration
 
 		internal void Validate()
 		{
-			foreach (var entityTypeConfiguration in entityTypeConfigurations)
+			foreach (var entityTypeConfiguration in entityTypeConfigurationsByEntityType.Values)
 				if (entityTypeConfiguration.TableAttribute == null)
 					throw new InvalidOperationException("Table mapping not set for " + entityTypeConfiguration.EntityType + ".");
 		}
 
 		internal IEnumerable<ColumnAttributeByMember> GetColumnAttributesByMember()
 		{
-			foreach (var entityTypeConfiguration in entityTypeConfigurations)
-				foreach (var columnAttributeByMember in entityTypeConfiguration.GetColumnAttributesByMember())
+			foreach (var entityTypeConfiguration in entityTypeConfigurationsByEntityType.Values)
+				foreach (var columnAttributeByMember in entityTypeConfiguration.GetColumnAttributesByMember(dbModelBuilder))
 					yield return columnAttributeByMember;
+		}
+
+		internal PrimitivePropertyConfiguration GetPrimaryKeyPropertyConfigurationByEntityType(Type entityType)
+		{
+			if (entityType == null)
+				throw new ArgumentNullException("entityType");
+
+			return entityTypeConfigurationsByEntityType[entityType].GetPrimaryKeyPropertyConfiguration();
+		}
+
+		internal IEnumerable<AssociationAttributeByMember> GetAssociationAttributesByMember()
+		{
+			foreach (var entityTypeConfiguration in entityTypeConfigurationsByEntityType.Values)
+				foreach (var associationAttributeByMember in 
+						entityTypeConfiguration.GetAssociationAttributesByMember(dbModelBuilder))
+					yield return associationAttributeByMember;
 		}
 	}
 }

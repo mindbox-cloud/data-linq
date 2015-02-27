@@ -1,6 +1,7 @@
 ﻿using System.Collections.Generic;
 using System.Data.Entity.ModelConfiguration;
 using System.Data.Entity.ModelConfiguration.Configuration;
+using System.Data.Linq.Mapping;
 using System.Linq;
 using Mindbox.Data.Linq.Mapping;
 
@@ -11,7 +12,13 @@ namespace System.Data.Entity
 	/// </summary>
 	public class DbModelBuilder
 	{
-		private readonly ConfigurationRegistrar configurations = new ConfigurationRegistrar();
+		private readonly ConfigurationRegistrar configurations;
+
+
+		public DbModelBuilder()
+		{
+			configurations = new ConfigurationRegistrar(this);
+		}
 
 
 		/// <summary>
@@ -106,6 +113,19 @@ namespace System.Data.Entity
 		internal void Validate()
 		{
 			configurations.Validate();
+		}
+
+		internal PrimitivePropertyConfiguration GetPrimaryKeyPropertyConfigurationByEntityType(Type entityType)
+		{
+			if (entityType == null)
+				throw new ArgumentNullException("entityType");
+
+			return configurations.GetPrimaryKeyPropertyConfigurationByEntityType(entityType);
+		}
+
+		internal IEnumerable<AssociationAttributeByMember> GetAssociationAttributesByMember()
+		{
+			return configurations.GetAssociationAttributesByMember();
 		}
 	}
 }

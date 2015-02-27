@@ -3,107 +3,141 @@ using System.Data.Linq.SqlClient;
 
 namespace System.Data.Linq.Mapping
 {
-	internal class AttributedMetaAssociation : MetaAssociationImpl {
-		AttributedMetaDataMember thisMember;
-		MetaDataMember otherMember;
-		ReadOnlyCollection<MetaDataMember> thisKey;
-		ReadOnlyCollection<MetaDataMember> otherKey;
-		MetaType otherType;
-		bool isMany;
-		bool isForeignKey;
-		bool isUnique;
-		bool isNullable = true;
-		bool thisKeyIsPrimaryKey;
-		bool otherKeyIsPrimaryKey;
-		string deleteRule;
-		bool deleteOnNull;
+	internal class AttributedMetaAssociation : MetaAssociationImpl 
+	{
+		private readonly AttributedMetaDataMember thisMember;
+		private readonly MetaDataMember otherMember;
+		private readonly ReadOnlyCollection<MetaDataMember> thisKey;
+		private readonly ReadOnlyCollection<MetaDataMember> otherKey;
+		private readonly MetaType otherType;
+		private readonly bool isMany;
+		private readonly bool isForeignKey;
+		private readonly bool isUnique;
+		private readonly bool isNullable;
+		private readonly bool thisKeyIsPrimaryKey;
+		private readonly bool otherKeyIsPrimaryKey;
+		private readonly string deleteRule;
+		private readonly bool deleteOnNull;
 
-		internal AttributedMetaAssociation(AttributedMetaDataMember member, AssociationAttribute attr) {
-			this.thisMember = member;
 
-			this.isMany = TypeSystem.IsSequenceType(this.thisMember.Type);
-			Type ot = this.isMany ? TypeSystem.GetElementType(this.thisMember.Type) : this.thisMember.Type;
-			this.otherType = this.thisMember.DeclaringType.Model.GetMetaType(ot);
-			this.thisKey = (attr.ThisKey != null) ? MakeKeys(this.thisMember.DeclaringType, attr.ThisKey) : this.thisMember.DeclaringType.IdentityMembers;
-			this.otherKey = (attr.OtherKey != null) ? MakeKeys(otherType, attr.OtherKey) : this.otherType.IdentityMembers;
-			this.thisKeyIsPrimaryKey = AreEqual(this.thisKey, this.thisMember.DeclaringType.IdentityMembers);
-			this.otherKeyIsPrimaryKey = AreEqual(this.otherKey, this.otherType.IdentityMembers);
-			this.isForeignKey = attr.IsForeignKey;
+		internal AttributedMetaAssociation(AttributedMetaDataMember member, AssociationAttribute attr) 
+		{
+			thisMember = member;
 
-			this.isUnique = attr.IsUnique;
-			this.deleteRule = attr.DeleteRule;
-			this.deleteOnNull = attr.DeleteOnNull;
+			isMany = TypeSystem.IsSequenceType(thisMember.Type);
+			var otherEntityType = isMany ? TypeSystem.GetElementType(thisMember.Type) : thisMember.Type;
+			otherType = thisMember.DeclaringType.Model.GetMetaType(otherEntityType);
+			thisKey = attr.ThisKey == null ? 
+				thisMember.DeclaringType.IdentityMembers : 
+				MakeKeys(thisMember.DeclaringType, attr.ThisKey);
+			otherKey = attr.OtherKey == null ? otherType.IdentityMembers : MakeKeys(otherType, attr.OtherKey);
+			thisKeyIsPrimaryKey = AreEqual(thisKey, thisMember.DeclaringType.IdentityMembers);
+			otherKeyIsPrimaryKey = AreEqual(otherKey, otherType.IdentityMembers);
+			isForeignKey = attr.IsForeignKey;
+
+			isUnique = attr.IsUnique;
+			deleteRule = attr.DeleteRule;
+			deleteOnNull = attr.DeleteOnNull;
 
 			// if any key members are not nullable, the association is not nullable
-			foreach (MetaDataMember mm in thisKey) {
-				if (!mm.CanBeNull) {
-					this.isNullable = false;
+			isNullable = true;
+			foreach (var thisKeyMember in thisKey) 
+			{
+				if (!thisKeyMember.CanBeNull) 
+				{
+					isNullable = false;
 					break;
 				}
 			}
 
 			// validate DeleteOnNull specification
-			if (deleteOnNull == true) {
-				if( !(isForeignKey && !isMany && !isNullable) ) {
-					throw Error.InvalidDeleteOnNullSpecification(member);
+			if (deleteOnNull && (!isForeignKey || isMany || isNullable))
+				throw Error.InvalidDeleteOnNullSpecification(member);
+
+			if ((thisKey.Count != otherKey.Count) && (thisKey.Count > 0) && (otherKey.Count > 0))
+				throw Error.MismatchedThisKeyOtherKey(member.Name, member.DeclaringType.Name);
+
+			// determine reverse reference member
+			foreach (var otherTypePersistentMember in otherType.PersistentDataMembers)
+			{
+				var otherTypeMemberAssociationAttribute = ((AttributedMetaModel)thisMember.DeclaringType.Model)
+					.TryGetAssociationAttribute(otherTypePersistentMember.Member);
+				if ((otherTypeMemberAssociationAttribute != null) &&
+					(otherTypePersistentMember != thisMember) && 
+					(otherTypeMemberAssociationAttribute.Name == attr.Name))
+				{
+					otherMember = otherTypePersistentMember;
+					break;
 				}
 			}
 
 			//validate the number of ThisKey columns is the same as the number of OtherKey columns
-			if (this.thisKey.Count != this.otherKey.Count && this.thisKey.Count > 0 && this.otherKey.Count > 0) {
-				throw Error.MismatchedThisKeyOtherKey(member.Name, member.DeclaringType.Name);
-			}
-
-			// determine reverse reference member
-			foreach (MetaDataMember omm in this.otherType.PersistentDataMembers) {
-				AssociationAttribute oattr = (AssociationAttribute)Attribute.GetCustomAttribute(omm.Member, typeof(AssociationAttribute));
-				if (oattr != null) {
-					if (omm != this.thisMember && oattr.Name == attr.Name) {
-						this.otherMember = omm;
-						break;
-					}
-				}
-			}
 		}
 
-		public override MetaType OtherType {
-			get { return this.otherType; }
+
+		public override MetaType OtherType 
+		{
+			get { return otherType; }
 		}
-		public override MetaDataMember ThisMember {
-			get { return this.thisMember; }
+
+		public override MetaDataMember ThisMember 
+		{
+			get { return thisMember; }
 		}
-		public override MetaDataMember OtherMember {
-			get { return this.otherMember; }
+
+		public override MetaDataMember OtherMember 
+		{
+			get { return otherMember; }
 		}
-		public override ReadOnlyCollection<MetaDataMember> ThisKey {
-			get { return this.thisKey; }
+
+		public override ReadOnlyCollection<MetaDataMember> ThisKey 
+		{
+			get { return thisKey; }
 		}
-		public override ReadOnlyCollection<MetaDataMember> OtherKey {
-			get { return this.otherKey; }
+
+		public override ReadOnlyCollection<MetaDataMember> OtherKey 
+		{
+			get { return otherKey; }
 		}
-		public override bool ThisKeyIsPrimaryKey {
-			get { return this.thisKeyIsPrimaryKey; }
+
+		public override bool ThisKeyIsPrimaryKey 
+		{
+			get { return thisKeyIsPrimaryKey; }
 		}
-		public override bool OtherKeyIsPrimaryKey {
-			get { return this.otherKeyIsPrimaryKey; }
+
+		public override bool OtherKeyIsPrimaryKey 
+		{
+			get { return otherKeyIsPrimaryKey; }
 		}
-		public override bool IsMany {
-			get { return this.isMany; }
+
+		public override bool IsMany 
+		{
+			get { return isMany; }
 		}
-		public override bool IsForeignKey {
-			get { return this.isForeignKey; }
+
+		public override bool IsForeignKey 
+		{
+			get { return isForeignKey; }
 		}
-		public override bool IsUnique {
-			get { return this.isUnique; }
+
+		public override bool IsUnique 
+		{
+			get { return isUnique; }
 		}
-		public override bool IsNullable {
-			get { return this.isNullable; }
+
+		public override bool IsNullable 
+		{
+			get { return isNullable; }
 		}
-		public override string DeleteRule {
-			get { return this.deleteRule; }
+
+		public override string DeleteRule 
+		{
+			get { return deleteRule; }
 		}
-		public override bool DeleteOnNull {
-			get { return this.deleteOnNull; }
+
+		public override bool DeleteOnNull 
+		{
+			get { return deleteOnNull; }
 		}
 	}
 }

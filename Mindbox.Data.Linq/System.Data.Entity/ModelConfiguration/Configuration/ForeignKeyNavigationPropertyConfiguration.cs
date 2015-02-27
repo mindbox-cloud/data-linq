@@ -1,10 +1,26 @@
-﻿namespace System.Data.Entity.ModelConfiguration.Configuration
+﻿using System.Data.Linq.Mapping;
+using System.Reflection;
+using Mindbox.Data.Linq.Mapping;
+
+namespace System.Data.Entity.ModelConfiguration.Configuration
 {
 	/// <summary>
 	/// Configures a relationship that can only support foreign key properties that are not exposed in the object model.
 	/// </summary>
 	public class ForeignKeyNavigationPropertyConfiguration : CascadableNavigationPropertyConfiguration
 	{
+		internal ForeignKeyNavigationPropertyConfiguration(PropertyInfo associationProperty)
+		{
+			if (associationProperty == null)
+				throw new ArgumentNullException("associationProperty");
+
+			AssociationProperty = associationProperty;
+		}
+
+
+		protected PropertyInfo AssociationProperty { get; private set; }
+
+
 		/// <summary>
 		/// Configures the relationship to use foreign key property(s) that are not exposed in the object model.
 		/// The column(s) and table can be customized by specifying a configuration action.
@@ -21,6 +37,23 @@
 				throw new ArgumentNullException("configurationAction");
 
 			throw new NotImplementedException();
+		}
+
+
+		internal virtual ColumnAttributeByMember TryGetColumnAttribute(DbModelBuilder dbModelBuilder)
+		{
+			if (dbModelBuilder == null)
+				throw new ArgumentNullException("dbModelBuilder");
+
+			return null;
+		}
+
+		internal virtual AssociationAttributeByMember GetAssociationAttribute(DbModelBuilder dbModelBuilder)
+		{
+			if (dbModelBuilder == null)
+				throw new ArgumentNullException("dbModelBuilder");
+
+			return null;
 		}
 	}
 }

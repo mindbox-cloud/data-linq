@@ -1,8 +1,10 @@
 ﻿using System.Collections.Generic;
-using System.ComponentModel;
-using System.Diagnostics.CodeAnalysis;
+using System.Data.Linq.Mapping;
 using System.Linq;
 using System.Linq.Expressions;
+using System.Reflection;
+using Mindbox.Data.Linq.Mapping;
+using Mindbox.Data.Linq.Mapping.Entity;
 
 namespace System.Data.Entity.ModelConfiguration.Configuration
 {
@@ -11,10 +13,24 @@ namespace System.Data.Entity.ModelConfiguration.Configuration
 	/// </summary>
 	/// <typeparam name="TEntityType"> The entity type that the relationship originates from. </typeparam>
 	/// <typeparam name="TTargetEntityType"> The entity type that the relationship targets. </typeparam>
-	public class RequiredNavigationPropertyConfiguration<TEntityType, TTargetEntityType>
+	public class RequiredNavigationPropertyConfiguration<TEntityType, TTargetEntityType> :
+		IRequiredNavigationPropertyConfiguration
 		where TEntityType : class
 		where TTargetEntityType : class
 	{
+		private ForeignKeyNavigationPropertyConfiguration foreignKeyConfiguration;
+		private readonly PropertyInfo associationProperty;
+
+
+		internal RequiredNavigationPropertyConfiguration(PropertyInfo associationProperty)
+		{
+			if (associationProperty == null)
+				throw new ArgumentNullException("associationProperty");
+
+			this.associationProperty = associationProperty;
+		}
+
+
 		/// <summary>
 		/// Configures the relationship to be required:many with a navigation property on the other side of the relationship.
 		/// </summary>
@@ -35,7 +51,11 @@ namespace System.Data.Entity.ModelConfiguration.Configuration
 		/// <returns> A configuration object that can be used to further configure the relationship. </returns>
 		public DependentNavigationPropertyConfiguration<TEntityType> WithMany()
 		{
-			throw new NotImplementedException();
+			if (foreignKeyConfiguration == null)
+				foreignKeyConfiguration = new DependentNavigationPropertyConfiguration<TEntityType>(
+					associationProperty,
+					isRequired: true);
+			return (DependentNavigationPropertyConfiguration<TEntityType>)foreignKeyConfiguration;
 		}
 
 		/// <summary>
@@ -113,6 +133,29 @@ namespace System.Data.Entity.ModelConfiguration.Configuration
 		public ForeignKeyNavigationPropertyConfiguration WithRequiredPrincipal()
 		{
 			throw new NotImplementedException();
+		}
+
+		ColumnAttributeByMember IRequiredNavigationPropertyConfiguration.TryGetColumnAttribute(DbModelBuilder dbModelBuilder)
+		{
+			if (dbModelBuilder == null)
+				throw new ArgumentNullException("dbModelBuilder");
+
+			if (foreignKeyConfiguration == null)
+				throw new InvalidOperationException("foreignKeyConfiguration == null");
+
+			return foreignKeyConfiguration.TryGetColumnAttribute(dbModelBuilder);
+		}
+
+		AssociationAttributeByMember IRequiredNavigationPropertyConfiguration.GetAssociationAttribute(
+			DbModelBuilder dbModelBuilder)
+		{
+			if (dbModelBuilder == null)
+				throw new ArgumentNullException("dbModelBuilder");
+
+			if (foreignKeyConfiguration == null)
+				throw new InvalidOperationException("foreignKeyConfiguration == null");
+
+			return foreignKeyConfiguration.GetAssociationAttribute(dbModelBuilder);
 		}
 	}
 }

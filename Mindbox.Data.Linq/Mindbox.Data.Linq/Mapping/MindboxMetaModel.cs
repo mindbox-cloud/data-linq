@@ -59,5 +59,20 @@ namespace Mindbox.Data.Linq.Mapping
 
 			return baseAttribute ?? additionalAttribute;
 		}
+
+		internal override AssociationAttribute TryGetAssociationAttribute(MemberInfo member)
+		{
+			if (member == null)
+				throw new ArgumentNullException("member");
+
+			var baseAttribute = base.TryGetAssociationAttribute(member);
+
+			var configuration = ((MindboxMappingSource)MappingSource).Configuration;
+			var additionalAttribute = configuration.TryGetAssociationAttribute(member);
+			if ((baseAttribute != null) && (additionalAttribute != null))
+				throw new InvalidOperationException("(baseAttribute != null) && (additionalAttribute != null)");
+
+			return baseAttribute ?? additionalAttribute;
+		}
 	}
 }

@@ -1,5 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Data.Entity;
+using System.Data.Entity.ModelConfiguration.Configuration;
 using System.Data.Linq.Mapping;
 using System.Linq;
 using System.Text;
@@ -13,6 +15,10 @@ namespace Mindbox.Data.Linq.Mapping.Entity
 		TableAttribute TableAttribute { get; }
 
 
-		IEnumerable<ColumnAttributeByMember> GetColumnAttributesByMember();
+		IEnumerable<ColumnAttributeByMember> GetColumnAttributesByMember(DbModelBuilder dbModelBuilder);
+
+		PrimitivePropertyConfiguration GetPrimaryKeyPropertyConfiguration();
+
+		IEnumerable<AssociationAttributeByMember> GetAssociationAttributesByMember(DbModelBuilder dbModelBuilder);
 	}
 }
