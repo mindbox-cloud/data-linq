@@ -22,6 +22,8 @@ namespace System.Data.Linq.SqlClient
 {
     internal class ObjectReaderCompiler : IObjectReaderCompiler 
 	{
+		private static readonly LocalDataStoreSlot cacheSlot = Thread.AllocateDataSlot();
+		private static int maxReaderCacheSize = 10;
 
 #if DEBUG
 
@@ -29,8 +31,6 @@ namespace System.Data.Linq.SqlClient
 		private static ModuleBuilder captureModule;
 		private static string captureAssemblyFilename;
 		private static int iCaptureId;
-		private static readonly LocalDataStoreSlot cacheSlot = Thread.AllocateDataSlot();
-		private static int maxReaderCacheSize = 10;
 
 
 		internal static ModuleBuilder CaptureModule
