@@ -97,8 +97,8 @@ namespace Mindbox.Data.Linq.Mapping
 			if (entityType == null)
 				throw new ArgumentNullException("entityType");
 
-			var entityMetaType = (AttributedMetaType)GetMetaType(entityType);
-			return entityMetaType.DoesRequireProxy;
+			var entityMetaType = GetMetaType(entityType) as AttributedMetaType;
+			return (entityMetaType != null) && entityMetaType.DoesRequireProxy;
 		}
 
 		internal override bool DoesMemberRequireProxy(

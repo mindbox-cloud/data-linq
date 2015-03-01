@@ -1019,6 +1019,50 @@ namespace Mindbox.Data.Linq.Tests
 			Assert.IsFalse(member.DoesRequireProxy);
 		}
 
+		[TestMethod]
+		public void UnmappedTypeSelectionRealDatabase()
+		{
+			var configuration = new MindboxMappingConfiguration();
+			configuration.ModelBuilder.Configurations.Add(new TestEntity10.TestEntity10Configuration());
+
+			RunRealDatabaseTest(
+				configuration,
+				connection =>
+				{
+					var createTable10Command = new SqlCommand(
+						"create table Test10 (Id int identity(1,1) not null primary key, Value binary(5) not null)",
+						connection);
+					createTable10Command.ExecuteNonQuery();
+
+					var insert10Command = new SqlCommand(
+						"insert into Test10 (Value) values (0x1122334455)",
+						connection);
+					insert10Command.ExecuteNonQuery();
+				},
+				dataContextFactory =>
+				{
+					using (var context = dataContextFactory())
+					{
+						var item10 = context
+							.GetTable<TestEntity10>()
+							.Select(entity => new
+							{
+								entity.Id,
+								entity.Value
+							})
+							.Single();
+
+						Assert.AreEqual(5, item10.Value.Length);
+						Assert.AreEqual(0x11, item10.Value[0]);
+						Assert.AreEqual(0x22, item10.Value[1]);
+						Assert.AreEqual(0x33, item10.Value[2]);
+						Assert.AreEqual(0x44, item10.Value[3]);
+						Assert.AreEqual(0x55, item10.Value[4]);
+					}
+				});
+		}
+
+
 
 		private void RunRealDatabaseTest(
 			MindboxMappingConfiguration configuration, 
