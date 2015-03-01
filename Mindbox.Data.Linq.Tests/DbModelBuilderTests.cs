@@ -824,6 +824,116 @@ namespace Mindbox.Data.Linq.Tests
 				});
 		}
 
+		[TestMethod]
+		public void ProxyInEntityRefDeferredLoadingRealDatabase()
+		{
+			var configuration = new MindboxMappingConfiguration();
+			configuration.ModelBuilder.Configurations.Add(new TestEntity9.TestEntity9Configuration());
+			configuration.ModelBuilder.Configurations.Add(new TestEntity10.TestEntity10Configuration());
+			configuration.ModelBuilder.Configurations.Add(new TestEntity11.TestEntity11Configuration());
+
+			RunRealDatabaseTest(
+				configuration,
+				connection =>
+				{
+					var createTable10Command = new SqlCommand(
+						"create table Test10 (Id int identity(1,1) not null primary key, Value binary(5) not null)",
+						connection);
+					createTable10Command.ExecuteNonQuery();
+
+					var createTable9Command = new SqlCommand(
+						"create table Test9 " +
+							"(Id int identity(1,1) not null primary key, " +
+							"OtherId int not null foreign key references Test10 (Id))",
+						connection);
+					createTable9Command.ExecuteNonQuery();
+
+					var createTable11Command = new SqlCommand(
+						"create table Test11 " +
+							"(Id int identity(1,1) not null primary key, " +
+							"OtherId int not null foreign key references Test9 (Id))",
+						connection);
+					createTable11Command.ExecuteNonQuery();
+
+					var insert10ACommand = new SqlCommand(
+						"insert into Test10 (Value) values (0x1122334455); select scope_identity()",
+						connection);
+					var id10A = Convert.ToInt32(insert10ACommand.ExecuteScalar());
+
+					var insert10BCommand = new SqlCommand(
+						"insert into Test10 (Value) values (0x6655443322); select scope_identity()",
+						connection);
+					var id10B = Convert.ToInt32(insert10BCommand.ExecuteScalar());
+
+					var insert9ACommand = new SqlCommand(
+						"insert into Test9 (OtherId) values (@OtherId); select scope_identity()", 
+						connection);
+					insert9ACommand.Parameters.AddWithValue("OtherId", id10A);
+					var id9A = Convert.ToInt32(insert9ACommand.ExecuteScalar());
+
+					var insert9BCommand = new SqlCommand("insert into Test9 (OtherId) values (@OtherId)", connection);
+					insert9BCommand.Parameters.AddWithValue("OtherId", id10B);
+					insert9BCommand.ExecuteNonQuery();
+
+					var insert11Command = new SqlCommand("insert into Test11 (OtherId) values (@OtherId)", connection);
+					insert11Command.Parameters.AddWithValue("OtherId", id9A);
+					insert11Command.ExecuteNonQuery();
+				},
+				dataContextFactory =>
+				{
+					using (var context = dataContextFactory())
+					{
+						var item11 = context.GetTable<TestEntity11>().Single();
+						var item9 = item11.Other;
+						Assert.IsNotNull(item9);
+						var proxyType = item9.GetType();
+						Assert.AreNotEqual(typeof(TestEntity9), proxyType);
+
+						var item10 = item9.Other;
+						Assert.IsNotNull(item10);
+
+						Assert.AreEqual(5, item10.Value.Length);
+						Assert.AreEqual(0x11, item10.Value[0]);
+						Assert.AreEqual(0x22, item10.Value[1]);
+						Assert.AreEqual(0x33, item10.Value[2]);
+						Assert.AreEqual(0x44, item10.Value[3]);
+						Assert.AreEqual(0x55, item10.Value[4]);
+
+						var newItem9 = context.GetTable<TestEntity9>().OrderByDescending(x => x.Id).First();
+
+						var newItem10 = newItem9.Other;
+						Assert.IsNotNull(newItem10);
+
+						Assert.AreEqual(5, newItem10.Value.Length);
+						Assert.AreEqual(0x66, newItem10.Value[0]);
+						Assert.AreEqual(0x55, newItem10.Value[1]);
+						Assert.AreEqual(0x44, newItem10.Value[2]);
+						Assert.AreEqual(0x33, newItem10.Value[3]);
+						Assert.AreEqual(0x22, newItem10.Value[4]);
+
+						item11.Other = newItem9;
+
+						context.SubmitChanges();
+					}
+
+					using (var context = dataContextFactory())
+					{
+						var item11 = context.GetTable<TestEntity11>().Single();
+						var item9 = item11.Other;
+						Assert.IsNotNull(item9);
+						var item10 = item9.Other;
+						Assert.IsNotNull(item10);
+
+						Assert.AreEqual(5, item10.Value.Length);
+						Assert.AreEqual(0x66, item10.Value[0]);
+						Assert.AreEqual(0x55, item10.Value[1]);
+						Assert.AreEqual(0x44, item10.Value[2]);
+						Assert.AreEqual(0x33, item10.Value[3]);
+						Assert.AreEqual(0x22, item10.Value[4]);
+					}
+				});
+		}
+
 
 		private void RunRealDatabaseTest(
 			MindboxMappingConfiguration configuration, 
