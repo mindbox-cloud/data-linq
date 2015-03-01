@@ -30,7 +30,10 @@ namespace Mindbox.Data.Linq.Proxy
 			if (instance == null)
 				throw new ArgumentNullException("instance");
 
-			return ((IEntityProxy)instance).GetEntityRef<TMember>(property.GetGetMethod());
+			var proxy = instance as IEntityProxy;
+			return proxy == null ? 
+				new EntityRef<TMember>((TMember)property.GetValue(instance)) : 
+				((IEntityProxy)instance).GetEntityRef<TMember>(property.GetGetMethod());
 		}
 
 		public override void SetValue(ref TEntity instance, EntityRef<TMember> value)

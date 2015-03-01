@@ -934,6 +934,67 @@ namespace Mindbox.Data.Linq.Tests
 				});
 		}
 
+		[TestMethod]
+		public void NewEntityInsteadOfProxyRealDatabase()
+		{
+			var configuration = new MindboxMappingConfiguration();
+			configuration.ModelBuilder.Configurations.Add(new TestEntity9.TestEntity9Configuration());
+			configuration.ModelBuilder.Configurations.Add(new TestEntity10.TestEntity10Configuration());
+
+			RunRealDatabaseTest(
+				configuration,
+				connection =>
+				{
+					var createTable10Command = new SqlCommand(
+						"create table Test10 (Id int identity(1,1) not null primary key, Value binary(5) not null)",
+						connection);
+					createTable10Command.ExecuteNonQuery();
+
+					var createTable9Command = new SqlCommand(
+						"create table Test9 " +
+							"(Id int identity(1,1) not null primary key, " +
+							"OtherId int not null foreign key references Test10 (Id))",
+						connection);
+					createTable9Command.ExecuteNonQuery();
+				},
+				dataContextFactory =>
+				{
+					using (var context = dataContextFactory())
+					{
+						var item9 = new TestEntity9
+						{
+							Other = new TestEntity10
+							{
+								Value = new byte[]
+								{
+									0x11,
+									0x22,
+									0x33,
+									0x44,
+									0x55
+								}
+							}
+						};
+						context.GetTable<TestEntity9>().InsertOnSubmit(item9);
+
+						context.SubmitChanges();
+					}
+
+					using (var context = dataContextFactory())
+					{
+						var item9 = context.GetTable<TestEntity9>().Single();
+						Assert.IsNotNull(item9.Other);
+
+						Assert.AreEqual(5, item9.Other.Value.Length);
+						Assert.AreEqual(0x11, item9.Other.Value[0]);
+						Assert.AreEqual(0x22, item9.Other.Value[1]);
+						Assert.AreEqual(0x33, item9.Other.Value[2]);
+						Assert.AreEqual(0x44, item9.Other.Value[3]);
+						Assert.AreEqual(0x55, item9.Other.Value[4]);
+					}
+				});
+		}
+
 
 		private void RunRealDatabaseTest(
 			MindboxMappingConfiguration configuration, 
