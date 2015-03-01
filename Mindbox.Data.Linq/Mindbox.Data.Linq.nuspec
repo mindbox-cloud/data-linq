@@ -10,7 +10,7 @@
     <requireLicenseAcceptance>false</requireLicenseAcceptance>
     <description>$description$</description>
     <projectUrl>https://github.com/mindbox-moscow/data-linq</projectUrl>
-    <releaseNotes>InheritanceMappingAttribute extensibility support added.</releaseNotes>
+    <releaseNotes>First part of EF Code First API added.</releaseNotes>
     <copyright>Copyright 2015 Mindbox; Copyright ...-2014 Microsoft</copyright>
     <tags>linq iqueryable</tags>
   </metadata>
