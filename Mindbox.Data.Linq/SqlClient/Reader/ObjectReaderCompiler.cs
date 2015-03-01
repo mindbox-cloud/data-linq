@@ -1477,46 +1477,20 @@ namespace System.Data.Linq.SqlClient
                     memberType.IsGenericType &&
                     (memberType.GetGenericTypeDefinition() == typeof(EntityRef<>) ||
 						memberType.GetGenericTypeDefinition() == typeof(Link<>)));
+				
                 var labExit = gen.DefineLabel();
-                var argType = typeof(IEnumerable<>).MakeGenericType(memberType.GetGenericArguments());
 
-                var hasSideEffect = HasSideEffect(expr);
-
-                if (locStoreInMember != null && !hasSideEffect) 
-				{
-                    gen.Emit(OpCodes.Ldloc, locStoreInMember);
-                    GenerateConstInt(0);
-                    gen.Emit(OpCodes.Ceq);
-                    gen.Emit(OpCodes.Brtrue, labExit);
-                }
-
-                var eType = GenerateDeferredSource(expr, locInstance);
-	            if (!argType.IsAssignableFrom(eType))
-		            throw Error.CouldNotConvert(argType, eType);
-
-	            var locSource = gen.DeclareLocal(eType);
-                gen.Emit(OpCodes.Stloc, locSource);
-
-                if (locStoreInMember != null && hasSideEffect) 
-				{
-                    gen.Emit(OpCodes.Ldloc, locStoreInMember);
-                    GenerateConstInt(0);
-                    gen.Emit(OpCodes.Ceq);
-                    gen.Emit(OpCodes.Brtrue, labExit);
-                }
+				Action entityRefConstruction;
+				GeneratePrepareToAssignDeferredReference(
+					memberType,
+					locInstance,
+					expr,
+					locStoreInMember,
+					labExit,
+					out entityRefConstruction);
 
                 GenerateLoadForMemberAccess(locInstance);
-                gen.Emit(OpCodes.Ldloc, locSource);
-                var ci = memberType.GetConstructor(
-					BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic, 
-					null, 
-					new[]
-					{
-						argType
-					}, 
-					null);
-                Debug.Assert(ci != null);
-                gen.Emit(OpCodes.Newobj, ci);
+	            entityRefConstruction();
                 GenerateStoreMember(m);
 
                 gen.MarkLabel(labExit);
@@ -1533,11 +1507,53 @@ namespace System.Data.Linq.SqlClient
 					throw new InvalidOperationException("!attributedMetaDataMember.DoesRequireProxy");
 
 				var memberType = typeof(EntityRef<>).MakeGenericType(mm.Type);
-
 				var labExit = gen.DefineLabel();
-				var argType = typeof(IEnumerable<>).MakeGenericType(memberType.GetGenericArguments());
 
-				var hasSideEffect = HasSideEffect(expr);
+				Action entityRefConstruction;
+				GeneratePrepareToAssignDeferredReference(
+					memberType, 
+					locInstance, 
+					expr, 
+					locStoreInMember, 
+					labExit, 
+					out entityRefConstruction);
+
+				GenerateLoadForMemberAccess(locInstance);
+
+				gen.Emit(OpCodes.Castclass, typeof(IEntityProxy));
+
+				gen.Emit(OpCodes.Ldtoken, ((PropertyInfo)mm.Member).GetGetMethod(nonPublic: true));
+				var handleConvertionMethod = ReflectionExpressions.GetMethodInfo(() =>
+					MethodBase.GetMethodFromHandle(default(RuntimeMethodHandle)));
+				gen.Emit(GetMethodCallOpCode(handleConvertionMethod), handleConvertionMethod);
+
+				entityRefConstruction();
+
+				var meth = ReflectionExpressions
+					.GetMethodInfo<IEntityProxy>(proxy => proxy.SetEntityRef(default(MemberInfo), default(EntityRef<object>)))
+					.GetGenericMethodDefinition()
+					.MakeGenericMethod(mm.Type);
+				gen.Emit(GetMethodCallOpCode(meth), meth);
+
+				gen.MarkLabel(labExit);
+			}
+
+	        private void GeneratePrepareToAssignDeferredReference(
+				Type memberType,
+				LocalBuilder locInstance,
+				SqlExpression expr,
+				LocalBuilder locStoreInMember,
+				Label labExit,
+				out Action entityRefConstruction)
+	        {
+		        if (memberType == null)
+			        throw new ArgumentNullException("memberType");
+		        if (locInstance == null)
+			        throw new ArgumentNullException("locInstance");
+		        if (expr == null)
+			        throw new ArgumentNullException("expr");
+
+		        var hasSideEffect = HasSideEffect(expr);
 
 				if (locStoreInMember != null && !hasSideEffect)
 				{
@@ -1547,6 +1563,7 @@ namespace System.Data.Linq.SqlClient
 					gen.Emit(OpCodes.Brtrue, labExit);
 				}
 
+				var argType = typeof(IEnumerable<>).MakeGenericType(memberType.GetGenericArguments());
 				var eType = GenerateDeferredSource(expr, locInstance);
 				if (!argType.IsAssignableFrom(eType))
 					throw Error.CouldNotConvert(argType, eType);
@@ -1562,35 +1579,21 @@ namespace System.Data.Linq.SqlClient
 					gen.Emit(OpCodes.Brtrue, labExit);
 				}
 
-				GenerateLoadForMemberAccess(locInstance);
-
-				gen.Emit(OpCodes.Castclass, typeof(IEntityProxy));
-
-				gen.Emit(OpCodes.Ldtoken, ((PropertyInfo)mm.Member).GetGetMethod(nonPublic: true));
-				var handleConvertionMethod = ReflectionExpressions.GetMethodInfo(() =>
-					MethodBase.GetMethodFromHandle(default(RuntimeMethodHandle)));
-				gen.Emit(GetMethodCallOpCode(handleConvertionMethod), handleConvertionMethod);
-
-				gen.Emit(OpCodes.Ldloc, locSource);
-				var ci = memberType.GetConstructor(
-					BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic,
-					null,
-					new[]
-					{
-						argType
-					},
-					null);
-				Debug.Assert(ci != null);
-				gen.Emit(OpCodes.Newobj, ci);
-
-				var meth = ReflectionExpressions
-					.GetMethodInfo<IEntityProxy>(proxy => proxy.SetEntityRef(default(MemberInfo), default(EntityRef<object>)))
-					.GetGenericMethodDefinition()
-					.MakeGenericMethod(mm.Type);
-				gen.Emit(GetMethodCallOpCode(meth), meth);
-
-				gen.MarkLabel(labExit);
-			}
+		        entityRefConstruction = () =>
+		        {
+					gen.Emit(OpCodes.Ldloc, locSource);
+					var ci = memberType.GetConstructor(
+						BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic,
+						null,
+						new[]
+						{
+							argType
+						},
+						null);
+					Debug.Assert(ci != null);
+					gen.Emit(OpCodes.Newobj, ci);
+				};
+	        }
 
 			private void GenerateLoadForMemberAccess(LocalBuilder loc) 
 			{
