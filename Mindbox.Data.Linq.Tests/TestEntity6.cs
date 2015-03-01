@@ -12,30 +12,9 @@ using System.Threading.Tasks;
 
 namespace Mindbox.Data.Linq.Tests
 {
-	public class TestEntity6 : INotifyPropertyChanging, INotifyPropertyChanged
+	public class TestEntity6
 	{
-		private static readonly PropertyChangingEventArgs EmptyChangingEventArgs =
-			new PropertyChangingEventArgs(string.Empty);
-
-	
-		private int id;
-		private string userName;
-		private string passwordHash;
-		private string email;
-		private string staffTypeSystemName;
-		private bool isBlocked;
-
-		private int creatorId;
-		private DateTime creationDateTimeUtc;
-		private string firstName;
-		private string lastName;
-		private string comment;
-
-		private byte[] rowVersion;
-		private DateTime? accountExpirationDateTimeUtc;
-
 		private readonly EntitySet<TestEntity7> personalPermissions;
-
 		private TestEntity6 creator;
 
 
@@ -45,220 +24,19 @@ namespace Mindbox.Data.Linq.Tests
 		}
 
 
-		public int Id
-		{
-			get
-			{
-				return id;
-			}
-			set
-			{
-				if (id != value)
-				{
-					SendPropertyChanging();
-					id = value;
-					SendPropertyChanged();
-				}
-			}
-		}
-
-		public string UserName
-		{
-			get
-			{
-				return userName;
-			}
-			set
-			{
-				if (userName != value)
-				{
-					SendPropertyChanging();
-					userName = value;
-					SendPropertyChanged();
-				}
-			}
-		}
-
-		public string PasswordHash
-		{
-			get
-			{
-				return passwordHash;
-			}
-			set
-			{
-				if (passwordHash != value)
-				{
-					SendPropertyChanging();
-					passwordHash = value;
-					SendPropertyChanged();
-				}
-			}
-		}
-
-		public string Email
-		{
-			get
-			{
-				return email;
-			}
-			set
-			{
-				if (email != value)
-				{
-					SendPropertyChanging();
-					email = value;
-					SendPropertyChanged();
-				}
-			}
-		}
-
-		public string StaffTypeSystemName
-		{
-			get
-			{
-				return staffTypeSystemName;
-			}
-			private set
-			{
-				if (staffTypeSystemName != value)
-				{
-					SendPropertyChanging();
-					staffTypeSystemName = value;
-					SendPropertyChanged();
-				}
-			}
-		}
-
-		public byte[] RowVersion
-		{
-			get
-			{
-				return rowVersion;
-			}
-			set
-			{
-				if (rowVersion != value)
-				{
-					SendPropertyChanging();
-					rowVersion = value;
-					SendPropertyChanged();
-				}
-			}
-		}
-
-		public DateTime? AccountExpirationDateTimeUtc
-		{
-			get { return accountExpirationDateTimeUtc; }
-			set
-			{
-				if (accountExpirationDateTimeUtc != value)
-				{
-					SendPropertyChanging();
-					accountExpirationDateTimeUtc = value;
-					SendPropertyChanged();
-				}
-			}
-		}
-
-		public bool IsBlocked
-		{
-			get { return isBlocked; }
-			set
-			{
-				if (isBlocked != value)
-				{
-					SendPropertyChanging();
-					isBlocked = value;
-					SendPropertyChanged();
-				}
-			}
-		}
-
-		public int CreatorId
-		{
-			get
-			{
-				return creatorId;
-			}
-			set
-			{
-				if (creatorId != value)
-				{
-					SendPropertyChanging();
-					creatorId = value;
-					SendPropertyChanged();
-				}
-			}
-		}
-
-		public DateTime CreationDateTimeUtc
-		{
-			get
-			{
-				return creationDateTimeUtc;
-			}
-			set
-			{
-				if (creationDateTimeUtc != value)
-				{
-					SendPropertyChanging();
-					creationDateTimeUtc = value;
-					SendPropertyChanged();
-				}
-			}
-		}
-
-		public string FirstName
-		{
-			get
-			{
-				return firstName;
-			}
-			set
-			{
-				if (firstName != value)
-				{
-					SendPropertyChanging();
-					firstName = value;
-					SendPropertyChanged();
-				}
-			}
-		}
-
-		public string LastName
-		{
-			get
-			{
-				return lastName;
-			}
-			set
-			{
-				if (lastName != value)
-				{
-					SendPropertyChanging();
-					lastName = value;
-					SendPropertyChanged();
-				}
-			}
-		}
-
-		public string Comment
-		{
-			get
-			{
-				return comment;
-			}
-			set
-			{
-				if (comment != value)
-				{
-					SendPropertyChanging();
-					comment = value;
-					SendPropertyChanged();
-				}
-			}
-		}
+		public int Id { get; set; }
+		public string UserName { get; set; }
+		public string PasswordHash { get; set; }
+		public string Email { get; set; }
+		public string StaffTypeSystemName { get; set; }
+		public byte[] RowVersion { get; set; }
+		public DateTime? AccountExpirationDateTimeUtc { get; set; }
+		public bool IsBlocked { get; set; }
+		public int CreatorId { get; set; }
+		public DateTime CreationDateTimeUtc { get; set; }
+		public string FirstName { get; set; }
+		public string LastName { get; set; }
+		public string Comment { get; set; }
 
 		[Association(
 			Name = "UserPermission_Staff",
@@ -276,41 +54,19 @@ namespace Mindbox.Data.Linq.Tests
 			get { return creator; }
 			set
 			{
-				if (creator != value)
-				{
-					SendPropertyChanging();
-					creator = value;
-					creatorId = value == null ? default(int) : value.Id;
-					SendPropertyChanged();
-				}
+				creator = value;
+				CreatorId = value == null ? default(int) : value.Id;
 			}
 		}
 
-		public event PropertyChangingEventHandler PropertyChanging;
-		public event PropertyChangedEventHandler PropertyChanged;
-
-
-		private void SendPropertyChanging()
-		{
-			if (PropertyChanging != null)
-				PropertyChanging(this, EmptyChangingEventArgs);
-		}
-
-		private void SendPropertyChanged([CallerMemberName] string propertyName = "")
-		{
-			if (PropertyChanged != null)
-				PropertyChanged(this, new PropertyChangedEventArgs(propertyName));
-		}
 
 		private void AttachPersonalPermission(TestEntity7 permission)
 		{
-			SendPropertyChanging();
 			permission.Staff = this;
 		}
 
 		private void DetachPersonalPermission(TestEntity7 permission)
 		{
-			SendPropertyChanging();
 			permission.Staff = null;
 		}
 
