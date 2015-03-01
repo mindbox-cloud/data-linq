@@ -133,8 +133,9 @@ namespace System.Data.Linq.Mapping
 				storageMember = mis[0];
 			}
 			var storageType = storageMember == null ? type : TypeSystem.GetMemberType(storageMember);
-			isDeferred = ((AttributedMetaModel)metaType.Model).IsDeferredMember(member, storageType);
-			DoesRequireProxy = ((AttributedMetaModel)metaType.Model).DoesMemberRequireProxy(member, storageType);
+			isDeferred = ((AttributedMetaModel)metaType.Model).IsDeferredMember(member, storageType, associationAttribute);
+			DoesRequireProxy = ((AttributedMetaModel)metaType.Model)
+				.DoesMemberRequireProxy(member, storageType, associationAttribute);
 
 			// auto-gen identities must be synced on insert
 			if ((columnAttribute != null) && 

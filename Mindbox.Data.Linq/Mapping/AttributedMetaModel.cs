@@ -250,7 +250,7 @@ namespace System.Data.Linq.Mapping
 			return (AssociationAttribute)Attribute.GetCustomAttribute(member, typeof(AssociationAttribute));
 		}
 
-		internal virtual bool IsDeferredMember(MemberInfo member, Type storageType)
+		internal virtual bool IsDeferredMember(MemberInfo member, Type storageType, AssociationAttribute associationAttribute)
 		{
 			if (member == null)
 				throw new ArgumentNullException("member");
@@ -260,7 +260,10 @@ namespace System.Data.Linq.Mapping
 			return IsDeferredType(storageType);
 		}
 
-		internal virtual bool DoesMemberRequireProxy(MemberInfo member, Type storageType)
+		internal virtual bool DoesMemberRequireProxy(
+			MemberInfo member, 
+			Type storageType, 
+			AssociationAttribute associationAttribute)
 		{
 			if (member == null)
 				throw new ArgumentNullException("member");

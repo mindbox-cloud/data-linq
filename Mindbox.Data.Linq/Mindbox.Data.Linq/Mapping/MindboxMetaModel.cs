@@ -86,9 +86,10 @@ namespace Mindbox.Data.Linq.Mapping
 			return baseAttribute ?? additionalAttribute;
 		}
 
-		internal override bool IsDeferredMember(MemberInfo member, Type storageType)
+		internal override bool IsDeferredMember(MemberInfo member, Type storageType, AssociationAttribute associationAttribute)
 		{
-			return base.IsDeferredMember(member, storageType) || IsProxyDeferredMember(member);
+			return base.IsDeferredMember(member, storageType, associationAttribute) || 
+				IsProxyDeferredMember(member, associationAttribute);
 		}
 
 		internal override bool ShouldEntityProxyBeCreated(Type entityType)
@@ -100,14 +101,18 @@ namespace Mindbox.Data.Linq.Mapping
 			return entityMetaType.DoesRequireProxy;
 		}
 
-		internal override bool DoesMemberRequireProxy(MemberInfo member, Type storageType)
+		internal override bool DoesMemberRequireProxy(
+			MemberInfo member, 
+			Type storageType, 
+			AssociationAttribute associationAttribute)
 		{
 			if (member == null)
 				throw new ArgumentNullException("member");
 			if (storageType == null)
 				throw new ArgumentNullException("storageType");
 
-			return !base.IsDeferredMember(member, storageType) && IsProxyDeferredMember(member);
+			return !base.IsDeferredMember(member, storageType, associationAttribute) && 
+				IsProxyDeferredMember(member, associationAttribute);
 		}
 
 		internal override object CreateEntityProxy(Type entityType)
@@ -136,13 +141,16 @@ namespace Mindbox.Data.Linq.Mapping
 		}
 
 
-		private bool IsProxyDeferredMember(MemberInfo member)
+		private bool IsProxyDeferredMember(MemberInfo member, AssociationAttribute associationAttribute)
 		{
 			if (member == null)
 				throw new ArgumentNullException("member");
 
+			if ((associationAttribute == null) || !associationAttribute.IsForeignKey)
+				return false;
+
 			var property = member as PropertyInfo;
-			return (property != null) && property.GetGetMethod(true).IsVirtual;
+			return (property != null) && property.GetMethod.IsVirtual && !property.GetMethod.IsFinal;
 		}
 	}
 }

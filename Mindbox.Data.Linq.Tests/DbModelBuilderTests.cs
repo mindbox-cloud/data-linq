@@ -995,6 +995,30 @@ namespace Mindbox.Data.Linq.Tests
 				});
 		}
 
+		[TestMethod]
+		public void VirtualStringPropertyIsNotDeferredViaAttribute()
+		{
+			var configuration = new MindboxMappingConfiguration();
+			var mappingSource = new MindboxMappingSource(configuration);
+			var metaTable = mappingSource.GetModel(typeof(DataContext)).GetTable(typeof(TestEntity12));
+
+			var member = (AttributedMetaDataMember)metaTable.RowType.PersistentDataMembers.Single(aMember => 
+				aMember.Name == "Value");
+			Assert.IsFalse(member.DoesRequireProxy);
+		}
+
+		[TestMethod]
+		public void InterfaceImplementationStringPropertyIsNotDeferredViaAttribute()
+		{
+			var configuration = new MindboxMappingConfiguration();
+			var mappingSource = new MindboxMappingSource(configuration);
+			var metaTable = mappingSource.GetModel(typeof(DataContext)).GetTable(typeof(TestEntity13));
+
+			var member = (AttributedMetaDataMember)metaTable.RowType.PersistentDataMembers.Single(aMember =>
+				aMember.Name == "Value");
+			Assert.IsFalse(member.DoesRequireProxy);
+		}
+
 
 		private void RunRealDatabaseTest(
 			MindboxMappingConfiguration configuration, 
