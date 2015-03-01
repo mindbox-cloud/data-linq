@@ -8,6 +8,8 @@ namespace Mindbox.Data.Linq
 {
 	public enum EntityFrameworkIncompatibility
 	{
-		TableAttribute = 1
+		TableAttribute = 1,
+		ColumnAttribute = 2,
+		AssociationAttribute = 3
 	}
 }

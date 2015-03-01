@@ -105,12 +105,14 @@ namespace System.Data.Linq.Mapping
 
 		public override MetaType GetInheritanceType(Type type)
 		{
-			if (type == Type)
+			var nonProxyType = Model.UnproxyType(type);
+
+			if (nonProxyType == Type)
 				return this;
 
 			MetaType metaType = null;
 			if (types != null)
-				types.TryGetValue(type, out metaType);
+				types.TryGetValue(nonProxyType, out metaType);
 			return metaType;
 		}
 

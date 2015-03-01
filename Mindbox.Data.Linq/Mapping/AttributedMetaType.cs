@@ -4,6 +4,7 @@ using System.Data.Linq.SqlClient;
 using System.Linq;
 using System.Reflection;
 using LinqToSqlShared.Mapping;
+using Mindbox.Data.Linq.Proxy;
 
 namespace System.Data.Linq.Mapping
 {
@@ -48,6 +49,7 @@ namespace System.Data.Linq.Mapping
 			InitDataMembers();
 			identities = dataMembers.Where(dataMember => dataMember.IsPrimaryKey).ToList().AsReadOnly();
 			persistentMembers = dataMembers.Where(dataMember => dataMember.IsPersistent).ToList().AsReadOnly();
+			DoesRequireProxy = dataMembers.Cast<AttributedMetaDataMember>().Any(dataMember => dataMember.DoesRequireProxy);
 		}
 
 
@@ -255,6 +257,9 @@ namespace System.Data.Linq.Mapping
 		}
 
 
+		internal bool DoesRequireProxy { get; private set; }
+
+
 		public override MetaDataMember GetDataMember(MemberInfo mi)
 		{
 			if (mi == null)
@@ -296,7 +301,8 @@ namespace System.Data.Linq.Mapping
 
 		public override MetaType GetInheritanceType(Type inheritanceType)
 		{
-			return inheritanceType == type ? this : inheritanceRoot.GetInheritanceType(inheritanceType);
+			var nonProxyInheritanceType = model.UnproxyType(inheritanceType);
+			return nonProxyInheritanceType == type ? this : inheritanceRoot.GetInheritanceType(nonProxyInheritanceType);
 		}
 
 		public override string ToString()

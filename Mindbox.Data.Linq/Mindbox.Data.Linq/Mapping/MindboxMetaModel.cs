@@ -4,11 +4,16 @@ using System.Data.Linq.Mapping;
 using System.Reflection;
 using System.Text;
 using System.Linq;
+using Castle.DynamicProxy;
+using Mindbox.Data.Linq.Proxy;
 
 namespace Mindbox.Data.Linq.Mapping 
 {
 	internal class MindboxMetaModel : AttributedMetaModel 
 	{
+		private static readonly ProxyGenerator proxyGenerator = new ProxyGenerator();
+
+
         internal MindboxMetaModel(MappingSource mappingSource, Type contextType) 
 			: base(mappingSource, contextType)
 		{
@@ -53,6 +58,9 @@ namespace Mindbox.Data.Linq.Mapping
 			var baseAttribute = base.TryGetColumnAttribute(member);
 
 			var configuration = ((MindboxMappingSource)MappingSource).Configuration;
+			if (baseAttribute != null)
+				configuration.OnEntityFrameworkIncompatibility(EntityFrameworkIncompatibility.ColumnAttribute);
+
 			var additionalAttribute = configuration.TryGetColumnAttribute(member);
 			if ((baseAttribute != null) && (additionalAttribute != null))
 				throw new InvalidOperationException("(baseAttribute != null) && (additionalAttribute != null)");
@@ -68,11 +76,73 @@ namespace Mindbox.Data.Linq.Mapping
 			var baseAttribute = base.TryGetAssociationAttribute(member);
 
 			var configuration = ((MindboxMappingSource)MappingSource).Configuration;
+			if (baseAttribute != null)
+				configuration.OnEntityFrameworkIncompatibility(EntityFrameworkIncompatibility.AssociationAttribute);
+
 			var additionalAttribute = configuration.TryGetAssociationAttribute(member);
 			if ((baseAttribute != null) && (additionalAttribute != null))
 				throw new InvalidOperationException("(baseAttribute != null) && (additionalAttribute != null)");
 
 			return baseAttribute ?? additionalAttribute;
+		}
+
+		internal override bool IsDeferredMember(MemberInfo member, Type storageType)
+		{
+			return base.IsDeferredMember(member, storageType) || IsProxyDeferredMember(member);
+		}
+
+		internal override bool ShouldEntityProxyBeCreated(Type entityType)
+		{
+			if (entityType == null)
+				throw new ArgumentNullException("entityType");
+
+			var entityMetaType = (AttributedMetaType)GetMetaType(entityType);
+			return entityMetaType.DoesRequireProxy;
+		}
+
+		internal override bool DoesMemberRequireProxy(MemberInfo member, Type storageType)
+		{
+			if (member == null)
+				throw new ArgumentNullException("member");
+			if (storageType == null)
+				throw new ArgumentNullException("storageType");
+
+			return !base.IsDeferredMember(member, storageType) && IsProxyDeferredMember(member);
+		}
+
+		internal override object CreateEntityProxy(Type entityType)
+		{
+			if (entityType == null)
+				throw new ArgumentNullException("entityType");
+
+			return proxyGenerator.CreateClassProxy(
+				entityType,
+				new[]
+				{
+					typeof(IEntityProxy)
+				},
+				new EntityProxyInterceptor(this));
+		}
+
+		internal override Type UnproxyType(Type type)
+		{
+			if (type == null)
+				throw new ArgumentNullException("type");
+
+			var currentType = type;
+			while (typeof(IEntityProxy).IsAssignableFrom(currentType) && (currentType.BaseType != null))
+				currentType = currentType.BaseType;
+			return currentType;
+		}
+
+
+		private bool IsProxyDeferredMember(MemberInfo member)
+		{
+			if (member == null)
+				throw new ArgumentNullException("member");
+
+			var property = member as PropertyInfo;
+			return (property != null) && property.GetGetMethod(true).IsVirtual;
 		}
 	}
 }

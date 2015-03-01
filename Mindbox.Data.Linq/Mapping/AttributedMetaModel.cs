@@ -11,6 +11,22 @@ namespace System.Data.Linq.Mapping
 {
 	internal class AttributedMetaModel : MetaModel 
 	{
+		internal static bool IsDeferredType(Type entityType)
+		{
+			if (entityType == null || entityType == typeof(object))
+				return false;
+
+			if (!entityType.IsGenericType)
+				return false;
+
+			var genericTypeDefinition = entityType.GetGenericTypeDefinition();
+			return genericTypeDefinition == typeof(Link<>) ||
+				typeof(EntitySet<>).IsAssignableFrom(genericTypeDefinition) ||
+				typeof(EntityRef<>).IsAssignableFrom(genericTypeDefinition) ||
+				IsDeferredType(entityType.BaseType);
+		} 
+
+
 		private static bool IsUserFunction(MethodInfo method)
 		{
 			return Attribute.GetCustomAttribute(method, typeof(FunctionAttribute), false) != null;
@@ -232,6 +248,26 @@ namespace System.Data.Linq.Mapping
 				throw new ArgumentNullException("member");
 
 			return (AssociationAttribute)Attribute.GetCustomAttribute(member, typeof(AssociationAttribute));
+		}
+
+		internal virtual bool IsDeferredMember(MemberInfo member, Type storageType)
+		{
+			if (member == null)
+				throw new ArgumentNullException("member");
+			if (storageType == null)
+				throw new ArgumentNullException("storageType");
+
+			return IsDeferredType(storageType);
+		}
+
+		internal virtual bool DoesMemberRequireProxy(MemberInfo member, Type storageType)
+		{
+			if (member == null)
+				throw new ArgumentNullException("member");
+			if (storageType == null)
+				throw new ArgumentNullException("storageType");
+
+			return false;
 		}
 
 

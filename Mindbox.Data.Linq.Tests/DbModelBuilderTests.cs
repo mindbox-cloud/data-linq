@@ -48,7 +48,13 @@ namespace Mindbox.Data.Linq.Tests
 		[TestMethod]
 		public void BooleanColumnViaAttribute()
 		{
+			var incompatibilityDetected = false;
 			var configuration = new MindboxMappingConfiguration();
+			configuration.EntityFrameworkIncompatibility += (sender, incompatibility) =>
+			{
+				if (incompatibility == EntityFrameworkIncompatibility.ColumnAttribute)
+					incompatibilityDetected = true;
+			};
 			var mappingSource = new MindboxMappingSource(configuration);
 			var metaDataMember = mappingSource
 				.GetModel(typeof(DataContext))
@@ -72,6 +78,7 @@ namespace Mindbox.Data.Linq.Tests
 			Assert.IsFalse(metaDataMember.IsVersion);
 			Assert.AreEqual(typeof(bool), metaDataMember.Type);
 			Assert.AreEqual(UpdateCheck.Always, metaDataMember.UpdateCheck);
+			Assert.IsTrue(incompatibilityDetected);
 		}
 
 		[TestMethod]
@@ -471,30 +478,21 @@ namespace Mindbox.Data.Linq.Tests
 			var configuration = new MindboxMappingConfiguration();
 			configuration.ModelBuilder.Configurations.Add(new TestEntity8.TestEntity8Configuration());
 
-			var mappingSource = new MindboxMappingSource(configuration);
-
-			using (var connection = new SqlConnection("Server=(local);Integrated Security=SSPI;Pooling=false"))
-			{
-				connection.Open();
-
-				var createDatabaseCommand = new SqlCommand("create database MindboxDataLinqTests", connection);
-				createDatabaseCommand.ExecuteNonQuery();
-				try
+			RunRealDatabaseTest(
+				configuration,
+				connection =>
 				{
 					var createTableCommand = new SqlCommand(
-						"create table MindboxDataLinqTests.dbo.Test8 " +
-							"(Id int identity(1,1) not null primary key, Value binary(5) not null)",
+						"create table Test8 (Id int identity(1,1) not null primary key, Value binary(5) not null)",
 						connection);
 					createTableCommand.ExecuteNonQuery();
 
-					var insertCommand = new SqlCommand(
-						"insert into MindboxDataLinqTests.dbo.Test8 (Value) values (0x1122334455)", 
-						connection);
+					var insertCommand = new SqlCommand("insert into Test8 (Value) values (0x1122334455)", connection);
 					insertCommand.ExecuteNonQuery();
-
-					using (var context = new DataContext(
-						"Server=(local);Integrated Security=SSPI;Database=MindboxDataLinqTests;Pooling=false", 
-						mappingSource))
+				},
+				dataContextFactory =>
+				{
+					using (var context = dataContextFactory())
 					{
 						var item = context.GetTable<TestEntity8>().Single();
 						Assert.IsNotNull(item.Value);
@@ -516,9 +514,7 @@ namespace Mindbox.Data.Linq.Tests
 						context.SubmitChanges();
 					}
 
-					using (var context = new DataContext(
-						"Server=(local);Integrated Security=SSPI;Database=MindboxDataLinqTests;Pooling=false",
-						mappingSource))
+					using (var context = dataContextFactory())
 					{
 						var item = context.GetTable<TestEntity8>().Single();
 						Assert.IsNotNull(item.Value);
@@ -529,13 +525,7 @@ namespace Mindbox.Data.Linq.Tests
 						Assert.AreEqual(4, item.Value[3]);
 						Assert.AreEqual(5, item.Value[4]);
 					}
-				}
-				finally
-				{
-					var dropDatabaseCommand = new SqlCommand("drop database MindboxDataLinqTests", connection);
-					dropDatabaseCommand.ExecuteNonQuery();
-				}
-			}
+				});
 		}
 
 		[TestMethod]
@@ -601,7 +591,13 @@ namespace Mindbox.Data.Linq.Tests
 		[TestMethod]
 		public void RequiredOneWayOneToManyAssociationViaAttribute()
 		{
+			var incompatibilityDetected = false;
 			var configuration = new MindboxMappingConfiguration();
+			configuration.EntityFrameworkIncompatibility += (sender, incompatibility) =>
+			{
+				if (incompatibility == EntityFrameworkIncompatibility.AssociationAttribute)
+					incompatibilityDetected = true;
+			};
 			var mappingSource = new MindboxMappingSource(configuration);
 			var metaModel = mappingSource.GetModel(typeof(DataContext));
 			var entityMetaType = metaModel.GetMetaType(typeof(TestEntity4));
@@ -664,6 +660,8 @@ namespace Mindbox.Data.Linq.Tests
 			Assert.IsNull(associationMember.Association.OtherMember);
 			Assert.AreEqual(entityMetaType, associationMember.Association.OtherType);
 			Assert.AreEqual(associationMember, associationMember.Association.ThisMember);
+
+			Assert.IsTrue(incompatibilityDetected);
 		}
 
 		[TestMethod]
@@ -733,6 +731,139 @@ namespace Mindbox.Data.Linq.Tests
 			Assert.IsNull(associationMember.Association.OtherMember);
 			Assert.AreEqual(entityMetaType, associationMember.Association.OtherType);
 			Assert.AreEqual(associationMember, associationMember.Association.ThisMember);
+		}
+
+		[TestMethod]
+		public void RequiredOneWayOneToManyAssociationViaBuilderDeferredLoading()
+		{
+			var configuration = new MindboxMappingConfiguration();
+			configuration.ModelBuilder.Configurations.Add(new TestEntity6.TestEntity6Configuration());
+
+			var mappingSource = new MindboxMappingSource(configuration);
+			var metaModel = mappingSource.GetModel(typeof(DataContext));
+			var entityMetaType = metaModel.GetMetaType(typeof(TestEntity6));
+
+			var foreignKeyMember = entityMetaType
+				.DataMembers
+				.SingleOrDefault(aMetaDataMember => aMetaDataMember.Name == "Creator");
+			Assert.IsNotNull(foreignKeyMember);
+			Assert.IsTrue(foreignKeyMember.IsDeferred);
+		}
+
+		[TestMethod]
+		public void RequiredOneWayOneToManyAssociationViaBuilderDeferredLoadingRealDatabase()
+		{
+			var configuration = new MindboxMappingConfiguration();
+			configuration.ModelBuilder.Configurations.Add(new TestEntity10.TestEntity10Configuration());
+			configuration.ModelBuilder.Configurations.Add(new TestEntity9.TestEntity9Configuration());
+
+			RunRealDatabaseTest(
+				configuration,
+				connection =>
+				{
+					var createTable10Command = new SqlCommand(
+						"create table Test10 (Id int identity(1,1) not null primary key, Value binary(5) not null)",
+						connection);
+					createTable10Command.ExecuteNonQuery();
+
+					var createTable9Command = new SqlCommand(
+						"create table Test9 " +
+							"(Id int identity(1,1) not null primary key, " +
+							"OtherId int not null foreign key references Test10 (Id))",
+						connection);
+					createTable9Command.ExecuteNonQuery();
+
+					var insert10ACommand = new SqlCommand(
+						"insert into Test10 (Value) values (0x1122334455); select scope_identity()",
+						connection);
+					var id10A = Convert.ToInt32(insert10ACommand.ExecuteScalar());
+
+					var insert10BCommand = new SqlCommand(
+						"insert into Test10 (Value) values (0x6655443322)",
+						connection);
+					insert10BCommand.ExecuteNonQuery();
+
+					var insert9Command = new SqlCommand("insert into Test9 (OtherId) values (@OtherId)", connection);
+					insert9Command.Parameters.AddWithValue("OtherId", id10A);
+					insert9Command.ExecuteNonQuery();
+				},
+				dataContextFactory =>
+				{
+					using (var context = dataContextFactory())
+					{
+						var item9 = context.GetTable<TestEntity9>().Single();
+						var proxyType = item9.GetType();
+						Assert.AreNotEqual(typeof(TestEntity9), proxyType);
+						Assert.IsNotNull(item9.Other);
+
+						Assert.AreEqual(5, item9.Other.Value.Length);
+						Assert.AreEqual(0x11, item9.Other.Value[0]);
+						Assert.AreEqual(0x22, item9.Other.Value[1]);
+						Assert.AreEqual(0x33, item9.Other.Value[2]);
+						Assert.AreEqual(0x44, item9.Other.Value[3]);
+						Assert.AreEqual(0x55, item9.Other.Value[4]);
+
+						var newItem10 = context.GetTable<TestEntity10>().OrderByDescending(x => x.Id).First();
+						item9.Other = newItem10;
+
+						context.SubmitChanges();
+					}
+
+					using (var context = dataContextFactory())
+					{
+						var item9 = context.GetTable<TestEntity9>().Single();
+						Assert.IsNotNull(item9.Other);
+
+						Assert.AreEqual(5, item9.Other.Value.Length);
+						Assert.AreEqual(0x66, item9.Other.Value[0]);
+						Assert.AreEqual(0x55, item9.Other.Value[1]);
+						Assert.AreEqual(0x44, item9.Other.Value[2]);
+						Assert.AreEqual(0x33, item9.Other.Value[3]);
+						Assert.AreEqual(0x22, item9.Other.Value[4]);
+					}
+				});
+		}
+
+
+		private void RunRealDatabaseTest(
+			MindboxMappingConfiguration configuration, 
+			Action<SqlConnection> tableInitializer,
+			Action<Func<DataContext>> body)
+		{
+			if (configuration == null)
+				throw new ArgumentNullException("configuration");
+			if (tableInitializer == null)
+				throw new ArgumentNullException("tableInitializer");
+			if (body == null)
+				throw new ArgumentNullException("body");
+
+			using (var masterConnection = new SqlConnection("Server=(local);Integrated Security=SSPI;Pooling=false"))
+			{
+				masterConnection.Open();
+
+				var databaseName = "MindboxDataLinqTest_" + Guid.NewGuid().ToString("N");
+				var createDatabaseCommand = new SqlCommand("create database [" + databaseName + "]", masterConnection);
+				createDatabaseCommand.ExecuteNonQuery();
+				try
+				{
+					var databaseConnectionString =
+						"Server=(local);Integrated Security=SSPI;Database=" + databaseName + ";Pooling=false";
+
+					using (var initializationConnection = new SqlConnection(databaseConnectionString))
+					{
+						initializationConnection.Open();
+						tableInitializer(initializationConnection);
+					}
+
+					var mappingSource = new MindboxMappingSource(configuration);
+					body(() => new DataContext(databaseConnectionString, mappingSource));
+				}
+				finally
+				{
+					var dropDatabaseCommand = new SqlCommand("drop database [" + databaseName + "]", masterConnection);
+					dropDatabaseCommand.ExecuteNonQuery();
+				}
+			}
 		}
 	}
 }

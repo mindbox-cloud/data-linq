@@ -12,7 +12,7 @@ using System.Threading.Tasks;
 
 namespace Mindbox.Data.Linq.Tests
 {
-	public sealed class TestEntity6 : INotifyPropertyChanging, INotifyPropertyChanged
+	public class TestEntity6 : INotifyPropertyChanging, INotifyPropertyChanged
 	{
 		private static readonly PropertyChangingEventArgs EmptyChangingEventArgs =
 			new PropertyChangingEventArgs(string.Empty);
@@ -36,7 +36,7 @@ namespace Mindbox.Data.Linq.Tests
 
 		private readonly EntitySet<TestEntity7> personalPermissions;
 
-		private EntityRef<TestEntity6> creator;
+		private TestEntity6 creator;
 
 
 		public TestEntity6()
@@ -271,15 +271,15 @@ namespace Mindbox.Data.Linq.Tests
 			set { personalPermissions.Assign(value); }
 		}
 
-		public TestEntity6 Creator
+		public virtual TestEntity6 Creator
 		{
-			get { return creator.Entity; }
+			get { return creator; }
 			set
 			{
-				if ((creator.Entity != value) || !creator.HasLoadedOrAssignedValue)
+				if (creator != value)
 				{
 					SendPropertyChanging();
-					creator.Entity = value;
+					creator = value;
 					creatorId = value == null ? default(int) : value.Id;
 					SendPropertyChanged();
 				}

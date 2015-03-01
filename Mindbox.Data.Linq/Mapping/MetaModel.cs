@@ -38,6 +38,13 @@ namespace System.Data.Linq.Mapping
         /// </summary>
         public abstract Type ProviderType { get; }
 
+
+		internal object Identity
+		{
+			get { return identity; }
+		}
+
+
         /// <summary>
         /// Gets the MetaTable associated with a given type.
         /// </summary>
@@ -72,9 +79,28 @@ namespace System.Data.Linq.Mapping
         public abstract MetaType GetMetaType(Type type);
 
 
-        internal object Identity 
+	    internal virtual bool ShouldEntityProxyBeCreated(Type entityType)
+	    {
+		    if (entityType == null)
+			    throw new ArgumentNullException("entityType");
+
+		    return false;
+	    }
+
+		internal virtual object CreateEntityProxy(Type entityType)
+	    {
+		    if (entityType == null)
+			    throw new ArgumentNullException("entityType");
+
+		    throw new NotSupportedException();
+	    }
+
+		internal virtual Type UnproxyType(Type type)
 		{
-            get { return identity; }
-        }
-    }
+			if (type == null)
+				throw new ArgumentNullException("type");
+
+			return type;
+		}
+	}
 }

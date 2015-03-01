@@ -1,305 +1,686 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
-using System.Collections.ObjectModel;
+using System.Diagnostics;
+using System.IO;
 using System.Linq.Expressions;
 using System.Linq;
 using System.Reflection;
 using System.Reflection.Emit;
-using System.Data;
 using System.Data.Common;
-using System.Data.Linq;
 using System.Data.Linq.Mapping;
 using System.Data.Linq.Provider;
 using System.Runtime.CompilerServices;
 using System.Runtime.Versioning;
-using System.Security;
-using System.Security.Permissions;
 using System.Threading;
+using System.Data.Linq.SqlClient.Implementation;
+using System.Diagnostics.CodeAnalysis;
+using Mindbox.Data.Linq.Proxy;
+using Mindbox.Expressions;
 
-namespace System.Data.Linq.SqlClient {
-    using System.Data.Linq.SqlClient.Implementation;
-
-    using System.Diagnostics.CodeAnalysis;
-    using System.Diagnostics;
-#if ILGEN || DEBUG
-    namespace Implementation {
-        /// <summary>
-        /// Internal interface type defining the operations dynamic materialization functions need to perform when
-        /// materializing objects, without reflecting/invoking privates.
-        /// <remarks>This interface is required because our anonymously hosted materialization delegates 
-        /// run under partial trust and cannot access non-public members of types in the fully trusted 
-        /// framework assemblies.</remarks>
-        /// </summary>
-        [SuppressMessage("Microsoft.Naming", "CA1704:IdentifiersShouldBeSpelledCorrectly", MessageId = "Materializer", Justification = "Spelling is correct.")]
-        [SuppressMessage("Microsoft.Design", "CA1012:AbstractTypesShouldNotHaveConstructors", Justification = "Unknown reason.")]
-        public abstract class ObjectMaterializer<TDataReader> where TDataReader : DbDataReader {
-            // These are public fields rather than properties for access speed
-            [SuppressMessage("Microsoft.Design", "CA1051:DoNotDeclareVisibleInstanceFields", Justification = "[....]: This is a public type that is not intended for public use.")]
-            public int[] Ordinals;
-            [SuppressMessage("Microsoft.Naming", "CA1704:IdentifiersShouldBeSpelledCorrectly", MessageId = "Globals", Justification = "Spelling is correct.")]
-            [SuppressMessage("Microsoft.Design", "CA1051:DoNotDeclareVisibleInstanceFields", Justification = "[....]: This is a public type that is not intended for public use.")]
-            public object[] Globals;
-            [SuppressMessage("Microsoft.Design", "CA1051:DoNotDeclareVisibleInstanceFields", Justification = "[....]: This is a public type that is not intended for public use.")]
-            public object[] Locals;
-            [SuppressMessage("Microsoft.Design", "CA1051:DoNotDeclareVisibleInstanceFields", Justification = "[....]: This is a public type that is not intended for public use.")]
-            public object[] Arguments;
-            [SuppressMessage("Microsoft.Design", "CA1051:DoNotDeclareVisibleInstanceFields", Justification = "[....]: This is a public type that is not intended for public use.")]
-            public TDataReader DataReader;
-            [SuppressMessage("Microsoft.Design", "CA1051:DoNotDeclareVisibleInstanceFields", Justification = "[....]: This is a public type that is not intended for public use.")]
-            public DbDataReader BufferReader;
-
-            public ObjectMaterializer() {
-                DataReader = default(TDataReader);
-            }
-
-            public abstract object InsertLookup(int globalMetaType, object instance);
-            public abstract void SendEntityMaterialized(int globalMetaType, object instance);
-            public abstract IEnumerable ExecuteSubQuery(int iSubQuery, object[] args);
-
-            [SuppressMessage("Microsoft.Design", "CA1004:GenericMethodsShouldProvideTypeParameter", Justification = "[....]: Generic parameters are required for strong-typing of the return type.")]
-            public abstract IEnumerable<T> GetLinkSource<T>(int globalLink, int localFactory, object[] keyValues);
-
-            [SuppressMessage("Microsoft.Design", "CA1004:GenericMethodsShouldProvideTypeParameter", Justification = "[....]: Generic parameters are required for strong-typing of the return type.")]
-            public abstract IEnumerable<T> GetNestedLinkSource<T>(int globalLink, int localFactory, object instance);
-            public abstract bool Read();
-            public abstract bool CanDeferLoad { get; }
-
-            [SuppressMessage("Microsoft.Design", "CA1000:DoNotDeclareStaticMembersOnGenericTypes", Justification = "xiaoruda: The method has to be static because it's used in our generated code and there is no instance of the type.")]
-            [SuppressMessage("Microsoft.Design", "CA1004:GenericMethodsShouldProvideTypeParameter", Justification = "[....]: Generic parameters are required for strong-typing of the return type.")]
-            public static IEnumerable<TOutput> Convert<TOutput>(IEnumerable source) {
-                foreach (object value in source) {
-                    yield return DBConvert.ChangeType<TOutput>(value);
-                }
-            }
-
-            [SuppressMessage("Microsoft.Design", "CA1000:DoNotDeclareStaticMembersOnGenericTypes", Justification = "xiaoruda: The method has to be static because it's used in our generated code and there is no instance of the type.")]
-            public static IGrouping<TKey, TElement> CreateGroup<TKey, TElement>(TKey key, IEnumerable<TElement> items) {
-                return new ObjectReaderCompiler.Group<TKey, TElement>(key, items);
-            }
-
-            [SuppressMessage("Microsoft.Design", "CA1000:DoNotDeclareStaticMembersOnGenericTypes", Justification = "xiaoruda: The method has to be static because it's used in our generated code and there is no instance of the type.")]
-            public static IOrderedEnumerable<TElement> CreateOrderedEnumerable<TElement>(IEnumerable<TElement> items) {
-                return new ObjectReaderCompiler.OrderedResults<TElement>(items);
-            }
-
-            [SuppressMessage("Microsoft.Design", "CA1000:DoNotDeclareStaticMembersOnGenericTypes", Justification = "xiaoruda: The method has to be static because it's used in our generated code and there is no instance of the type.")]
-            public static Exception ErrorAssignmentToNull(Type type) {
-                return Error.CannotAssignNull(type);
-            }
-        }
-    }
-
-    internal class ObjectReaderCompiler : IObjectReaderCompiler {
-        Type dataReaderType;
-        IDataServices services;
-
-        MethodInfo miDRisDBNull;
-        MethodInfo miBRisDBNull;
-        FieldInfo readerField;
-        FieldInfo bufferReaderField;
-
-        FieldInfo ordinalsField;
-        FieldInfo globalsField;
-        FieldInfo argsField;
+namespace System.Data.Linq.SqlClient 
+{
+    internal class ObjectReaderCompiler : IObjectReaderCompiler 
+	{
 
 #if DEBUG
-        static AssemblyBuilder captureAssembly;
-        static ModuleBuilder captureModule;
-        static string captureAssemblyFilename;
-        static int iCaptureId;
 
-        internal static int GetNextId() {
-            return iCaptureId++;
-        }
+		private static AssemblyBuilder captureAssembly;
+		private static ModuleBuilder captureModule;
+		private static string captureAssemblyFilename;
+		private static int iCaptureId;
+		private static readonly LocalDataStoreSlot cacheSlot = Thread.AllocateDataSlot();
+		private static int maxReaderCacheSize = 10;
 
-        internal static ModuleBuilder CaptureModule {
-            get { return captureModule; }
-        }
 
-        [ResourceExposure(ResourceScope.Machine)] // filename parameter later used by other methods.
-        internal static void StartCaptureToFile(string filename) {
-            if (captureAssembly == null) {
-                string dir = System.IO.Path.GetDirectoryName(filename);
-                if (dir.Length == 0) dir = null;
-                string name = System.IO.Path.GetFileName(filename);
-                AssemblyName assemblyName = new AssemblyName(System.IO.Path.GetFileNameWithoutExtension(name));
-                captureAssembly = AppDomain.CurrentDomain.DefineDynamicAssembly(assemblyName, AssemblyBuilderAccess.Save, dir);
-                captureModule = captureAssembly.DefineDynamicModule(name);
-                captureAssemblyFilename = filename;
-            }
-        }
+		internal static ModuleBuilder CaptureModule
+		{
+			get { return captureModule; }
+		}
 
-        [ResourceExposure(ResourceScope.None)] // Exposure is via StartCaptureToFile method.
-        [ResourceConsumption(ResourceScope.Machine, ResourceScope.Machine)] // Assembly.Save method call.
-        internal static void StopCapture() {
-            if (captureAssembly != null) {
-                captureAssembly.Save(captureAssemblyFilename);
-                captureAssembly = null;
-            }
-        }
 
-        internal static void SetMaxReaderCacheSize(int size) {
-            if (size <= 1) {
-                throw Error.ArgumentOutOfRange("size");
-            }
-            maxReaderCacheSize = size;
-        }
+		internal static int GetNextId()
+		{
+			return iCaptureId++;
+		}
+
+		[ResourceExposure(ResourceScope.Machine)] // filename parameter later used by other methods.
+		internal static void StartCaptureToFile(string filename)
+		{
+			if (captureAssembly != null)
+				return;
+
+			var dir = Path.GetDirectoryName(filename);
+			if (dir.Length == 0) 
+				dir = null;
+			var name = Path.GetFileName(filename);
+			var assemblyName = new AssemblyName(Path.GetFileNameWithoutExtension(name));
+			captureAssembly = AppDomain.CurrentDomain.DefineDynamicAssembly(assemblyName, AssemblyBuilderAccess.Save, dir);
+			captureModule = captureAssembly.DefineDynamicModule(name);
+			captureAssemblyFilename = filename;
+		}
+
+		[ResourceExposure(ResourceScope.None)] // Exposure is via StartCaptureToFile method.
+		[ResourceConsumption(ResourceScope.Machine, ResourceScope.Machine)] // Assembly.Save method call.
+		internal static void StopCapture()
+		{
+			if (captureAssembly != null)
+			{
+				captureAssembly.Save(captureAssemblyFilename);
+				captureAssembly = null;
+			}
+		}
+
+		internal static void SetMaxReaderCacheSize(int size)
+		{
+			if (size <= 1)
+				throw Error.ArgumentOutOfRange("size");
+
+			maxReaderCacheSize = size;
+		}
+
 #endif
-        static LocalDataStoreSlot cacheSlot = Thread.AllocateDataSlot();
-        static int maxReaderCacheSize = 10;
 
-        static ObjectReaderCompiler() {
-        }
+        private readonly Type dataReaderType;
+		private readonly IDataServices services;
 
-        internal ObjectReaderCompiler(Type dataReaderType, IDataServices services) {
+		private readonly MethodInfo miDRisDBNull;
+		private readonly MethodInfo miBRisDBNull;
+		private readonly FieldInfo readerField;
+		private readonly FieldInfo bufferReaderField;
+
+		private readonly FieldInfo ordinalsField;
+		private readonly FieldInfo globalsField;
+		private readonly FieldInfo argsField;
+
+
+        internal ObjectReaderCompiler(Type dataReaderType, IDataServices services) 
+		{
             this.dataReaderType = dataReaderType;
             this.services = services;
 
-            this.miDRisDBNull = dataReaderType.GetMethod("IsDBNull", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
-            this.miBRisDBNull = typeof(DbDataReader).GetMethod("IsDBNull", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+            miDRisDBNull = dataReaderType.GetMethod(
+				"IsDBNull", 
+				BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+            miBRisDBNull = typeof(DbDataReader).GetMethod(
+				"IsDBNull", 
+				BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
 
-            Type orbType = typeof(ObjectMaterializer<>).MakeGenericType(this.dataReaderType);
-            this.ordinalsField = orbType.GetField("Ordinals", BindingFlags.Instance | BindingFlags.Public);
-            this.globalsField = orbType.GetField("Globals", BindingFlags.Instance | BindingFlags.Public);
-            this.argsField = orbType.GetField("Arguments", BindingFlags.Instance | BindingFlags.Public);
-            this.readerField = orbType.GetField("DataReader", BindingFlags.Instance | BindingFlags.Public);
-            this.bufferReaderField = orbType.GetField("BufferReader", BindingFlags.Instance | BindingFlags.Public);
+            var orbType = typeof(ObjectMaterializer<>).MakeGenericType(this.dataReaderType);
+            ordinalsField = orbType.GetField("Ordinals", BindingFlags.Instance | BindingFlags.Public);
+            globalsField = orbType.GetField("Globals", BindingFlags.Instance | BindingFlags.Public);
+            argsField = orbType.GetField("Arguments", BindingFlags.Instance | BindingFlags.Public);
+            readerField = orbType.GetField("DataReader", BindingFlags.Instance | BindingFlags.Public);
+            bufferReaderField = orbType.GetField("BufferReader", BindingFlags.Instance | BindingFlags.Public);
 
-            System.Diagnostics.Debug.Assert(
-                this.miDRisDBNull != null &&
-                this.miBRisDBNull != null &&
-                this.readerField != null &&
-                this.bufferReaderField != null &&
-                this.ordinalsField != null &&
-                this.globalsField != null &&
-                this.argsField != null
-            );
+            Debug.Assert(
+                miDRisDBNull != null &&
+                miBRisDBNull != null &&
+                readerField != null &&
+                bufferReaderField != null &&
+                ordinalsField != null &&
+                globalsField != null &&
+                argsField != null);
         }
+
 
         [ResourceExposure(ResourceScope.None)] // Consumed by Thread.AllocateDataSource result being unique.
         [ResourceConsumption(ResourceScope.AppDomain, ResourceScope.AppDomain)] // Thread.GetData method call.
         [MethodImpl(MethodImplOptions.NoInlining | MethodImplOptions.NoOptimization)]
         public IObjectReaderFactory Compile(SqlExpression expression, Type elementType) {
-            object mapping = this.services.Context.Mapping.Identity;
-            DataLoadOptions options = this.services.Context.LoadOptions;
+            var mapping = services.Context.Mapping.Identity;
+            var options = services.Context.LoadOptions;
             IObjectReaderFactory factory = null;
             ReaderFactoryCache cache = null;
-            bool canBeCompared = SqlProjectionComparer.CanBeCompared(expression);
-            if (canBeCompared) {
+
+            var canBeCompared = SqlProjectionComparer.CanBeCompared(expression);
+            if (canBeCompared) 
+			{
                 cache = (ReaderFactoryCache)Thread.GetData(cacheSlot);
-                if (cache == null) {
+                if (cache == null) 
+				{
                     cache = new ReaderFactoryCache(maxReaderCacheSize);
                     Thread.SetData(cacheSlot, cache);
                 }
-                factory = cache.GetFactory(elementType, this.dataReaderType, mapping, options, expression);
+                factory = cache.GetFactory(elementType, dataReaderType, mapping, options, expression);
             }
-            if (factory == null) {
-                Generator gen = new Generator(this, elementType);
+
+            if (factory == null) 
+			{
+                var gen = new Generator(this, elementType);
+
 #if DEBUG
-                if (ObjectReaderCompiler.CaptureModule != null) {
-                    this.CompileCapturedMethod(gen, expression, elementType);
-                }
+
+				if (CaptureModule != null)
+					CompileCapturedMethod(gen, expression, elementType);
+
 #endif
-                DynamicMethod dm = this.CompileDynamicMethod(gen, expression, elementType);
-                Type fnMatType = typeof(Func<,>).MakeGenericType(typeof(ObjectMaterializer<>).MakeGenericType(this.dataReaderType), elementType);
-                var fnMaterialize = (Delegate)dm.CreateDelegate(fnMatType);
 
-                Type factoryType = typeof(ObjectReaderFactory<,>).MakeGenericType(this.dataReaderType, elementType);
+                var dm = CompileDynamicMethod(gen, expression, elementType);
+                var fnMatType = typeof(Func<,>)
+					.MakeGenericType(
+						typeof(ObjectMaterializer<>).MakeGenericType(dataReaderType), 
+						elementType);
+                var fnMaterialize = dm.CreateDelegate(fnMatType);
+
+                var factoryType = typeof(ObjectReaderFactory<,>).MakeGenericType(dataReaderType, elementType);
                 factory = (IObjectReaderFactory)Activator.CreateInstance(
-                    factoryType, BindingFlags.Instance | BindingFlags.NonPublic, null,
-                    new object[] { fnMaterialize, gen.NamedColumns, gen.Globals, gen.Locals }, null
-                    );
+                    factoryType, 
+					BindingFlags.Instance | BindingFlags.NonPublic, 
+					null,
+                    new object[]
+                    {
+	                    fnMaterialize, 
+						gen.NamedColumns, 
+						gen.Globals, 
+						gen.Locals
+                    }, 
+					null);
 
-                if (canBeCompared) {
+                if (canBeCompared) 
+				{
                     expression = new SourceExpressionRemover().VisitExpression(expression);
-                    cache.AddFactory(elementType, this.dataReaderType, mapping, options, expression, factory);
+                    cache.AddFactory(elementType, dataReaderType, mapping, options, expression, factory);
                 }
             }
             return factory;
         }
 
-        private class SourceExpressionRemover : SqlDuplicator.DuplicatingVisitor {
+		[MethodImpl(MethodImplOptions.NoInlining | MethodImplOptions.NoOptimization)]
+		public IObjectReaderSession CreateSession(
+			DbDataReader reader, 
+			IReaderProvider provider, 
+			object[] parentArgs, 
+			object[] userArgs, 
+			ICompiledSubQuery[] subQueries)
+		{
+			var sessionType = typeof(ObjectReaderSession<>).MakeGenericType(dataReaderType);
+			return (IObjectReaderSession)Activator.CreateInstance(
+				sessionType, 
+				BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic, 
+				null,
+				new object[]
+				{
+					reader, 
+					provider, 
+					parentArgs, 
+					userArgs, 
+					subQueries
+				}, 
+				null);
+		}
+
+
+#if DEBUG
+
+		private void CompileCapturedMethod(Generator gen, SqlExpression expression, Type elementType)
+		{
+			var tb = CaptureModule.DefineType("reader_type_" + GetNextId());
+			var mb = tb.DefineMethod(
+				"Read_" + elementType.Name,
+				MethodAttributes.Static | MethodAttributes.Public,
+				CallingConventions.Standard,
+				elementType,
+				new[]
+                {
+	                typeof(ObjectMaterializer<>).MakeGenericType(dataReaderType)
+                });
+			gen.GenerateBody(mb.GetILGenerator(), (SqlExpression)SqlDuplicator.Copy(expression));
+			tb.CreateType();
+		}
+
+#endif
+
+		private DynamicMethod CompileDynamicMethod(Generator gen, SqlExpression expression, Type elementType)
+		{
+			var objectReaderType = typeof(ObjectMaterializer<>).MakeGenericType(dataReaderType);
+			var dm = new DynamicMethod(
+				"Read_" + elementType.Name,
+				elementType,
+				new[]
+                {
+	                objectReaderType
+                },
+				true);
+			gen.GenerateBody(dm.GetILGenerator(), expression);
+			return dm;
+		}
+
+
+		internal class SqlProjectionComparer
+		{
+			internal static bool CanBeCompared(SqlExpression node)
+			{
+				if (node == null)
+					return true;
+
+				switch (node.NodeType)
+				{
+					case SqlNodeType.New:
+						{
+							var new1 = (SqlNew)node;
+							for (int i = 0, n = new1.Args.Count; i < n; i++)
+								if (!CanBeCompared(new1.Args[i]))
+									return false;
+							for (int i = 0, n = new1.Members.Count; i < n; i++)
+								if (!CanBeCompared(new1.Members[i].Expression))
+									return false;
+							return true;
+						}
+
+					case SqlNodeType.ColumnRef:
+					case SqlNodeType.Value:
+					case SqlNodeType.UserColumn:
+						return true;
+
+					case SqlNodeType.Link:
+						{
+							var l1 = (SqlLink)node;
+							for (int i = 0, c = l1.KeyExpressions.Count; i < c; ++i)
+								if (!CanBeCompared(l1.KeyExpressions[i]))
+									return false;
+							return true;
+						}
+
+					case SqlNodeType.OptionalValue:
+						return CanBeCompared(((SqlOptionalValue)node).Value);
+
+					case SqlNodeType.ValueOf:
+					case SqlNodeType.OuterJoinedValue:
+						return CanBeCompared(((SqlUnary)node).Operand);
+
+					case SqlNodeType.Lift:
+						return CanBeCompared(((SqlLift)node).Expression);
+
+					case SqlNodeType.Grouping:
+						{
+							var g1 = (SqlGrouping)node;
+							return CanBeCompared(g1.Key) && CanBeCompared(g1.Group);
+						}
+
+					case SqlNodeType.ClientArray:
+						{
+							if (node.SourceExpression.NodeType != ExpressionType.NewArrayInit &&
+									node.SourceExpression.NodeType != ExpressionType.NewArrayBounds)
+								return false;
+							var a1 = (SqlClientArray)node;
+							for (int i = 0, n = a1.Expressions.Count; i < n; i++)
+								if (!CanBeCompared(a1.Expressions[i]))
+									return false;
+							return true;
+						}
+
+					case SqlNodeType.ClientCase:
+						{
+							var c1 = (SqlClientCase)node;
+							for (int i = 0, n = c1.Whens.Count; i < n; i++)
+								if (!CanBeCompared(c1.Whens[i].Match) || !CanBeCompared(c1.Whens[i].Value))
+									return false;
+							return true;
+						}
+
+					case SqlNodeType.SearchedCase:
+						{
+							var c1 = (SqlSearchedCase)node;
+							for (int i = 0, n = c1.Whens.Count; i < n; i++)
+								if (!CanBeCompared(c1.Whens[i].Match) || !CanBeCompared(c1.Whens[i].Value))
+									return false;
+							return CanBeCompared(c1.Else);
+						}
+
+					case SqlNodeType.TypeCase:
+						{
+							var c1 = (SqlTypeCase)node;
+							if (!CanBeCompared(c1.Discriminator))
+								return false;
+
+							foreach (var c1When in c1.Whens)
+							{
+								if (!CanBeCompared(c1When.Match))
+									return false;
+								if (!CanBeCompared(c1When.TypeBinding))
+									return false;
+							}
+							return true;
+						}
+
+					case SqlNodeType.DiscriminatedType:
+						return CanBeCompared(((SqlDiscriminatedType)node).Discriminator);
+
+					case SqlNodeType.JoinedCollection:
+						{
+							var j1 = (SqlJoinedCollection)node;
+							return CanBeCompared(j1.Count) && CanBeCompared(j1.Expression);
+						}
+
+					case SqlNodeType.Member:
+						return CanBeCompared(((SqlMember)node).Expression);
+
+					case SqlNodeType.MethodCall:
+						{
+							var mc = (SqlMethodCall)node;
+							if (mc.Object != null && !CanBeCompared(mc.Object))
+								return false;
+
+							// TODO: Is it a bug???
+							foreach (var argument in mc.Arguments)
+								if (!CanBeCompared(mc.Arguments[0]))
+									return false;
+							return true;
+						}
+
+					case SqlNodeType.ClientQuery:
+						return true;
+
+					default:
+						return false;
+				}
+			}
+
+			internal static bool AreSimilar(SqlExpression node1, SqlExpression node2)
+			{
+				if (node1 == node2)
+					return true;
+				if (node1 == null || node2 == null)
+					return false;
+				if (node1.NodeType != node2.NodeType || node1.ClrType != node2.ClrType || node1.SqlType != node2.SqlType)
+					return false;
+				switch (node1.NodeType)
+				{
+					case SqlNodeType.New:
+						{
+							var new1 = (SqlNew)node1;
+							var new2 = (SqlNew)node2;
+							if (new1.Args.Count != new2.Args.Count || new1.Members.Count != new2.Members.Count)
+								return false;
+							for (var i = 0; i < new1.Args.Count; i++)
+								if (!AreSimilar(new1.Args[i], new2.Args[i]))
+									return false;
+							for (var i = 0; i < new1.Members.Count; i++)
+								if (!MetaPosition.AreSameMember(new1.Members[i].Member, new2.Members[i].Member) ||
+										!AreSimilar(new1.Members[i].Expression, new2.Members[i].Expression))
+									return false;
+							return true;
+						}
+
+					case SqlNodeType.ColumnRef:
+						{
+							var cref1 = (SqlColumnRef)node1;
+							var cref2 = (SqlColumnRef)node2;
+							return cref1.Column.Ordinal == cref2.Column.Ordinal;
+						}
+
+					case SqlNodeType.Link:
+						{
+							var l1 = (SqlLink)node1;
+							var l2 = (SqlLink)node2;
+							if (!MetaPosition.AreSameMember(l1.Member.Member, l2.Member.Member))
+								return false;
+							if (l1.KeyExpressions.Count != l2.KeyExpressions.Count)
+								return false;
+							for (var i = 0; i < l1.KeyExpressions.Count; ++i)
+								if (!AreSimilar(l1.KeyExpressions[i], l2.KeyExpressions[i]))
+									return false;
+							return true;
+						}
+
+					case SqlNodeType.Value:
+						return Equals(((SqlValue)node1).Value, ((SqlValue)node2).Value);
+
+					case SqlNodeType.OptionalValue:
+						{
+							var ov1 = (SqlOptionalValue)node1;
+							var ov2 = (SqlOptionalValue)node2;
+							return AreSimilar(ov1.Value, ov2.Value);
+						}
+
+					case SqlNodeType.ValueOf:
+					case SqlNodeType.OuterJoinedValue:
+						return AreSimilar(((SqlUnary)node1).Operand, ((SqlUnary)node2).Operand);
+
+					case SqlNodeType.Lift:
+						return AreSimilar(((SqlLift)node1).Expression, ((SqlLift)node2).Expression);
+
+					case SqlNodeType.Grouping:
+						{
+							var g1 = (SqlGrouping)node1;
+							var g2 = (SqlGrouping)node2;
+							return AreSimilar(g1.Key, g2.Key) && AreSimilar(g1.Group, g2.Group);
+						}
+
+					case SqlNodeType.ClientArray:
+						{
+							var a1 = (SqlClientArray)node1;
+							var a2 = (SqlClientArray)node2;
+							if (a1.Expressions.Count != a2.Expressions.Count)
+								return false;
+							for (var i = 0; i < a1.Expressions.Count; i++)
+								if (!AreSimilar(a1.Expressions[i], a2.Expressions[i]))
+									return false;
+							return true;
+						}
+
+					case SqlNodeType.UserColumn:
+						return ((SqlUserColumn)node1).Name == ((SqlUserColumn)node2).Name;
+
+					case SqlNodeType.ClientCase:
+						{
+							var c1 = (SqlClientCase)node1;
+							var c2 = (SqlClientCase)node2;
+							if (c1.Whens.Count != c2.Whens.Count)
+								return false;
+							for (var i = 0; i < c1.Whens.Count; i++)
+								if (!AreSimilar(c1.Whens[i].Match, c2.Whens[i].Match) ||
+										!AreSimilar(c1.Whens[i].Value, c2.Whens[i].Value))
+									return false;
+							return true;
+						}
+
+					case SqlNodeType.SearchedCase:
+						{
+							var c1 = (SqlSearchedCase)node1;
+							var c2 = (SqlSearchedCase)node2;
+							if (c1.Whens.Count != c2.Whens.Count)
+								return false;
+							for (var i = 0; i < c1.Whens.Count; i++)
+								if (!AreSimilar(c1.Whens[i].Match, c2.Whens[i].Match) ||
+										!AreSimilar(c1.Whens[i].Value, c2.Whens[i].Value))
+									return false;
+							return AreSimilar(c1.Else, c2.Else);
+						}
+
+					case SqlNodeType.TypeCase:
+						{
+							var c1 = (SqlTypeCase)node1;
+							var c2 = (SqlTypeCase)node2;
+							if (!AreSimilar(c1.Discriminator, c2.Discriminator))
+								return false;
+							if (c1.Whens.Count != c2.Whens.Count)
+								return false;
+							for (var i = 0; i < c1.Whens.Count; ++i)
+							{
+								if (!AreSimilar(c1.Whens[i].Match, c2.Whens[i].Match))
+									return false;
+								if (!AreSimilar(c1.Whens[i].TypeBinding, c2.Whens[i].TypeBinding))
+									return false;
+							}
+							return true;
+						}
+
+					case SqlNodeType.DiscriminatedType:
+						{
+							var dt1 = (SqlDiscriminatedType)node1;
+							var dt2 = (SqlDiscriminatedType)node2;
+							return AreSimilar(dt1.Discriminator, dt2.Discriminator);
+						}
+
+					case SqlNodeType.JoinedCollection:
+						{
+							var j1 = (SqlJoinedCollection)node1;
+							var j2 = (SqlJoinedCollection)node2;
+							return AreSimilar(j1.Count, j2.Count) && AreSimilar(j1.Expression, j2.Expression);
+						}
+
+					case SqlNodeType.Member:
+						{
+							var m1 = (SqlMember)node1;
+							var m2 = (SqlMember)node2;
+							return m1.Member == m2.Member && AreSimilar(m1.Expression, m2.Expression);
+						}
+
+					case SqlNodeType.ClientQuery:
+						{
+							var cq1 = (SqlClientQuery)node1;
+							var cq2 = (SqlClientQuery)node2;
+							if (cq1.Arguments.Count != cq2.Arguments.Count)
+								return false;
+							for (var i = 0; i < cq1.Arguments.Count; i++)
+								if (!AreSimilar(cq1.Arguments[i], cq2.Arguments[i]))
+									return false;
+							return true;
+						}
+
+					case SqlNodeType.MethodCall:
+						{
+							var mc1 = (SqlMethodCall)node1;
+							var mc2 = (SqlMethodCall)node2;
+							if (mc1.Method != mc2.Method || !AreSimilar(mc1.Object, mc2.Object))
+								return false;
+							if (mc1.Arguments.Count != mc2.Arguments.Count)
+								return false;
+							for (var i = 0; i < mc1.Arguments.Count; i++)
+								if (!AreSimilar(mc1.Arguments[i], mc2.Arguments[i]))
+									return false;
+							return true;
+						}
+
+					default:
+						return false;
+				}
+			}
+		}
+
+
+        private class SourceExpressionRemover : SqlDuplicator.DuplicatingVisitor 
+		{
             internal SourceExpressionRemover()
-                : base(true) {
+                : base(true) 
+			{
             }
-            internal override SqlNode Visit(SqlNode node) {
+
+
+            internal override SqlNode Visit(SqlNode node) 
+			{
                 node = base.Visit(node);
-                if (node != null) {
-                    node.ClearSourceExpression();
-                }
-                return node;
+
+	            if (node != null)
+		            node.ClearSourceExpression();
+	            return node;
             }
-            internal override SqlExpression VisitColumnRef(SqlColumnRef cref) {
-                SqlExpression result = base.VisitColumnRef(cref);
-                if (result != null && result == cref) {
+
+            internal override SqlExpression VisitColumnRef(SqlColumnRef cref) 
+			{
+                var result = base.VisitColumnRef(cref);
+
+                if (result != null && result == cref) 
+				{
                     // reference to outer scope, don't propogate references to expressions or aliases
-                    SqlColumn col = cref.Column;
-                    SqlColumn newcol = new SqlColumn(col.ClrType, col.SqlType, col.Name, col.MetaMember, null, col.SourceExpression);
-                    newcol.Ordinal = col.Ordinal;
-                    result = new SqlColumnRef(newcol);
+                    var col = cref.Column;
+                    var newcol = new SqlColumn(col.ClrType, col.SqlType, col.Name, col.MetaMember, null, col.SourceExpression)
+                    {
+	                    Ordinal = col.Ordinal
+                    };
+					result = new SqlColumnRef(newcol);
                     newcol.ClearSourceExpression();
                 }
                 return result;
             }
-            internal override SqlExpression VisitAliasRef(SqlAliasRef aref) {
-                SqlExpression result = base.VisitAliasRef(aref);
-                if (result != null && result == aref) {
+
+            internal override SqlExpression VisitAliasRef(SqlAliasRef aref) 
+			{
+                var result = base.VisitAliasRef(aref);
+
+                if (result != null && result == aref) 
+				{
                     // reference to outer scope, don't propogate references to expressions or aliases
-                    SqlAlias alias = aref.Alias;
-                    SqlAlias newalias = new SqlAlias(new SqlNop(aref.ClrType, aref.SqlType, null));
+                    var newalias = new SqlAlias(new SqlNop(aref.ClrType, aref.SqlType, null));
                     return new SqlAliasRef(newalias);
                 }
                 return result;
             }
         }
 
-        [MethodImpl(MethodImplOptions.NoInlining | MethodImplOptions.NoOptimization)]
-        public IObjectReaderSession CreateSession(DbDataReader reader, IReaderProvider provider, object[] parentArgs, object[] userArgs, ICompiledSubQuery[] subQueries) {
-            Type sessionType = typeof(ObjectReaderSession<>).MakeGenericType(this.dataReaderType);
-            return (IObjectReaderSession)Activator.CreateInstance(sessionType, BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic, null,
-                new object[] { reader, provider, parentArgs, userArgs, subQueries }, null);
-        }
 
-#if DEBUG
-        private void CompileCapturedMethod(Generator gen, SqlExpression expression, Type elementType) {
-            TypeBuilder tb = ObjectReaderCompiler.CaptureModule.DefineType("reader_type_" + ObjectReaderCompiler.GetNextId());
-            MethodBuilder mb = tb.DefineMethod(
-                "Read_" + elementType.Name,
-                MethodAttributes.Static | MethodAttributes.Public,
-                CallingConventions.Standard,
-                elementType,
-                new Type[] { typeof(ObjectMaterializer<>).MakeGenericType(this.dataReaderType) }
-                );
-            gen.GenerateBody(mb.GetILGenerator(), (SqlExpression)SqlDuplicator.Copy(expression));
-            tb.CreateType();
-        }
-#endif
+        private class ReaderFactoryCache 
+		{
+            private readonly int maxCacheSize;
+			private readonly LinkedList<CacheInfo> list;
 
-        private DynamicMethod CompileDynamicMethod(Generator gen, SqlExpression expression, Type elementType) {
-            Type objectReaderType = typeof(ObjectMaterializer<>).MakeGenericType(this.dataReaderType);
-            DynamicMethod dm = new DynamicMethod(
-                "Read_" + elementType.Name,
-                elementType,
-                new Type[] { objectReaderType },
-                true
-                );
-            gen.GenerateBody(dm.GetILGenerator(), expression);
-            return dm;
-        }
 
-        class ReaderFactoryCache {
-            int maxCacheSize;
-            LinkedList<CacheInfo> list;
+			internal ReaderFactoryCache(int maxCacheSize)
+			{
+				this.maxCacheSize = maxCacheSize;
+				list = new LinkedList<CacheInfo>();
+			}
 
-            class CacheInfo {
-                internal Type elementType;
-                internal Type dataReaderType;
-                internal object mapping;
-                internal DataLoadOptions options;
-                internal SqlExpression projection;
-                internal IObjectReaderFactory factory;
-                public CacheInfo(Type elementType, Type dataReaderType, object mapping, DataLoadOptions options, SqlExpression projection, IObjectReaderFactory factory) {
+
+			internal IObjectReaderFactory GetFactory(
+				Type elementType, 
+				Type dataReaderType, 
+				object mapping, 
+				DataLoadOptions options, 
+				SqlExpression projection)
+			{
+				for (var info = list.First; info != null; info = info.Next)
+				{
+					if (elementType == info.Value.elementType &&
+						dataReaderType == info.Value.dataReaderType &&
+						mapping == info.Value.mapping &&
+						DataLoadOptions.ShapesAreEquivalent(options, info.Value.options) &&
+						SqlProjectionComparer.AreSimilar(projection, info.Value.projection))
+					{
+						// move matching item to head of list to reset its lifetime
+						list.Remove(info);
+						list.AddFirst(info);
+						return info.Value.factory;
+					}
+				}
+				return null;
+			}
+
+			internal void AddFactory(
+				Type elementType, 
+				Type dataReaderType, 
+				object mapping, 
+				DataLoadOptions options, 
+				SqlExpression projection, 
+				IObjectReaderFactory factory)
+			{
+				list.AddFirst(new LinkedListNode<CacheInfo>(
+					new CacheInfo(elementType, dataReaderType, mapping, options, projection, factory)));
+				if (list.Count > maxCacheSize)
+					list.RemoveLast();
+			}
+
+			
+			private class CacheInfo 
+			{
+                internal readonly Type elementType;
+                internal readonly Type dataReaderType;
+                internal readonly object mapping;
+                internal readonly DataLoadOptions options;
+                internal readonly SqlExpression projection;
+                internal readonly IObjectReaderFactory factory;
+
+
+                public CacheInfo(
+					Type elementType, 
+					Type dataReaderType, 
+					object mapping, 
+					DataLoadOptions options, 
+					SqlExpression projection, 
+					IObjectReaderFactory factory) 
+				{
                     this.elementType = elementType;
                     this.dataReaderType = dataReaderType;
                     this.options = options;
@@ -308,1175 +689,1089 @@ namespace System.Data.Linq.SqlClient {
                     this.factory = factory;
                 }
             }
-
-            internal ReaderFactoryCache(int maxCacheSize) {
-                this.maxCacheSize = maxCacheSize;
-                this.list = new LinkedList<CacheInfo>();
-            }
-
-            internal IObjectReaderFactory GetFactory(Type elementType, Type dataReaderType, object mapping, DataLoadOptions options, SqlExpression projection) {
-                for (LinkedListNode<CacheInfo> info = this.list.First; info != null; info = info.Next) {
-                    if (elementType == info.Value.elementType &&
-                        dataReaderType == info.Value.dataReaderType &&
-                        mapping == info.Value.mapping &&
-                        DataLoadOptions.ShapesAreEquivalent(options, info.Value.options) &&
-                        SqlProjectionComparer.AreSimilar(projection, info.Value.projection)
-                        ) {
-                        // move matching item to head of list to reset its lifetime
-                        this.list.Remove(info);
-                        this.list.AddFirst(info);
-                        return info.Value.factory;
-                    }
-                }
-                return null;
-            }
-
-            internal void AddFactory(Type elementType, Type dataReaderType, object mapping, DataLoadOptions options, SqlExpression projection, IObjectReaderFactory factory) {
-                this.list.AddFirst(new LinkedListNode<CacheInfo>(new CacheInfo(elementType, dataReaderType, mapping, options, projection, factory)));
-                if (this.list.Count > this.maxCacheSize) {
-                    this.list.RemoveLast();
-                }
-            }
         }
 
-        internal class SqlProjectionComparer {
-            [SuppressMessage("Microsoft.Maintainability", "CA1502:AvoidExcessiveComplexity", Justification = "These issues are related to our use of if-then and case statements for node types, which adds to the complexity count however when reviewed they are easy to navigate and understand.")]
-            internal static bool CanBeCompared(SqlExpression node) {
-                if (node == null) {
-                    return true;
-                }
-                switch (node.NodeType) {
-                    case SqlNodeType.New: {
-                            SqlNew new1 = (SqlNew)node;
-                            for (int i = 0, n = new1.Args.Count; i < n; i++) {
-                                if (!CanBeCompared(new1.Args[i])) {
-                                    return false;
-                                }
-                            }
-                            for (int i = 0, n = new1.Members.Count; i < n; i++) {
-                                if (!CanBeCompared(new1.Members[i].Expression)) {
-                                    return false;
-                                }
-                            }
-                            return true;
-                        }
-                    case SqlNodeType.ColumnRef:
-                    case SqlNodeType.Value:
-                    case SqlNodeType.UserColumn:
-                        return true;
-                    case SqlNodeType.Link: {
-                            SqlLink l1 = (SqlLink)node;
-                            for (int i = 0, c = l1.KeyExpressions.Count; i < c; ++i) {
-                                if (!CanBeCompared(l1.KeyExpressions[i])) {
-                                    return false;
-                                }
-                            }
-                            return true;
-                        }
-                    case SqlNodeType.OptionalValue:
-                        return CanBeCompared(((SqlOptionalValue)node).Value);
-                    case SqlNodeType.ValueOf:
-                    case SqlNodeType.OuterJoinedValue:
-                        return CanBeCompared(((SqlUnary)node).Operand);
-                    case SqlNodeType.Lift:
-                        return CanBeCompared(((SqlLift)node).Expression);
-                    case SqlNodeType.Grouping: {
-                            SqlGrouping g1 = (SqlGrouping)node;
-                            return CanBeCompared(g1.Key) && CanBeCompared(g1.Group);
-                        }
-                    case SqlNodeType.ClientArray: {
-                            if (node.SourceExpression.NodeType != ExpressionType.NewArrayInit &&
-                                node.SourceExpression.NodeType != ExpressionType.NewArrayBounds) {
-                                    return false;
-                            }
-                            SqlClientArray a1 = (SqlClientArray)node;
-                            for (int i = 0, n = a1.Expressions.Count; i < n; i++) {
-                                if (!CanBeCompared(a1.Expressions[i])) {
-                                    return false;
-                                }
-                            }
-                            return true;
-                        }
-                    case SqlNodeType.ClientCase: {
-                            SqlClientCase c1 = (SqlClientCase)node;
-                            for (int i = 0, n = c1.Whens.Count; i < n; i++) {
-                                if (!CanBeCompared(c1.Whens[i].Match) ||
-                                    !CanBeCompared(c1.Whens[i].Value)) {
-                                    return false;
-                                }
-                            }
-                            return true;
-                        }
-                    case SqlNodeType.SearchedCase: {
-                            SqlSearchedCase c1 = (SqlSearchedCase)node;
-                            for (int i = 0, n = c1.Whens.Count; i < n; i++) {
-                                if (!CanBeCompared(c1.Whens[i].Match) ||
-                                    !CanBeCompared(c1.Whens[i].Value)) {
-                                    return false;
-                                }
-                            }
-                            return CanBeCompared(c1.Else);
-                        }
-                    case SqlNodeType.TypeCase: {
-                            SqlTypeCase c1 = (SqlTypeCase)node;
-                            if (!CanBeCompared(c1.Discriminator)) {
-                                return false;
-                            }
-                            for (int i = 0, c = c1.Whens.Count; i < c; ++i) {
-                                if (!CanBeCompared(c1.Whens[i].Match)) {
-                                    return false;
-                                }
-                                if (!CanBeCompared(c1.Whens[i].TypeBinding)) {
-                                    return false;
-                                }
-                            }
-                            return true;
-                        }
-                    case SqlNodeType.DiscriminatedType:
-                        return CanBeCompared(((SqlDiscriminatedType)node).Discriminator);
-                    case SqlNodeType.JoinedCollection: {
-                            SqlJoinedCollection j1 = (SqlJoinedCollection)node;
-                            return CanBeCompared(j1.Count) && CanBeCompared(j1.Expression);
-                        }
-                    case SqlNodeType.Member:
-                        return CanBeCompared(((SqlMember)node).Expression);
-                    case SqlNodeType.MethodCall: {
-                            SqlMethodCall mc = (SqlMethodCall)node;
-                            if (mc.Object != null && !CanBeCompared(mc.Object)) {
-                                return false;
-                            }
-                            for (int i = 0, n = mc.Arguments.Count; i < n; i++) {
-                                if (!CanBeCompared(mc.Arguments[0])) {
-                                    return false;
-                                }
-                            }
-                            return true;
-                        }
-                    case SqlNodeType.ClientQuery:
-                        return true;
-                    case SqlNodeType.ClientParameter:
-                    default:
-                        return false;
-                }
+
+        private class SideEffectChecker : SqlVisitor 
+		{
+            private bool hasSideEffect;
+
+
+            internal bool HasSideEffect(SqlNode node) 
+			{
+                hasSideEffect = false;
+                Visit(node);
+                return hasSideEffect;
             }
 
-            [SuppressMessage("Microsoft.Maintainability", "CA1506:AvoidExcessiveClassCoupling", Justification = "These issues are related to our use of if-then and case statements for node types, which adds to the complexity count however when reviewed they are easy to navigate and understand.")]
-            [SuppressMessage("Microsoft.Maintainability", "CA1502:AvoidExcessiveComplexity", Justification = "These issues are related to our use of if-then and case statements for node types, which adds to the complexity count however when reviewed they are easy to navigate and understand.")]
-            internal static bool AreSimilar(SqlExpression node1, SqlExpression node2) {
-                if (node1 == node2) {
-                    return true;
-                }
-                if (node1 == null || node2 == null) {
-                    return false;
-                }
-                if (node1.NodeType != node2.NodeType ||
-                    node1.ClrType != node2.ClrType ||
-                    node1.SqlType != node2.SqlType) {
-                    return false;
-                }
-                switch (node1.NodeType) {
-                    case SqlNodeType.New: {
-                            SqlNew new1 = (SqlNew)node1;
-                            SqlNew new2 = (SqlNew)node2;
-                            if (new1.Args.Count != new2.Args.Count ||
-                                new1.Members.Count != new2.Members.Count) {
-                                return false;
-                            }
-                            for (int i = 0, n = new1.Args.Count; i < n; i++) {
-                                if (!AreSimilar(new1.Args[i], new2.Args[i])) {
-                                    return false;
-                                }
-                            }
-                            for (int i = 0, n = new1.Members.Count; i < n; i++) {
-                                if (!MetaPosition.AreSameMember(new1.Members[i].Member, new2.Members[i].Member) ||
-                                    !AreSimilar(new1.Members[i].Expression, new2.Members[i].Expression)) {
-                                    return false;
-                                }
-                            }
-                            return true;
-                        }
-                    case SqlNodeType.ColumnRef: {
-                            SqlColumnRef cref1 = (SqlColumnRef)node1;
-                            SqlColumnRef cref2 = (SqlColumnRef)node2;
-                            return cref1.Column.Ordinal == cref2.Column.Ordinal;
-                        }
-                    case SqlNodeType.Link: {
-                            SqlLink l1 = (SqlLink)node1;
-                            SqlLink l2 = (SqlLink)node2;
-                            if (!MetaPosition.AreSameMember(l1.Member.Member, l2.Member.Member)) {
-                                return false;
-                            }
-                            if (l1.KeyExpressions.Count != l2.KeyExpressions.Count) {
-                                return false;
-                            }
-                            for (int i = 0, c = l1.KeyExpressions.Count; i < c; ++i) {
-                                if (!AreSimilar(l1.KeyExpressions[i], l2.KeyExpressions[i])) {
-                                    return false;
-                                }
-                            }
-                            return true;
-                        }
-                    case SqlNodeType.Value:
-                        return Object.Equals(((SqlValue)node1).Value, ((SqlValue)node2).Value);
-                    case SqlNodeType.OptionalValue: {
-                            SqlOptionalValue ov1 = (SqlOptionalValue)node1;
-                            SqlOptionalValue ov2 = (SqlOptionalValue)node2;
-                            return AreSimilar(ov1.Value, ov2.Value);
-                        }
-                    case SqlNodeType.ValueOf:
-                    case SqlNodeType.OuterJoinedValue:
-                        return AreSimilar(((SqlUnary)node1).Operand, ((SqlUnary)node2).Operand);
-                    case SqlNodeType.Lift:
-                        return AreSimilar(((SqlLift)node1).Expression, ((SqlLift)node2).Expression);
-                    case SqlNodeType.Grouping: {
-                            SqlGrouping g1 = (SqlGrouping)node1;
-                            SqlGrouping g2 = (SqlGrouping)node2;
-                            return AreSimilar(g1.Key, g2.Key) && AreSimilar(g1.Group, g2.Group);
-                        }
-                    case SqlNodeType.ClientArray: {
-                            SqlClientArray a1 = (SqlClientArray)node1;
-                            SqlClientArray a2 = (SqlClientArray)node2;
-                            if (a1.Expressions.Count != a2.Expressions.Count) {
-                                return false;
-                            }
-                            for (int i = 0, n = a1.Expressions.Count; i < n; i++) {
-                                if (!AreSimilar(a1.Expressions[i], a2.Expressions[i])) {
-                                    return false;
-                                }
-                            }
-                            return true;
-                        }
-                    case SqlNodeType.UserColumn:
-                        return ((SqlUserColumn)node1).Name == ((SqlUserColumn)node2).Name;
-                    case SqlNodeType.ClientCase: {
-                            SqlClientCase c1 = (SqlClientCase)node1;
-                            SqlClientCase c2 = (SqlClientCase)node2;
-                            if (c1.Whens.Count != c2.Whens.Count) {
-                                return false;
-                            }
-                            for (int i = 0, n = c1.Whens.Count; i < n; i++) {
-                                if (!AreSimilar(c1.Whens[i].Match, c2.Whens[i].Match) ||
-                                    !AreSimilar(c1.Whens[i].Value, c2.Whens[i].Value)) {
-                                    return false;
-                                }
-                            }
-                            return true;
-                        }
-                    case SqlNodeType.SearchedCase: {
-                            SqlSearchedCase c1 = (SqlSearchedCase)node1;
-                            SqlSearchedCase c2 = (SqlSearchedCase)node2;
-                            if (c1.Whens.Count != c2.Whens.Count) {
-                                return false;
-                            }
-                            for (int i = 0, n = c1.Whens.Count; i < n; i++) {
-                                if (!AreSimilar(c1.Whens[i].Match, c2.Whens[i].Match) ||
-                                    !AreSimilar(c1.Whens[i].Value, c2.Whens[i].Value))
-                                    return false;
-                            }
-                            return AreSimilar(c1.Else, c2.Else);
-                        }
-                    case SqlNodeType.TypeCase: {
-                            SqlTypeCase c1 = (SqlTypeCase)node1;
-                            SqlTypeCase c2 = (SqlTypeCase)node2;
-                            if (!AreSimilar(c1.Discriminator, c2.Discriminator)) {
-                                return false;
-                            }
-                            if (c1.Whens.Count != c2.Whens.Count) {
-                                return false;
-                            }
-                            for (int i = 0, c = c1.Whens.Count; i < c; ++i) {
-                                if (!AreSimilar(c1.Whens[i].Match, c2.Whens[i].Match)) {
-                                    return false;
-                                }
-                                if (!AreSimilar(c1.Whens[i].TypeBinding, c2.Whens[i].TypeBinding)) {
-                                    return false;
-                                }
-                            }
-                            return true;
-                        }
-                    case SqlNodeType.DiscriminatedType: {
-                            SqlDiscriminatedType dt1 = (SqlDiscriminatedType)node1;
-                            SqlDiscriminatedType dt2 = (SqlDiscriminatedType)node2;
-                            return AreSimilar(dt1.Discriminator, dt2.Discriminator);
-                        }
-                    case SqlNodeType.JoinedCollection: {
-                            SqlJoinedCollection j1 = (SqlJoinedCollection)node1;
-                            SqlJoinedCollection j2 = (SqlJoinedCollection)node2;
-                            return AreSimilar(j1.Count, j2.Count) && AreSimilar(j1.Expression, j2.Expression);
-                        }
-                    case SqlNodeType.Member: {
-                            SqlMember m1 = (SqlMember)node1;
-                            SqlMember m2 = (SqlMember)node2;
-                            return m1.Member == m2.Member && AreSimilar(m1.Expression, m2.Expression);
-                        }
-                    case SqlNodeType.ClientQuery: {
-                            SqlClientQuery cq1 = (SqlClientQuery)node1;
-                            SqlClientQuery cq2 = (SqlClientQuery)node2;
-                            if (cq1.Arguments.Count != cq2.Arguments.Count) {
-                                return false;
-                            }
-                            for (int i = 0, n = cq1.Arguments.Count; i < n; i++) {
-                                if (!AreSimilar(cq1.Arguments[i], cq2.Arguments[i])) {
-                                    return false;
-                                }
-                            }
-                            return true;
-                        }
-                    case SqlNodeType.MethodCall: {
-                            SqlMethodCall mc1 = (SqlMethodCall)node1;
-                            SqlMethodCall mc2 = (SqlMethodCall)node2;
-                            if (mc1.Method != mc2.Method || !AreSimilar(mc1.Object, mc2.Object)) {
-                                return false;
-                            }
-                            if (mc1.Arguments.Count != mc2.Arguments.Count) {
-                                return false;
-                            }
-                            for (int i = 0, n = mc1.Arguments.Count; i < n; i++) {
-                                if (!AreSimilar(mc1.Arguments[i], mc2.Arguments[i])) {
-                                    return false;
-                                }
-                            }
-                            return true;
-                        }
-                    case SqlNodeType.ClientParameter:
-                    default:
-                        return false;
-                }
-            }
-        }
-
-        class SideEffectChecker : SqlVisitor {
-            bool hasSideEffect;
-
-            internal bool HasSideEffect(SqlNode node) {
-                this.hasSideEffect = false;
-                this.Visit(node);
-                return this.hasSideEffect;
-            }
-
-            internal override SqlExpression VisitJoinedCollection(SqlJoinedCollection jc) {
-                this.hasSideEffect = true;
+            internal override SqlExpression VisitJoinedCollection(SqlJoinedCollection jc) 
+			{
+                hasSideEffect = true;
                 return jc;
             }
 
-            internal override SqlExpression VisitClientQuery(SqlClientQuery cq) {
+            internal override SqlExpression VisitClientQuery(SqlClientQuery cq) 
+			{
                 return cq;
             }
         }
 
-        [SuppressMessage("Microsoft.Maintainability", "CA1506:AvoidExcessiveClassCoupling", Justification = "Unknown reason.")]
-        class Generator {
-            ObjectReaderCompiler compiler;
-            ILGenerator gen;
-            List<object> globals;
-            List<NamedColumn> namedColumns;
-            LocalBuilder locDataReader;
-            Type elementType;
-            int nLocals;
-            Dictionary<MetaAssociation, int> associationSubQueries;
-            SideEffectChecker sideEffectChecker = new SideEffectChecker();
 
-            internal Generator(ObjectReaderCompiler compiler, Type elementType) {
+        private class Generator 
+		{
+			/// <summary>
+			/// Cannot use Call for virtual methods - it results in unverifiable code.  Ensure we're using the correct op code.
+			/// </summary>
+			private static OpCode GetMethodCallOpCode(MethodInfo mi)
+			{
+				return (mi.IsStatic || mi.DeclaringType.IsValueType) ? OpCodes.Call : OpCodes.Callvirt;
+			}
+
+			private static bool IsAssignable(MemberInfo member)
+			{
+				var fi = member as FieldInfo;
+				if (fi != null)
+					return true;
+				var pi = member as PropertyInfo;
+				return (pi != null) && pi.CanWrite;
+			}
+
+
+            private readonly ObjectReaderCompiler compiler;
+			private ILGenerator gen;
+			private List<object> globals;
+			private List<NamedColumn> namedColumns;
+			private LocalBuilder locDataReader;
+			private readonly Type elementType;
+			private int nLocals;
+	        private readonly SideEffectChecker sideEffectChecker = new SideEffectChecker();
+
+#if DEBUG
+
+			private int stackDepth;
+
+#endif
+
+
+            internal Generator(ObjectReaderCompiler compiler, Type elementType) 
+			{
                 this.compiler = compiler;
                 this.elementType = elementType;
-                this.associationSubQueries = new Dictionary<MetaAssociation,int>();
             }
 
-            internal void GenerateBody(ILGenerator generator, SqlExpression expression) {
-                this.gen = generator;
-                this.globals = new List<object>();
-                this.namedColumns = new List<NamedColumn>();
-                // prepare locDataReader
-                this.locDataReader = generator.DeclareLocal(this.compiler.dataReaderType);
-                generator.Emit(OpCodes.Ldarg_0);
-                generator.Emit(OpCodes.Ldfld, this.compiler.readerField);
-                generator.Emit(OpCodes.Stloc, this.locDataReader);
 
-                this.GenerateExpressionForType(expression, this.elementType);
+			internal object[] Globals
+			{
+				get { return globals.ToArray(); }
+			}
+
+			internal NamedColumn[] NamedColumns
+			{
+				get { return namedColumns.ToArray(); }
+			}
+
+			internal int Locals
+			{
+				get { return nLocals; }
+			}
+
+
+            internal void GenerateBody(ILGenerator generator, SqlExpression expression) 
+			{
+                gen = generator;
+                globals = new List<object>();
+                namedColumns = new List<NamedColumn>();
+
+                // prepare locDataReader
+                locDataReader = generator.DeclareLocal(compiler.dataReaderType);
+                generator.Emit(OpCodes.Ldarg_0);
+                generator.Emit(OpCodes.Ldfld, compiler.readerField);
+                generator.Emit(OpCodes.Stloc, locDataReader);
+
+                GenerateExpressionForType(expression, elementType);
 
                 generator.Emit(OpCodes.Ret);
             }
 
-            internal object[] Globals {
-                get { return this.globals.ToArray(); }
-            }
 
-            internal NamedColumn[] NamedColumns {
-                get { return this.namedColumns.ToArray(); }
-            }
+			private Type Generate(SqlNode node)
+			{
+				return Generate(node, null);
+			}
 
-            internal int Locals {
-                get { return this.nLocals; }
-            }
-
+            private Type Generate(SqlNode node, LocalBuilder locInstance) 
+			{
 #if DEBUG
-            private int stackDepth;
-#endif
-
-            private Type Generate(SqlNode node) {
-                return this.Generate(node, null);
-            }
-
-            [SuppressMessage("Microsoft.Performance", "CA1800:DoNotCastUnnecessarily", Justification = "[....]: Cast is dependent on node type and casts do not happen unecessarily in a single code path.")]
-            [SuppressMessage("Microsoft.Maintainability", "CA1502:AvoidExcessiveComplexity", Justification = "These issues are related to our use of if-then and case statements for node types, which adds to the complexity count however when reviewed they are easy to navigate and understand.")]
-            private Type Generate(SqlNode node, LocalBuilder locInstance) {
-#if DEBUG
-                try {
+                try 
+				{
                     stackDepth++;
-                    System.Diagnostics.Debug.Assert(stackDepth < 500);
+                    Debug.Assert(stackDepth < 500);
 #endif
-                    switch (node.NodeType) {
+                    switch (node.NodeType) 
+					{
                         case SqlNodeType.New:
-                            return this.GenerateNew((SqlNew)node);
+                            return GenerateNew((SqlNew)node);
+
                         case SqlNodeType.ColumnRef:
-                            return this.GenerateColumnReference((SqlColumnRef)node);
+                            return GenerateColumnReference((SqlColumnRef)node);
+
                         case SqlNodeType.ClientQuery:
-                            return this.GenerateClientQuery((SqlClientQuery)node, locInstance);
+                            return GenerateClientQuery((SqlClientQuery)node);
+
                         case SqlNodeType.JoinedCollection:
-                            return this.GenerateJoinedCollection((SqlJoinedCollection)node);
+                            return GenerateJoinedCollection((SqlJoinedCollection)node);
+
                         case SqlNodeType.Link:
-                            return this.GenerateLink((SqlLink)node, locInstance);
+                            return GenerateLink((SqlLink)node, locInstance);
+
                         case SqlNodeType.Value:
-                            return this.GenerateValue((SqlValue)node);
+                            return GenerateValue((SqlValue)node);
+
                         case SqlNodeType.ClientParameter:
-                            return this.GenerateClientParameter((SqlClientParameter)node);
+                            return GenerateClientParameter((SqlClientParameter)node);
+
                         case SqlNodeType.ValueOf:
-                            return this.GenerateValueOf((SqlUnary)node);
+                            return GenerateValueOf((SqlUnary)node);
+
                         case SqlNodeType.OptionalValue:
-                            return this.GenerateOptionalValue((SqlOptionalValue)node);
+                            return GenerateOptionalValue((SqlOptionalValue)node);
+
                         case SqlNodeType.OuterJoinedValue:
-                            return this.Generate(((SqlUnary)node).Operand);
+                            return Generate(((SqlUnary)node).Operand);
+
                         case SqlNodeType.Lift:
-                            return this.GenerateLift((SqlLift)node);
+                            return GenerateLift((SqlLift)node);
+
                         case SqlNodeType.Grouping:
-                            return this.GenerateGrouping((SqlGrouping)node);
+                            return GenerateGrouping((SqlGrouping)node);
+
                         case SqlNodeType.ClientArray:
-                            return this.GenerateClientArray((SqlClientArray)node);
+                            return GenerateClientArray((SqlClientArray)node);
+
                         case SqlNodeType.UserColumn:
-                            return this.GenerateUserColumn((SqlUserColumn)node);
+                            return GenerateUserColumn((SqlUserColumn)node);
+
                         case SqlNodeType.ClientCase:
-                            return this.GenerateClientCase((SqlClientCase)node, false, locInstance);
+                            return GenerateClientCase((SqlClientCase)node, false, locInstance);
+
                         case SqlNodeType.SearchedCase:
-                            return this.GenerateSearchedCase((SqlSearchedCase)node);
+                            return GenerateSearchedCase((SqlSearchedCase)node);
+
                         case SqlNodeType.TypeCase:
-                            return this.GenerateTypeCase((SqlTypeCase)node);
+                            return GenerateTypeCase((SqlTypeCase)node);
+
                         case SqlNodeType.DiscriminatedType:
-                            return this.GenerateDiscriminatedType((SqlDiscriminatedType)node);
+                            return GenerateDiscriminatedType((SqlDiscriminatedType)node);
+
                         case SqlNodeType.Member:
-                            return this.GenerateMember((SqlMember)node);
+                            return GenerateMember((SqlMember)node);
+
                         case SqlNodeType.MethodCall:
-                            return this.GenerateMethodCall((SqlMethodCall)node);
+                            return GenerateMethodCall((SqlMethodCall)node);
+
                         default:
                             throw Error.CouldNotTranslateExpressionForReading(node.SourceExpression);
                     }
 #if DEBUG
                 }
-                finally {
+                finally 
+				{
                     stackDepth--;
                 }
 #endif
             }
 
-            private void GenerateAccessBufferReader() {
+            private void GenerateAccessBufferReader() 
+			{
                 gen.Emit(OpCodes.Ldarg_0);
-                gen.Emit(OpCodes.Ldfld, this.compiler.bufferReaderField);
+                gen.Emit(OpCodes.Ldfld, compiler.bufferReaderField);
             }
 
-            private void GenerateAccessDataReader() {
-                gen.Emit(OpCodes.Ldloc, this.locDataReader);
+            private void GenerateAccessDataReader() 
+			{
+                gen.Emit(OpCodes.Ldloc, locDataReader);
             }
 
-            private void GenerateAccessOrdinals() {
+            private void GenerateAccessOrdinals() 
+			{
                 gen.Emit(OpCodes.Ldarg_0);
-                gen.Emit(OpCodes.Ldfld, this.compiler.ordinalsField);
+                gen.Emit(OpCodes.Ldfld, compiler.ordinalsField);
             }
 
-            private void GenerateAccessGlobals() {
+            private void GenerateAccessGlobals() 
+			{
                 gen.Emit(OpCodes.Ldarg_0);
-                gen.Emit(OpCodes.Ldfld, this.compiler.globalsField);
+                gen.Emit(OpCodes.Ldfld, compiler.globalsField);
             }
 
-            private void GenerateAccessArguments() {
+            private void GenerateAccessArguments() 
+			{
                 gen.Emit(OpCodes.Ldarg_0);
-                gen.Emit(OpCodes.Ldfld, this.compiler.argsField);
+                gen.Emit(OpCodes.Ldfld, compiler.argsField);
             }
 
-            private Type GenerateValue(SqlValue value) {
-                return this.GenerateConstant(value.ClrType, value.Value);
+            private Type GenerateValue(SqlValue value) 
+			{
+                return GenerateConstant(value.ClrType, value.Value);
             }
 
-            private Type GenerateClientParameter(SqlClientParameter cp) {
-                Delegate d = cp.Accessor.Compile();
-                int iGlobal = this.AddGlobal(d.GetType(), d);
-                this.GenerateGlobalAccess(iGlobal, d.GetType());
-                this.GenerateAccessArguments();
-                MethodInfo miInvoke = d.GetType().GetMethod(
+            private Type GenerateClientParameter(SqlClientParameter cp) 
+			{
+                var d = cp.Accessor.Compile();
+                var iGlobal = AddGlobal(d.GetType(), d);
+                GenerateGlobalAccess(iGlobal, d.GetType());
+                GenerateAccessArguments();
+                var miInvoke = d.GetType().GetMethod(
                     "Invoke",
                     BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic,
                     null,
-                    new Type[] { typeof(object[]) },
-                    null
-                    );
-                System.Diagnostics.Debug.Assert(miInvoke != null);
+                    new[]
+                    {
+	                    typeof(object[])
+                    },
+                    null);
+                Debug.Assert(miInvoke != null);
                 gen.Emit(GetMethodCallOpCode(miInvoke), miInvoke);
                 return d.Method.ReturnType;
             }
 
-            private Type GenerateValueOf(SqlUnary u) {
-                System.Diagnostics.Debug.Assert(TypeSystem.IsNullableType(u.Operand.ClrType));
-                this.GenerateExpressionForType(u.Operand, u.Operand.ClrType);
-                LocalBuilder loc = gen.DeclareLocal(u.Operand.ClrType);
+            private Type GenerateValueOf(SqlUnary u) 
+			{
+                Debug.Assert(TypeSystem.IsNullableType(u.Operand.ClrType));
+                GenerateExpressionForType(u.Operand, u.Operand.ClrType);
+                var loc = gen.DeclareLocal(u.Operand.ClrType);
                 gen.Emit(OpCodes.Stloc, loc);
                 gen.Emit(OpCodes.Ldloca, loc);
-                this.GenerateGetValue(u.Operand.ClrType);
+                GenerateGetValue(u.Operand.ClrType);
                 return u.ClrType;
             }
 
-            private Type GenerateOptionalValue(SqlOptionalValue opt) {
-                System.Diagnostics.Debug.Assert(opt.HasValue.ClrType == typeof(int?));
+            private Type GenerateOptionalValue(SqlOptionalValue opt) 
+			{
+                Debug.Assert(opt.HasValue.ClrType == typeof(int?));
 
-                Label labIsNull = gen.DefineLabel();
-                Label labExit = gen.DefineLabel();
+                var labIsNull = gen.DefineLabel();
+                var labExit = gen.DefineLabel();
 
-                Type actualType = this.Generate(opt.HasValue);
-                System.Diagnostics.Debug.Assert(TypeSystem.IsNullableType(actualType));
-                LocalBuilder loc = gen.DeclareLocal(actualType);
+                var actualType = Generate(opt.HasValue);
+                Debug.Assert(TypeSystem.IsNullableType(actualType));
+                var loc = gen.DeclareLocal(actualType);
                 gen.Emit(OpCodes.Stloc, loc);
                 gen.Emit(OpCodes.Ldloca, loc);
-                this.GenerateHasValue(actualType);
+                GenerateHasValue(actualType);
                 gen.Emit(OpCodes.Brfalse, labIsNull);
 
-                this.GenerateExpressionForType(opt.Value, opt.ClrType);
+                GenerateExpressionForType(opt.Value, opt.ClrType);
                 gen.Emit(OpCodes.Br_S, labExit);
 
                 gen.MarkLabel(labIsNull);
-                this.GenerateConstant(opt.ClrType, null);
+                GenerateConstant(opt.ClrType, null);
 
                 gen.MarkLabel(labExit);
                 return opt.ClrType;
             }
 
-            private Type GenerateLift(SqlLift lift) {
-                return this.GenerateExpressionForType(lift.Expression, lift.ClrType);
+            private Type GenerateLift(SqlLift lift) 
+			{
+                return GenerateExpressionForType(lift.Expression, lift.ClrType);
             }
 
-            private Type GenerateClientArray(SqlClientArray ca) {
-                if (!ca.ClrType.IsArray) {
-                    throw Error.CannotMaterializeList(ca.ClrType);
-                }
-                Type elemType = TypeSystem.GetElementType(ca.ClrType);
-                this.GenerateConstInt(ca.Expressions.Count);
+            private Type GenerateClientArray(SqlClientArray ca) 
+			{
+	            if (!ca.ClrType.IsArray)
+		            throw Error.CannotMaterializeList(ca.ClrType);
+
+	            var elemType = TypeSystem.GetElementType(ca.ClrType);
+                GenerateConstInt(ca.Expressions.Count);
                 gen.Emit(OpCodes.Newarr, elemType);
-                for (int i = 0, n = ca.Expressions.Count; i < n; i++) {
+                for (var i = 0; i < ca.Expressions.Count; i++) 
+				{
                     gen.Emit(OpCodes.Dup);
-                    this.GenerateConstInt(i);
-                    this.GenerateExpressionForType(ca.Expressions[i], elemType);
-                    this.GenerateArrayAssign(elemType);
+                    GenerateConstInt(i);
+                    GenerateExpressionForType(ca.Expressions[i], elemType);
+                    GenerateArrayAssign(elemType);
                 }
                 return ca.ClrType;
             }
 
-            private Type GenerateMember(SqlMember m) {
-                FieldInfo fi = m.Member as FieldInfo;
-                if (fi != null) {
-                    this.GenerateExpressionForType(m.Expression, m.Expression.ClrType);
-                    gen.Emit(OpCodes.Ldfld, fi);
-                    return fi.FieldType;
-                }
-                else {
-                    PropertyInfo pi = (PropertyInfo)m.Member;
-                    return this.GenerateMethodCall(new SqlMethodCall(m.ClrType, m.SqlType, pi.GetGetMethod(), m.Expression, null, m.SourceExpression));
-                }
+            private Type GenerateMember(SqlMember m)
+            {
+	            var fi = m.Member as FieldInfo;
+	            if (fi == null)
+	            {
+		            var pi = (PropertyInfo)m.Member;
+		            return GenerateMethodCall(
+						new SqlMethodCall(m.ClrType, m.SqlType, pi.GetGetMethod(), m.Expression, null, m.SourceExpression));
+	            }
+
+	            GenerateExpressionForType(m.Expression, m.Expression.ClrType);
+	            gen.Emit(OpCodes.Ldfld, fi);
+	            return fi.FieldType;
             }
 
-            private Type GenerateMethodCall(SqlMethodCall mc) {
-                ParameterInfo[] pis = mc.Method.GetParameters();
-                if (mc.Object != null) {
-                    Type actualType = this.GenerateExpressionForType(mc.Object, mc.Object.ClrType);
-                    if (actualType.IsValueType) {
-                        LocalBuilder loc = gen.DeclareLocal(actualType);
+	        private Type GenerateMethodCall(SqlMethodCall mc) 
+			{
+                var pis = mc.Method.GetParameters();
+                if (mc.Object != null) 
+				{
+                    var actualType = GenerateExpressionForType(mc.Object, mc.Object.ClrType);
+                    if (actualType.IsValueType) 
+					{
+                        var loc = gen.DeclareLocal(actualType);
                         gen.Emit(OpCodes.Stloc, loc);
                         gen.Emit(OpCodes.Ldloca, loc);
                     }
                 }
-                for (int i = 0, n = mc.Arguments.Count; i < n; i++) {
-                    ParameterInfo pi = pis[i];
-                    Type pType = pi.ParameterType;
-                    if (pType.IsByRef) {
+                for (var i = 0; i < mc.Arguments.Count; i++) 
+				{
+                    var pi = pis[i];
+                    var pType = pi.ParameterType;
+                    if (pType.IsByRef) 
+					{
                         pType = pType.GetElementType();
-                        this.GenerateExpressionForType(mc.Arguments[i], pType);
-                        LocalBuilder loc = gen.DeclareLocal(pType);
+                        GenerateExpressionForType(mc.Arguments[i], pType);
+                        var loc = gen.DeclareLocal(pType);
                         gen.Emit(OpCodes.Stloc, loc);
                         gen.Emit(OpCodes.Ldloca, loc);
                     }
-                    else {
-                        this.GenerateExpressionForType(mc.Arguments[i], pType);
+                    else 
+					{
+                        GenerateExpressionForType(mc.Arguments[i], pType);
                     }
                 }
-                OpCode callOpCode = GetMethodCallOpCode(mc.Method);
-                if (mc.Object != null && TypeSystem.IsNullableType(mc.Object.ClrType) && callOpCode == OpCodes.Callvirt){
-                    gen.Emit(OpCodes.Constrained, mc.Object.ClrType);
-                }
-                gen.Emit(callOpCode, mc.Method);
+                var callOpCode = GetMethodCallOpCode(mc.Method);
+		        if (mc.Object != null && TypeSystem.IsNullableType(mc.Object.ClrType) && callOpCode == OpCodes.Callvirt)
+			        gen.Emit(OpCodes.Constrained, mc.Object.ClrType);
+		        gen.Emit(callOpCode, mc.Method);
 
                 return mc.Method.ReturnType;
             }
 
-            /// <summary>
-            /// Cannot use Call for virtual methods - it results in unverifiable code.  Ensure we're using the correct op code.
-            /// </summary>
-            private static OpCode GetMethodCallOpCode(MethodInfo mi) {
-                return (mi.IsStatic || mi.DeclaringType.IsValueType) ? OpCodes.Call : OpCodes.Callvirt;
-            }
+            private Type GenerateNew(SqlNew sn)
+            {
+				if (compiler.services.Model.ShouldEntityProxyBeCreated(sn.ClrType))
+					return GenerateNewProxy(sn);
 
-            private Type GenerateNew(SqlNew sn) {
-                LocalBuilder locInstance = gen.DeclareLocal(sn.ClrType);
-                LocalBuilder locStoreInMember = null;
-                Label labNewExit = gen.DefineLabel();
-                Label labAlreadyCached = gen.DefineLabel();
+                var locInstance = gen.DeclareLocal(sn.ClrType);
 
                 // read all arg values
-                if (sn.Args.Count > 0) {
-                    ParameterInfo[] pis = sn.Constructor.GetParameters();
-                    for (int i = 0, n = sn.Args.Count; i < n; i++) {
-                        this.GenerateExpressionForType(sn.Args[i], pis[i].ParameterType);
-                    }
-                }
+                if (sn.Args.Count > 0) 
+				{
+                    var pis = sn.Constructor.GetParameters();
+					for (var i = 0; i < sn.Args.Count; i++)
+						GenerateExpressionForType(sn.Args[i], pis[i].ParameterType);
+				}
 
                 // construct the new instance
-                if (sn.Constructor != null) {
+                if (sn.Constructor != null) 
+				{
                     gen.Emit(OpCodes.Newobj, sn.Constructor);
                     gen.Emit(OpCodes.Stloc, locInstance);
                 }
-                else if (sn.ClrType.IsValueType) {
+                else if (sn.ClrType.IsValueType) 
+				{
                     gen.Emit(OpCodes.Ldloca, locInstance);
                     gen.Emit(OpCodes.Initobj, sn.ClrType);
                 }
-                else {
-                    ConstructorInfo ci = sn.ClrType.GetConstructor(System.Type.EmptyTypes);
+                else 
+				{
+                    var ci = sn.ClrType.GetConstructor(Type.EmptyTypes);
                     gen.Emit(OpCodes.Newobj, ci);
                     gen.Emit(OpCodes.Stloc, locInstance);
                 }
 
-                // read/write key bindings if there are any
-                foreach (SqlMemberAssign ma in sn.Members.OrderBy(m => sn.MetaType.GetDataMember(m.Member).Ordinal)) {
-                    MetaDataMember mm = sn.MetaType.GetDataMember(ma.Member);
-                    if (mm.IsPrimaryKey) {
-                        this.GenerateMemberAssignment(mm, locInstance, ma.Expression, null);
-                    }
-                }
-
-                int iMeta = 0;
-
-                if (sn.MetaType.IsEntity) {
-                    LocalBuilder locCached = gen.DeclareLocal(sn.ClrType);
-                    locStoreInMember = gen.DeclareLocal(typeof(bool));
-                    Label labExit = gen.DefineLabel();
-
-                    iMeta = this.AddGlobal(typeof(MetaType), sn.MetaType);
-                    Type orbType = typeof(ObjectMaterializer<>).MakeGenericType(this.compiler.dataReaderType);
-
-                    // this.InsertLookup(metaType, locInstance)
-                    gen.Emit(OpCodes.Ldarg_0);
-                    this.GenerateConstInt(iMeta);
-                    gen.Emit(OpCodes.Ldloc, locInstance);
-                    MethodInfo miInsertLookup = orbType.GetMethod(
-                        "InsertLookup",
-                        BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic,
-                        null,
-                        new Type[] { typeof(int), typeof(object) },
-                        null
-                        );
-
-                    System.Diagnostics.Debug.Assert(miInsertLookup != null);
-                    gen.Emit(GetMethodCallOpCode(miInsertLookup), miInsertLookup);
-                    gen.Emit(OpCodes.Castclass, sn.ClrType);
-                    gen.Emit(OpCodes.Stloc, locCached);
-
-                    // if cached != instance then already cached
-                    gen.Emit(OpCodes.Ldloc, locCached);
-                    gen.Emit(OpCodes.Ldloc, locInstance);
-                    gen.Emit(OpCodes.Ceq);
-                    gen.Emit(OpCodes.Brfalse, labAlreadyCached);
-
-                    this.GenerateConstInt(1);
-                    gen.Emit(OpCodes.Stloc, locStoreInMember);
-                    gen.Emit(OpCodes.Br_S, labExit);
-
-                    gen.MarkLabel(labAlreadyCached);
-                    gen.Emit(OpCodes.Ldloc, locCached);
-                    gen.Emit(OpCodes.Stloc, locInstance);
-                    // signal to not store loaded values in instance...
-                    this.GenerateConstInt(0);
-                    gen.Emit(OpCodes.Stloc, locStoreInMember);
-
-                    gen.MarkLabel(labExit);
-                }
-
-                // read/write non-key bindings
-                foreach (SqlMemberAssign ma in sn.Members.OrderBy(m => sn.MetaType.GetDataMember(m.Member).Ordinal)) {
-                    MetaDataMember mm = sn.MetaType.GetDataMember(ma.Member);
-                    if (!mm.IsPrimaryKey) {
-                        this.GenerateMemberAssignment(mm, locInstance, ma.Expression, locStoreInMember);
-                    }
-                }
-
-                if (sn.MetaType.IsEntity) {
-                    // don't call SendEntityMaterialized if we already had the instance cached
-                    gen.Emit(OpCodes.Ldloc, locStoreInMember);
-                    this.GenerateConstInt(0);
-                    gen.Emit(OpCodes.Ceq);
-                    gen.Emit(OpCodes.Brtrue, labNewExit);
-
-                    // send entity materialized event
-                    gen.Emit(OpCodes.Ldarg_0);
-                    this.GenerateConstInt(iMeta);
-                    gen.Emit(OpCodes.Ldloc, locInstance);
-                    Type orbType = typeof(ObjectMaterializer<>).MakeGenericType(this.compiler.dataReaderType);
-                    MethodInfo miRaiseEvent = orbType.GetMethod(
-                        "SendEntityMaterialized",
-                        BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic,
-                        null,
-                        new Type[] { typeof(int), typeof(object) },
-                        null
-                        );
-                    System.Diagnostics.Debug.Assert(miRaiseEvent != null);
-                    gen.Emit(GetMethodCallOpCode(miRaiseEvent), miRaiseEvent);
-                }
-
-                gen.MarkLabel(labNewExit);
-                gen.Emit(OpCodes.Ldloc, locInstance);
-
-                return sn.ClrType;
+	            return GenerateInitializeNew(sn, locInstance);
             }
 
-            private void GenerateMemberAssignment(MetaDataMember mm, LocalBuilder locInstance, SqlExpression expr, LocalBuilder locStoreInMember) {
-                MemberInfo m = mm.StorageMember != null ? mm.StorageMember : mm.Member;
-                Type memberType = TypeSystem.GetMemberType(m);
+			private Type GenerateInitializeNew(SqlNew sn, LocalBuilder locInstance)
+	        {
+				LocalBuilder locStoreInMember = null;
+				var labNewExit = gen.DefineLabel();
+				var labAlreadyCached = gen.DefineLabel();
+
+				// read/write key bindings if there are any
+				foreach (var ma in sn.Members.OrderBy(m => sn.MetaType.GetDataMember(m.Member).Ordinal))
+				{
+					var mm = sn.MetaType.GetDataMember(ma.Member);
+					if (mm.IsPrimaryKey)
+						GenerateMemberAssignment(mm, locInstance, ma.Expression, null);
+				}
+
+				var iMeta = 0;
+
+				if (sn.MetaType.IsEntity)
+				{
+					var locCached = gen.DeclareLocal(sn.ClrType);
+					locStoreInMember = gen.DeclareLocal(typeof(bool));
+					var labExit = gen.DefineLabel();
+
+					iMeta = AddGlobal(typeof(MetaType), sn.MetaType);
+					var orbType = typeof(ObjectMaterializer<>).MakeGenericType(compiler.dataReaderType);
+
+					// this.InsertLookup(metaType, locInstance)
+					gen.Emit(OpCodes.Ldarg_0);
+					GenerateConstInt(iMeta);
+					gen.Emit(OpCodes.Ldloc, locInstance);
+					var miInsertLookup = orbType.GetMethod(
+						"InsertLookup",
+						BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic,
+						null,
+						new[]
+                        {
+	                        typeof(int), 
+							typeof(object)
+                        },
+						null);
+
+					Debug.Assert(miInsertLookup != null);
+					gen.Emit(GetMethodCallOpCode(miInsertLookup), miInsertLookup);
+					gen.Emit(OpCodes.Castclass, sn.ClrType);
+					gen.Emit(OpCodes.Stloc, locCached);
+
+					// if cached != instance then already cached
+					gen.Emit(OpCodes.Ldloc, locCached);
+					gen.Emit(OpCodes.Ldloc, locInstance);
+					gen.Emit(OpCodes.Ceq);
+					gen.Emit(OpCodes.Brfalse, labAlreadyCached);
+
+					GenerateConstInt(1);
+					gen.Emit(OpCodes.Stloc, locStoreInMember);
+					gen.Emit(OpCodes.Br_S, labExit);
+
+					gen.MarkLabel(labAlreadyCached);
+					gen.Emit(OpCodes.Ldloc, locCached);
+					gen.Emit(OpCodes.Stloc, locInstance);
+
+					// signal to not store loaded values in instance...
+					GenerateConstInt(0);
+					gen.Emit(OpCodes.Stloc, locStoreInMember);
+
+					gen.MarkLabel(labExit);
+				}
+
+				// read/write non-key bindings
+				foreach (var ma in sn.Members.OrderBy(m => sn.MetaType.GetDataMember(m.Member).Ordinal))
+				{
+					var mm = sn.MetaType.GetDataMember(ma.Member);
+					if (!mm.IsPrimaryKey)
+						GenerateMemberAssignment(mm, locInstance, ma.Expression, locStoreInMember);
+				}
+
+				if (sn.MetaType.IsEntity)
+				{
+					// don't call SendEntityMaterialized if we already had the instance cached
+					gen.Emit(OpCodes.Ldloc, locStoreInMember);
+					GenerateConstInt(0);
+					gen.Emit(OpCodes.Ceq);
+					gen.Emit(OpCodes.Brtrue, labNewExit);
+
+					// send entity materialized event
+					gen.Emit(OpCodes.Ldarg_0);
+					GenerateConstInt(iMeta);
+					gen.Emit(OpCodes.Ldloc, locInstance);
+					var orbType = typeof(ObjectMaterializer<>).MakeGenericType(compiler.dataReaderType);
+					var miRaiseEvent = orbType.GetMethod(
+						"SendEntityMaterialized",
+						BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic,
+						null,
+						new[]
+                        {
+	                        typeof(int), 
+							typeof(object)
+                        },
+						null);
+					Debug.Assert(miRaiseEvent != null);
+					gen.Emit(GetMethodCallOpCode(miRaiseEvent), miRaiseEvent);
+				}
+
+				gen.MarkLabel(labNewExit);
+				gen.Emit(OpCodes.Ldloc, locInstance);
+
+				return sn.ClrType;
+			}
+
+			private Type GenerateNewProxy(SqlNew sn)
+			{
+				if (sn.Args.Any())
+					throw new InvalidOperationException("sn.Args.Any()");
+
+				var locInstance = gen.DeclareLocal(sn.ClrType);
+
+				// construct the new instance
+				var factoryMethod = typeof(ObjectMaterializer<>)
+					.MakeGenericType(compiler.dataReaderType)
+					.GetMethod("CreateEntityProxy", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic)
+					.MakeGenericMethod(sn.ClrType);
+				gen.Emit(OpCodes.Ldarg_0);
+				gen.Emit(GetMethodCallOpCode(factoryMethod), factoryMethod);
+				gen.Emit(OpCodes.Stloc, locInstance);
+
+				return GenerateInitializeNew(sn, locInstance);
+			}
+
+			private void GenerateMemberAssignment(
+				MetaDataMember mm, 
+				LocalBuilder locInstance, 
+				SqlExpression expr, 
+				LocalBuilder locStoreInMember) 
+			{
+				var memberType = TypeSystem.GetMemberType(mm.StorageMember ?? mm.Member);
 
                 // check for deferrable member & deferred source expression
                 if (IsDeferrableExpression(expr) &&
-                    (this.compiler.services.Context.LoadOptions == null ||
-                     !this.compiler.services.Context.LoadOptions.IsPreloaded(mm.Member))
-                   ) {
+                    (compiler.services.Context.LoadOptions == null ||
+                     !compiler.services.Context.LoadOptions.IsPreloaded(mm.Member))) 
+				{
                     // we can only defer deferrable members 
-                    if (mm.IsDeferred) {
+                    if (mm.IsDeferred) 
+					{
                         // determine at runtime if we are allowed to defer load 
                         gen.Emit(OpCodes.Ldarg_0);
-                        Type orbType = typeof(ObjectMaterializer<>).MakeGenericType(this.compiler.dataReaderType);
-                        PropertyInfo piCanDeferLoad = orbType.GetProperty("CanDeferLoad");
-                        System.Diagnostics.Debug.Assert(piCanDeferLoad != null);
-                        MethodInfo miCanDeferLoad = piCanDeferLoad.GetGetMethod();
+                        var orbType = typeof(ObjectMaterializer<>).MakeGenericType(compiler.dataReaderType);
+                        var piCanDeferLoad = orbType.GetProperty("CanDeferLoad");
+                        Debug.Assert(piCanDeferLoad != null);
+                        var miCanDeferLoad = piCanDeferLoad.GetGetMethod();
                         gen.Emit(GetMethodCallOpCode(miCanDeferLoad), miCanDeferLoad);
 
                         // if we can't defer load then jump over the code that does the defer loading
-                        Label labEndDeferLoad = gen.DefineLabel();
+                        var labEndDeferLoad = gen.DefineLabel();
                         gen.Emit(OpCodes.Brfalse, labEndDeferLoad);
 
                         // execute the defer load operation
-                        if (memberType.IsGenericType) {
-                            Type genType = memberType.GetGenericTypeDefinition();
-                            if (genType == typeof(EntitySet<>)) {
-                                this.GenerateAssignDeferredEntitySet(mm, locInstance, expr, locStoreInMember);
-                            }
-                            else if (genType == typeof(EntityRef<>) || genType == typeof(Link<>)) {
-                                this.GenerateAssignDeferredReference(mm, locInstance, expr, locStoreInMember);
-                            }
-                            else {
-                                throw Error.DeferredMemberWrongType();
-                            }
+                        if (memberType.IsGenericType) 
+						{
+                            var genType = memberType.GetGenericTypeDefinition();
+	                        if (genType == typeof(EntitySet<>))
+		                        GenerateAssignDeferredEntitySet(mm, locInstance, expr, locStoreInMember);
+	                        else if (genType == typeof(EntityRef<>) || genType == typeof(Link<>))
+		                        GenerateAssignDeferredReference(mm, locInstance, expr, locStoreInMember);
+	                        else
+		                        throw Error.DeferredMemberWrongType();
                         }
-                        else {
-                            throw Error.DeferredMemberWrongType();
+                        else 
+						{
+							GenerateAssignDeferredReferenceInProxy(mm, locInstance, expr, locStoreInMember);
                         }
                         gen.MarkLabel(labEndDeferLoad);
                     }
-                    else {
+                    else 
+					{
                         // behavior for non-deferred members w/ deferrable expressions is to load nothing
                     }
                 }
-                else if (memberType.IsGenericType && memberType.GetGenericTypeDefinition() == typeof(EntitySet<>)) {
-                    this.GenerateAssignEntitySet(mm, locInstance, expr, locStoreInMember);
+                else if (memberType.IsGenericType && memberType.GetGenericTypeDefinition() == typeof(EntitySet<>)) 
+				{
+                    GenerateAssignEntitySet(mm, locInstance, expr, locStoreInMember);
                 }
-                else {
-                    this.GenerateAssignValue(mm, locInstance, expr, locStoreInMember);
+                else 
+				{
+                    GenerateAssignValue(mm, locInstance, expr, locStoreInMember);
                 }
             }
 
-            private void GenerateAssignValue(MetaDataMember mm, LocalBuilder locInstance, SqlExpression expr, LocalBuilder locStoreInMember) {
-                MemberInfo m = mm.StorageMember != null ? mm.StorageMember : mm.Member;
-                if (!IsAssignable(m)) {
-                    throw Error.CannotAssignToMember(m.Name);
-                }
-                Type memberType = TypeSystem.GetMemberType(m);
+            private void GenerateAssignValue(
+				MetaDataMember mm, 
+				LocalBuilder locInstance, 
+				SqlExpression expr, 
+				LocalBuilder locStoreInMember) 
+			{
+                var m = mm.StorageMember ?? mm.Member;
+	            if (!IsAssignable(m))
+		            throw Error.CannotAssignToMember(m.Name);
+	            var memberType = TypeSystem.GetMemberType(m);
 
-                Label labExit = gen.DefineLabel();
+                var labExit = gen.DefineLabel();
 
-                bool hasSideEffect = this.HasSideEffect(expr);
+                var hasSideEffect = HasSideEffect(expr);
 
-                if (locStoreInMember != null && !hasSideEffect) {
+                if (locStoreInMember != null && !hasSideEffect) 
+				{
                     gen.Emit(OpCodes.Ldloc, locStoreInMember);
-                    this.GenerateConstInt(0);
+                    GenerateConstInt(0);
                     gen.Emit(OpCodes.Ceq);
                     gen.Emit(OpCodes.Brtrue, labExit);
                 }
 
-                this.GenerateExpressionForType(expr, memberType, mm.DeclaringType.IsEntity ? locInstance : null);
-                LocalBuilder locValue = gen.DeclareLocal(memberType);
+                GenerateExpressionForType(expr, memberType, mm.DeclaringType.IsEntity ? locInstance : null);
+                var locValue = gen.DeclareLocal(memberType);
 
                 gen.Emit(OpCodes.Stloc, locValue);
 
-                if (locStoreInMember != null && hasSideEffect) {
+                if (locStoreInMember != null && hasSideEffect) 
+				{
                     gen.Emit(OpCodes.Ldloc, locStoreInMember);
-                    this.GenerateConstInt(0);
+                    GenerateConstInt(0);
                     gen.Emit(OpCodes.Ceq);
                     gen.Emit(OpCodes.Brtrue, labExit);
                 }
 
-                this.GenerateLoadForMemberAccess(locInstance);
+                GenerateLoadForMemberAccess(locInstance);
                 gen.Emit(OpCodes.Ldloc, locValue);
-                this.GenerateStoreMember(m);
+                GenerateStoreMember(m);
 
                 gen.MarkLabel(labExit);
             }
 
-            private static bool IsAssignable(MemberInfo member) {
-                FieldInfo fi = member as FieldInfo;
-                if (fi != null) {
-                    return true;
-                }
-                PropertyInfo pi = member as PropertyInfo;
-                if (pi != null) {
-                    return pi.CanWrite;
-                }
-                return false;
-            }
+            private void GenerateAssignDeferredEntitySet(
+				MetaDataMember mm, 
+				LocalBuilder locInstance, 
+				SqlExpression expr, 
+				LocalBuilder locStoreInMember) 
+			{
+                var m = mm.StorageMember ?? mm.Member;
+                var memberType = TypeSystem.GetMemberType(m);
+                Debug.Assert(memberType.IsGenericType && memberType.GetGenericTypeDefinition() == typeof(EntitySet<>));
+                var labExit = gen.DefineLabel();
+                var argType = typeof(IEnumerable<>).MakeGenericType(memberType.GetGenericArguments());
 
-            private void GenerateAssignDeferredEntitySet(MetaDataMember mm, LocalBuilder locInstance, SqlExpression expr, LocalBuilder locStoreInMember) {
-                MemberInfo m = mm.StorageMember != null ? mm.StorageMember : mm.Member;
-                Type memberType = TypeSystem.GetMemberType(m);
-                System.Diagnostics.Debug.Assert(memberType.IsGenericType && memberType.GetGenericTypeDefinition() == typeof(EntitySet<>));
-                Label labExit = gen.DefineLabel();
-                Type argType = typeof(IEnumerable<>).MakeGenericType(memberType.GetGenericArguments());
+                var hasSideEffect = HasSideEffect(expr);
 
-                bool hasSideEffect = this.HasSideEffect(expr);
-
-                if (locStoreInMember != null && !hasSideEffect) {
+                if (locStoreInMember != null && !hasSideEffect) 
+				{
                     gen.Emit(OpCodes.Ldloc, locStoreInMember);
-                    this.GenerateConstInt(0);
+                    GenerateConstInt(0);
                     gen.Emit(OpCodes.Ceq);
                     gen.Emit(OpCodes.Brtrue, labExit);
                 }
 
-                Type eType = this.GenerateDeferredSource(expr, locInstance);
-                System.Diagnostics.Debug.Assert(argType.IsAssignableFrom(eType));
-                LocalBuilder locSource = gen.DeclareLocal(eType);
+                var eType = GenerateDeferredSource(expr, locInstance);
+                Debug.Assert(argType.IsAssignableFrom(eType));
+                var locSource = gen.DeclareLocal(eType);
                 gen.Emit(OpCodes.Stloc, locSource);
 
-                if (locStoreInMember != null && hasSideEffect) {
+                if (locStoreInMember != null && hasSideEffect) 
+				{
                     gen.Emit(OpCodes.Ldloc, locStoreInMember);
-                    this.GenerateConstInt(0);
+                    GenerateConstInt(0);
                     gen.Emit(OpCodes.Ceq);
                     gen.Emit(OpCodes.Brtrue, labExit);
                 }
 
                 // if member is directly writeable, check for null entityset
-                if (m is FieldInfo || (m is PropertyInfo && ((PropertyInfo)m).CanWrite)) {
-                    Label labFetch = gen.DefineLabel();
-                    this.GenerateLoadForMemberAccess(locInstance);
-                    this.GenerateLoadMember(m);
+                if (m is FieldInfo || (m is PropertyInfo && ((PropertyInfo)m).CanWrite)) 
+				{
+                    var labFetch = gen.DefineLabel();
+                    GenerateLoadForMemberAccess(locInstance);
+                    GenerateLoadMember(m);
                     gen.Emit(OpCodes.Ldnull);
                     gen.Emit(OpCodes.Ceq);
                     gen.Emit(OpCodes.Brfalse, labFetch);
 
                     // create new entity set
-                    this.GenerateLoadForMemberAccess(locInstance);
-                    ConstructorInfo ci = memberType.GetConstructor(System.Type.EmptyTypes);
-                    System.Diagnostics.Debug.Assert(ci != null);
+                    GenerateLoadForMemberAccess(locInstance);
+                    var ci = memberType.GetConstructor(Type.EmptyTypes);
+                    Debug.Assert(ci != null);
                     gen.Emit(OpCodes.Newobj, ci);
-                    this.GenerateStoreMember(m);
+                    GenerateStoreMember(m);
 
                     gen.MarkLabel(labFetch);
                 }
 
                 // set the source
-                this.GenerateLoadForMemberAccess(locInstance);
-                this.GenerateLoadMember(m);
+                GenerateLoadForMemberAccess(locInstance);
+                GenerateLoadMember(m);
                 gen.Emit(OpCodes.Ldloc, locSource);
-                MethodInfo miSetSource = memberType.GetMethod("SetSource", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic, null, new Type[] { argType }, null);
-                System.Diagnostics.Debug.Assert(miSetSource != null);
+                var miSetSource = memberType.GetMethod(
+					"SetSource", 
+					BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic, 
+					null, 
+					new[]
+					{
+						argType
+					}, 
+					null);
+                Debug.Assert(miSetSource != null);
                 gen.Emit(GetMethodCallOpCode(miSetSource), miSetSource);
 
                 gen.MarkLabel(labExit);
             }
 
-            private bool HasSideEffect(SqlNode node) {
-                return this.sideEffectChecker.HasSideEffect(node);
+            private bool HasSideEffect(SqlNode node) 
+			{
+                return sideEffectChecker.HasSideEffect(node);
             }
 
-            private void GenerateAssignEntitySet(MetaDataMember mm, LocalBuilder locInstance, SqlExpression expr, LocalBuilder locStoreInMember) {
-                MemberInfo m = mm.StorageMember != null ? mm.StorageMember : mm.Member;
-                Type memberType = TypeSystem.GetMemberType(m);
-                System.Diagnostics.Debug.Assert(memberType.IsGenericType && memberType.GetGenericTypeDefinition() == typeof(EntitySet<>));
-                Label labExit = gen.DefineLabel();
-                Type argType = typeof(IEnumerable<>).MakeGenericType(memberType.GetGenericArguments());
+            private void GenerateAssignEntitySet(
+				MetaDataMember mm, 
+				LocalBuilder locInstance, 
+				SqlExpression expr, 
+				LocalBuilder locStoreInMember) 
+			{
+                var m = mm.StorageMember ?? mm.Member;
+                var memberType = TypeSystem.GetMemberType(m);
+                Debug.Assert(memberType.IsGenericType && memberType.GetGenericTypeDefinition() == typeof(EntitySet<>));
+                var labExit = gen.DefineLabel();
+                var argType = typeof(IEnumerable<>).MakeGenericType(memberType.GetGenericArguments());
 
-                bool hasSideEffect = this.HasSideEffect(expr);
+                var hasSideEffect = HasSideEffect(expr);
 
-                if (locStoreInMember != null && !hasSideEffect) {
+                if (locStoreInMember != null && !hasSideEffect) 
+				{
                     gen.Emit(OpCodes.Ldloc, locStoreInMember);
-                    this.GenerateConstInt(0);
+                    GenerateConstInt(0);
                     gen.Emit(OpCodes.Ceq);
                     gen.Emit(OpCodes.Brtrue, labExit);
                 }
 
-                Type eType = this.Generate(expr, mm.DeclaringType.IsEntity ? locInstance : null);
-                System.Diagnostics.Debug.Assert(argType.IsAssignableFrom(eType));
-                LocalBuilder locSource = gen.DeclareLocal(eType);
+                var eType = Generate(expr, mm.DeclaringType.IsEntity ? locInstance : null);
+                Debug.Assert(argType.IsAssignableFrom(eType));
+                var locSource = gen.DeclareLocal(eType);
                 gen.Emit(OpCodes.Stloc, locSource);
 
-                if (locStoreInMember != null && hasSideEffect) {
+                if (locStoreInMember != null && hasSideEffect) 
+				{
                     gen.Emit(OpCodes.Ldloc, locStoreInMember);
-                    this.GenerateConstInt(0);
+                    GenerateConstInt(0);
                     gen.Emit(OpCodes.Ceq);
                     gen.Emit(OpCodes.Brtrue, labExit);
                 }
 
                 // if member is directly writeable, check for null entityset
-                if (m is FieldInfo || (m is PropertyInfo && ((PropertyInfo)m).CanWrite)) {
-                    Label labFetch = gen.DefineLabel();
-                    this.GenerateLoadForMemberAccess(locInstance);
-                    this.GenerateLoadMember(m);
+                if (m is FieldInfo || (m is PropertyInfo && ((PropertyInfo)m).CanWrite)) 
+				{
+                    var labFetch = gen.DefineLabel();
+                    GenerateLoadForMemberAccess(locInstance);
+                    GenerateLoadMember(m);
                     gen.Emit(OpCodes.Ldnull);
                     gen.Emit(OpCodes.Ceq);
                     gen.Emit(OpCodes.Brfalse, labFetch);
 
                     // create new entity set
-                    this.GenerateLoadForMemberAccess(locInstance);
-                    ConstructorInfo ci = memberType.GetConstructor(System.Type.EmptyTypes);
-                    System.Diagnostics.Debug.Assert(ci != null);
+                    GenerateLoadForMemberAccess(locInstance);
+                    var ci = memberType.GetConstructor(Type.EmptyTypes);
+                    Debug.Assert(ci != null);
                     gen.Emit(OpCodes.Newobj, ci);
-                    this.GenerateStoreMember(m);
+                    GenerateStoreMember(m);
 
                     gen.MarkLabel(labFetch);
                 }
 
                 // set the source
-                this.GenerateLoadForMemberAccess(locInstance);
-                this.GenerateLoadMember(m);
+                GenerateLoadForMemberAccess(locInstance);
+                GenerateLoadMember(m);
                 gen.Emit(OpCodes.Ldloc, locSource);
-                MethodInfo miAssign = memberType.GetMethod("Assign", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic, null, new Type[] { argType }, null);
-                System.Diagnostics.Debug.Assert(miAssign != null);
+                var miAssign = memberType.GetMethod(
+					"Assign", 
+					BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic, 
+					null, 
+					new[]
+					{
+						argType
+					}, 
+					null);
+                Debug.Assert(miAssign != null);
                 gen.Emit(GetMethodCallOpCode(miAssign), miAssign);
 
                 gen.MarkLabel(labExit);
             }
 
-            private void GenerateAssignDeferredReference(MetaDataMember mm, LocalBuilder locInstance, SqlExpression expr, LocalBuilder locStoreInMember) {
-                MemberInfo m = mm.StorageMember != null ? mm.StorageMember : mm.Member;
-                Type memberType = TypeSystem.GetMemberType(m);
-                System.Diagnostics.Debug.Assert(
+            private void GenerateAssignDeferredReference(
+				MetaDataMember mm, 
+				LocalBuilder locInstance, 
+				SqlExpression expr, 
+				LocalBuilder locStoreInMember) 
+			{
+                var m = mm.StorageMember ?? mm.Member;
+                var memberType = TypeSystem.GetMemberType(m);
+                Debug.Assert(
                     memberType.IsGenericType &&
                     (memberType.GetGenericTypeDefinition() == typeof(EntityRef<>) ||
-                     memberType.GetGenericTypeDefinition() == typeof(Link<>))
-                   );
-                Label labExit = gen.DefineLabel();
-                Type argType = typeof(IEnumerable<>).MakeGenericType(memberType.GetGenericArguments());
+						memberType.GetGenericTypeDefinition() == typeof(Link<>)));
+                var labExit = gen.DefineLabel();
+                var argType = typeof(IEnumerable<>).MakeGenericType(memberType.GetGenericArguments());
 
-                bool hasSideEffect = this.HasSideEffect(expr);
+                var hasSideEffect = HasSideEffect(expr);
 
-                if (locStoreInMember != null && !hasSideEffect) {
+                if (locStoreInMember != null && !hasSideEffect) 
+				{
                     gen.Emit(OpCodes.Ldloc, locStoreInMember);
-                    this.GenerateConstInt(0);
+                    GenerateConstInt(0);
                     gen.Emit(OpCodes.Ceq);
                     gen.Emit(OpCodes.Brtrue, labExit);
                 }
 
-                Type eType = this.GenerateDeferredSource(expr, locInstance);
-                if (!argType.IsAssignableFrom(eType)) {
-                    throw Error.CouldNotConvert(argType, eType);
-                }
+                var eType = GenerateDeferredSource(expr, locInstance);
+	            if (!argType.IsAssignableFrom(eType))
+		            throw Error.CouldNotConvert(argType, eType);
 
-                LocalBuilder locSource = gen.DeclareLocal(eType);
+	            var locSource = gen.DeclareLocal(eType);
                 gen.Emit(OpCodes.Stloc, locSource);
 
-                if (locStoreInMember != null && hasSideEffect) {
+                if (locStoreInMember != null && hasSideEffect) 
+				{
                     gen.Emit(OpCodes.Ldloc, locStoreInMember);
-                    this.GenerateConstInt(0);
+                    GenerateConstInt(0);
                     gen.Emit(OpCodes.Ceq);
                     gen.Emit(OpCodes.Brtrue, labExit);
                 }
 
-                this.GenerateLoadForMemberAccess(locInstance);
+                GenerateLoadForMemberAccess(locInstance);
                 gen.Emit(OpCodes.Ldloc, locSource);
-                ConstructorInfo ci = memberType.GetConstructor(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic, null, new Type[] { argType }, null);
-                System.Diagnostics.Debug.Assert(ci != null);
+                var ci = memberType.GetConstructor(
+					BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic, 
+					null, 
+					new[]
+					{
+						argType
+					}, 
+					null);
+                Debug.Assert(ci != null);
                 gen.Emit(OpCodes.Newobj, ci);
-                this.GenerateStoreMember(m);
+                GenerateStoreMember(m);
 
                 gen.MarkLabel(labExit);
             }
 
-            private void GenerateLoadForMemberAccess(LocalBuilder loc) {
-                if (loc.LocalType.IsValueType) {
-                    gen.Emit(OpCodes.Ldloca, loc);
-                }
-                else {
-                    gen.Emit(OpCodes.Ldloc, loc);
-                }
+			private void GenerateAssignDeferredReferenceInProxy(
+				MetaDataMember mm,
+				LocalBuilder locInstance,
+				SqlExpression expr,
+				LocalBuilder locStoreInMember)
+			{
+				var attributedMetaDataMember = (AttributedMetaDataMember)mm;
+				if (!attributedMetaDataMember.DoesRequireProxy)
+					throw new InvalidOperationException("!attributedMetaDataMember.DoesRequireProxy");
+
+				var memberType = typeof(EntityRef<>).MakeGenericType(mm.Type);
+
+				var labExit = gen.DefineLabel();
+				var argType = typeof(IEnumerable<>).MakeGenericType(memberType.GetGenericArguments());
+
+				var hasSideEffect = HasSideEffect(expr);
+
+				if (locStoreInMember != null && !hasSideEffect)
+				{
+					gen.Emit(OpCodes.Ldloc, locStoreInMember);
+					GenerateConstInt(0);
+					gen.Emit(OpCodes.Ceq);
+					gen.Emit(OpCodes.Brtrue, labExit);
+				}
+
+				var eType = GenerateDeferredSource(expr, locInstance);
+				if (!argType.IsAssignableFrom(eType))
+					throw Error.CouldNotConvert(argType, eType);
+
+				var locSource = gen.DeclareLocal(eType);
+				gen.Emit(OpCodes.Stloc, locSource);
+
+				if (locStoreInMember != null && hasSideEffect)
+				{
+					gen.Emit(OpCodes.Ldloc, locStoreInMember);
+					GenerateConstInt(0);
+					gen.Emit(OpCodes.Ceq);
+					gen.Emit(OpCodes.Brtrue, labExit);
+				}
+
+				GenerateLoadForMemberAccess(locInstance);
+
+				gen.Emit(OpCodes.Castclass, typeof(IEntityProxy));
+
+				gen.Emit(OpCodes.Ldtoken, ((PropertyInfo)mm.Member).GetGetMethod(nonPublic: true));
+				var handleConvertionMethod = ReflectionExpressions.GetMethodInfo(() =>
+					MethodBase.GetMethodFromHandle(default(RuntimeMethodHandle)));
+				gen.Emit(GetMethodCallOpCode(handleConvertionMethod), handleConvertionMethod);
+
+				gen.Emit(OpCodes.Ldloc, locSource);
+				var ci = memberType.GetConstructor(
+					BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic,
+					null,
+					new[]
+					{
+						argType
+					},
+					null);
+				Debug.Assert(ci != null);
+				gen.Emit(OpCodes.Newobj, ci);
+
+				var meth = ReflectionExpressions
+					.GetMethodInfo<IEntityProxy>(proxy => proxy.SetEntityRef(default(MemberInfo), default(EntityRef<object>)))
+					.GetGenericMethodDefinition()
+					.MakeGenericMethod(mm.Type);
+				gen.Emit(GetMethodCallOpCode(meth), meth);
+
+				gen.MarkLabel(labExit);
+			}
+
+			private void GenerateLoadForMemberAccess(LocalBuilder loc) 
+			{
+	            if (loc.LocalType.IsValueType)
+		            gen.Emit(OpCodes.Ldloca, loc);
+	            else
+		            gen.Emit(OpCodes.Ldloc, loc);
+			}
+
+            private bool IsDeferrableExpression(SqlExpression expr) 
+			{
+	            if (expr.NodeType == SqlNodeType.Link)
+		            return true;
+	            if (expr.NodeType == SqlNodeType.ClientCase)
+	            {
+		            var c = (SqlClientCase)expr;
+		            foreach (var when in c.Whens)
+			            if (!IsDeferrableExpression(when.Value))
+				            return false;
+		            return true;
+	            }
+	            return false;
             }
 
-            private bool IsDeferrableExpression(SqlExpression expr) {
-                if (expr.NodeType == SqlNodeType.Link) {
-                    return true;
-                }
-                else if (expr.NodeType == SqlNodeType.ClientCase) {
-                    SqlClientCase c = (SqlClientCase)expr;
-                    foreach (SqlClientWhen when in c.Whens) {
-                        if (!IsDeferrableExpression(when.Value)) {
-                            return false;
-                        }
-                    }
-                    return true;
-                }
-                return false;
-            }
+            private Type GenerateGrouping(SqlGrouping grp) 
+			{
+                var typeArgs = grp.ClrType.GetGenericArguments();
 
-            private Type GenerateGrouping(SqlGrouping grp) {
-                Type[] typeArgs = grp.ClrType.GetGenericArguments();
+                GenerateExpressionForType(grp.Key, typeArgs[0]);
+                Generate(grp.Group);
 
-                this.GenerateExpressionForType(grp.Key, typeArgs[0]);
-                this.Generate(grp.Group);
-
-                Type orbType = typeof(ObjectMaterializer<>).MakeGenericType(this.compiler.dataReaderType);
-                MethodInfo miCreateGroup = TypeSystem.FindStaticMethod(orbType, "CreateGroup", new Type[] { typeArgs[0], typeof(IEnumerable<>).MakeGenericType(typeArgs[1]) }, typeArgs);
-                System.Diagnostics.Debug.Assert(miCreateGroup != null);
+                var orbType = typeof(ObjectMaterializer<>).MakeGenericType(compiler.dataReaderType);
+                var miCreateGroup = TypeSystem.FindStaticMethod(
+					orbType, 
+					"CreateGroup", 
+					new[]
+					{
+						typeArgs[0], 
+						typeof(IEnumerable<>).MakeGenericType(typeArgs[1])
+					}, 
+					typeArgs);
+                Debug.Assert(miCreateGroup != null);
                 gen.Emit(OpCodes.Call, miCreateGroup);
 
                 return miCreateGroup.ReturnType;
             }
 
-            private Type GenerateLink(SqlLink link, LocalBuilder locInstance) {
+            private Type GenerateLink(SqlLink link, LocalBuilder locInstance) 
+			{
                 gen.Emit(OpCodes.Ldarg_0);
 
                 // iGlobalLink arg
-                int iGlobalLink = this.AddGlobal(typeof(MetaDataMember), link.Member);
-                this.GenerateConstInt(iGlobalLink);
+                var iGlobalLink = AddGlobal(typeof(MetaDataMember), link.Member);
+                GenerateConstInt(iGlobalLink);
 
                 // iLocalFactory arg
-                int iLocalFactory = this.AllocateLocal();
-                this.GenerateConstInt(iLocalFactory);
+                var iLocalFactory = AllocateLocal();
+                GenerateConstInt(iLocalFactory);
 
-                Type elemType = link.Member.IsAssociation && link.Member.Association.IsMany
+                var elemType = link.Member.IsAssociation && link.Member.Association.IsMany
                     ? TypeSystem.GetElementType(link.Member.Type)
                     : link.Member.Type;
 
-                MethodInfo mi = null;
-                if (locInstance != null) {
-                    // load instance for 'instance' arg
-                    gen.Emit(OpCodes.Ldloc, locInstance);
+                MethodInfo mi;
+	            if (locInstance == null)
+	            {
+		            // create array of key values for 'keyValues' arg
+		            GenerateConstInt(link.KeyExpressions.Count);
+		            gen.Emit(OpCodes.Newarr, typeof(object));
 
-                    // call GetNestedLinkSource on ObjectReaderBase
-                    mi = typeof(ObjectMaterializer<>).MakeGenericType(this.compiler.dataReaderType).GetMethod("GetNestedLinkSource", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
-                    System.Diagnostics.Debug.Assert(mi != null);
-                    MethodInfo miGLS = mi.MakeGenericMethod(elemType);
-                    gen.Emit(GetMethodCallOpCode(miGLS), miGLS);
-                }
-                else {
-                    // create array of key values for 'keyValues' arg
-                    this.GenerateConstInt(link.KeyExpressions.Count);
-                    gen.Emit(OpCodes.Newarr, typeof(object));
+		            // intialize key values
+		            for (var i = 0; i < link.KeyExpressions.Count; i++)
+		            {
+			            gen.Emit(OpCodes.Dup);
+			            GenerateConstInt(i);
+			            GenerateExpressionForType(link.KeyExpressions[i], typeof(object));
+			            GenerateArrayAssign(typeof(object));
+		            }
 
-                    // intialize key values
-                    for (int i = 0, n = link.KeyExpressions.Count; i < n; i++) {
-                        gen.Emit(OpCodes.Dup);
-                        this.GenerateConstInt(i);
-                        this.GenerateExpressionForType(link.KeyExpressions[i], typeof(object));
-                        this.GenerateArrayAssign(typeof(object));
-                    }
+		            // call GetLinkSource on ObjectReaderBase
+		            mi = typeof(ObjectMaterializer<>).MakeGenericType(this.compiler.dataReaderType)
+			            .GetMethod("GetLinkSource", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+		            Debug.Assert(mi != null);
+		            var miGLS = mi.MakeGenericMethod(elemType);
+		            gen.Emit(GetMethodCallOpCode(miGLS), miGLS);
+	            }
+	            else
+	            {
+		            // load instance for 'instance' arg
+		            gen.Emit(OpCodes.Ldloc, locInstance);
 
-                    // call GetLinkSource on ObjectReaderBase
-                    mi = typeof(ObjectMaterializer<>).MakeGenericType(this.compiler.dataReaderType).GetMethod("GetLinkSource", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
-                    System.Diagnostics.Debug.Assert(mi != null);
-                    MethodInfo miGLS = mi.MakeGenericMethod(elemType);
-                    gen.Emit(GetMethodCallOpCode(miGLS), miGLS);
-                }
+		            // call GetNestedLinkSource on ObjectReaderBase
+		            mi = typeof(ObjectMaterializer<>)
+			            .MakeGenericType(compiler.dataReaderType)
+			            .GetMethod("GetNestedLinkSource", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+		            Debug.Assert(mi != null);
+		            var miGLS = mi.MakeGenericMethod(elemType);
+		            gen.Emit(GetMethodCallOpCode(miGLS), miGLS);
+	            }
 
-                return typeof(IEnumerable<>).MakeGenericType(elemType);
+	            return typeof(IEnumerable<>).MakeGenericType(elemType);
             }
 
-            private Type GenerateDeferredSource(SqlExpression expr, LocalBuilder locInstance) {
-                if (expr.NodeType == SqlNodeType.ClientCase) {
-                    return this.GenerateClientCase((SqlClientCase)expr, true, locInstance);
-                }
-                else if (expr.NodeType == SqlNodeType.Link) {
-                    return this.GenerateLink((SqlLink)expr, locInstance);
-                }
-                else {
-                    throw Error.ExpressionNotDeferredQuerySource();
-                }
+            private Type GenerateDeferredSource(SqlExpression expr, LocalBuilder locInstance)
+            {
+	            if (expr.NodeType == SqlNodeType.ClientCase)
+		            return GenerateClientCase((SqlClientCase)expr, true, locInstance);
+	            if (expr.NodeType == SqlNodeType.Link)
+		            return GenerateLink((SqlLink)expr, locInstance);
+	            throw Error.ExpressionNotDeferredQuerySource();
             }
 
-            private Type GenerateClientQuery(SqlClientQuery cq, LocalBuilder locInstance) {
-                Type clientElementType = cq.Query.NodeType == SqlNodeType.Multiset ? TypeSystem.GetElementType(cq.ClrType) : cq.ClrType;
+	        private Type GenerateClientQuery(SqlClientQuery cq) 
+			{
+                var clientElementType = cq.Query.NodeType == SqlNodeType.Multiset ? 
+					TypeSystem.GetElementType(cq.ClrType) : 
+					cq.ClrType;
 
                 gen.Emit(OpCodes.Ldarg_0); // ObjectReaderBase
-                this.GenerateConstInt(cq.Ordinal); // iSubQuery
+                GenerateConstInt(cq.Ordinal); // iSubQuery
                 
                 // create array of subquery parent args
-                this.GenerateConstInt(cq.Arguments.Count);
+                GenerateConstInt(cq.Arguments.Count);
                 gen.Emit(OpCodes.Newarr, typeof(object));
 
                 // intialize arg values
-                for (int i = 0, n = cq.Arguments.Count; i < n; i++) {
+                for (var i = 0; i < cq.Arguments.Count; i++) 
+				{
                     gen.Emit(OpCodes.Dup);
-                    this.GenerateConstInt(i);
-                    Type clrType = cq.Arguments[i].ClrType;
-                    if (cq.Arguments[i].NodeType == SqlNodeType.ColumnRef) {
-                        SqlColumnRef cref = (SqlColumnRef)cq.Arguments[i];
-                        if (clrType.IsValueType && !TypeSystem.IsNullableType(clrType)) {
-                            clrType = typeof(Nullable<>).MakeGenericType(clrType);
-                        }
-                        this.GenerateColumnAccess(clrType, cref.SqlType, cref.Column.Ordinal, null);
+                    GenerateConstInt(i);
+                    var clrType = cq.Arguments[i].ClrType;
+                    if (cq.Arguments[i].NodeType == SqlNodeType.ColumnRef) 
+					{
+                        var cref = (SqlColumnRef)cq.Arguments[i];
+						if (clrType.IsValueType && !TypeSystem.IsNullableType(clrType))
+							clrType = typeof(Nullable<>).MakeGenericType(clrType);
+						GenerateColumnAccess(clrType, cref.SqlType, cref.Column.Ordinal, null);
                     }
-                    else {
-                        this.GenerateExpressionForType(cq.Arguments[i], cq.Arguments[i].ClrType);
+                    else 
+					{
+                        GenerateExpressionForType(cq.Arguments[i], cq.Arguments[i].ClrType);
                     }
-                    if (clrType.IsValueType) {
-                        gen.Emit(OpCodes.Box, clrType);
-                    }
-                    this.GenerateArrayAssign(typeof(object));
+					if (clrType.IsValueType)
+						gen.Emit(OpCodes.Box, clrType);
+					GenerateArrayAssign(typeof(object));
                 }
 
-                MethodInfo miExecute = typeof(ObjectMaterializer<>).MakeGenericType(this.compiler.dataReaderType)
+                var miExecute = typeof(ObjectMaterializer<>)
+					.MakeGenericType(compiler.dataReaderType)
                     .GetMethod("ExecuteSubQuery", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
-                System.Diagnostics.Debug.Assert(miExecute != null);
+                Debug.Assert(miExecute != null);
                 gen.Emit(GetMethodCallOpCode(miExecute), miExecute);
 
-                Type actualType = typeof(IEnumerable<>).MakeGenericType(clientElementType);
+                var actualType = typeof(IEnumerable<>).MakeGenericType(clientElementType);
                 gen.Emit(OpCodes.Castclass, actualType);
 
-                Type resultType = typeof(List<>).MakeGenericType(clientElementType);
-                this.GenerateConvertToType(actualType, resultType);
+                var resultType = typeof(List<>).MakeGenericType(clientElementType);
+                GenerateConvertToType(actualType, resultType);
 
                 return resultType;
             }
 
-            private Type GenerateJoinedCollection(SqlJoinedCollection jc) {
-                LocalBuilder locCount = gen.DeclareLocal(typeof(int));
-                LocalBuilder locHasRows = gen.DeclareLocal(typeof(bool));
-                Type joinElementType = jc.Expression.ClrType;
-                Type listType = typeof(List<>).MakeGenericType(joinElementType);
-                LocalBuilder locList = gen.DeclareLocal(listType);
+            private Type GenerateJoinedCollection(SqlJoinedCollection jc) 
+			{
+                var locCount = gen.DeclareLocal(typeof(int));
+                var locHasRows = gen.DeclareLocal(typeof(bool));
+                var joinElementType = jc.Expression.ClrType;
+                var listType = typeof(List<>).MakeGenericType(joinElementType);
+                var locList = gen.DeclareLocal(listType);
 
                 // count = xxx
-                this.GenerateExpressionForType(jc.Count, typeof(int));
+                GenerateExpressionForType(jc.Count, typeof(int));
                 gen.Emit(OpCodes.Stloc, locCount);
 
                 // list = new List<T>(count)
                 gen.Emit(OpCodes.Ldloc, locCount);
-                ConstructorInfo ci = listType.GetConstructor(new Type[] { typeof(int) });
-                System.Diagnostics.Debug.Assert(ci != null);
+                var ci = listType.GetConstructor(new[]
+                {
+	                typeof(int)
+                });
+                Debug.Assert(ci != null);
                 gen.Emit(OpCodes.Newobj, ci);
                 gen.Emit(OpCodes.Stloc, locList);
 
@@ -1485,9 +1780,9 @@ namespace System.Data.Linq.SqlClient {
                 gen.Emit(OpCodes.Stloc, locHasRows);
 
                 // start loop
-                Label labLoopTest = gen.DefineLabel();
-                Label labLoopTop = gen.DefineLabel();
-                LocalBuilder locI = gen.DeclareLocal(typeof(int));
+                var labLoopTest = gen.DefineLabel();
+                var labLoopTop = gen.DefineLabel();
+                var locI = gen.DeclareLocal(typeof(int));
                 gen.Emit(OpCodes.Ldc_I4_0);
                 gen.Emit(OpCodes.Stloc, locI);
                 gen.Emit(OpCodes.Br, labLoopTest);
@@ -1501,26 +1796,39 @@ namespace System.Data.Linq.SqlClient {
                 gen.Emit(OpCodes.Cgt);
                 gen.Emit(OpCodes.Ldloc, locHasRows);
                 gen.Emit(OpCodes.And);
-                Label labNext = gen.DefineLabel();
+                var labNext = gen.DefineLabel();
                 gen.Emit(OpCodes.Brfalse, labNext);
 
                 // this.Read()
                 gen.Emit(OpCodes.Ldarg_0);
-                Type orbType = typeof(ObjectMaterializer<>).MakeGenericType(this.compiler.dataReaderType);
-                MethodInfo miRead = orbType.GetMethod("Read", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic, null, Type.EmptyTypes, null);
-                System.Diagnostics.Debug.Assert(miRead != null);
+                var orbType = typeof(ObjectMaterializer<>).MakeGenericType(compiler.dataReaderType);
+                var miRead = orbType.GetMethod(
+					"Read", 
+					BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic, 
+					null, 
+					Type.EmptyTypes, 
+					null);
+                Debug.Assert(miRead != null);
                 gen.Emit(GetMethodCallOpCode(miRead), miRead);
                 gen.Emit(OpCodes.Stloc, locHasRows);
 
                 gen.MarkLabel(labNext);
                 // if (hasRows) { list.Add(expr); }
-                Label labNext2 = gen.DefineLabel();
+                var labNext2 = gen.DefineLabel();
                 gen.Emit(OpCodes.Ldloc, locHasRows);
                 gen.Emit(OpCodes.Brfalse, labNext2);
                 gen.Emit(OpCodes.Ldloc, locList);
-                this.GenerateExpressionForType(jc.Expression, joinElementType);
-                MethodInfo miAdd = listType.GetMethod("Add", BindingFlags.Instance | BindingFlags.Public, null, new Type[] { joinElementType }, null);
-                System.Diagnostics.Debug.Assert(miAdd != null);
+                GenerateExpressionForType(jc.Expression, joinElementType);
+                var miAdd = listType.GetMethod(
+					"Add", 
+					BindingFlags.Instance | BindingFlags.Public, 
+					null, 
+					new[]
+					{
+						joinElementType
+					}, 
+					null);
+                Debug.Assert(miAdd != null);
                 gen.Emit(GetMethodCallOpCode(miAdd), miAdd);
 
                 gen.MarkLabel(labNext2);
@@ -1547,386 +1855,487 @@ namespace System.Data.Linq.SqlClient {
                 return listType;
             }
 
-            private Type GenerateExpressionForType(SqlExpression expr, Type type) {
-                return this.GenerateExpressionForType(expr, type, null);
+            private Type GenerateExpressionForType(SqlExpression expr, Type type) 
+			{
+                return GenerateExpressionForType(expr, type, null);
             }
 
-            private Type GenerateExpressionForType(SqlExpression expr, Type type, LocalBuilder locInstance) {
-                Type actualType = this.Generate(expr, locInstance);
-                this.GenerateConvertToType(actualType, type);
+            private Type GenerateExpressionForType(SqlExpression expr, Type type, LocalBuilder locInstance) 
+			{
+                var actualType = Generate(expr, locInstance);
+                GenerateConvertToType(actualType, type);
                 return type;
             }
 
-            private void GenerateConvertToType(Type actualType, Type expectedType, Type readerMethodType) {
+            private void GenerateConvertToType(Type actualType, Type expectedType, Type readerMethodType) 
+			{
                 GenerateConvertToType(readerMethodType, actualType);
                 GenerateConvertToType(actualType, expectedType);
             }
 
-            [SuppressMessage("Microsoft.Maintainability", "CA1505:AvoidUnmaintainableCode", Justification = "These issues are related to our use of if-then and case statements for node types, which adds to the complexity count however when reviewed they are easy to navigate and understand.")]
-            [SuppressMessage("Microsoft.Maintainability", "CA1502:AvoidExcessiveComplexity", Justification = "These issues are related to our use of if-then and case statements for node types, which adds to the complexity count however when reviewed they are easy to navigate and understand.")]
-            private void GenerateConvertToType(Type actualType, Type expectedType) {
-                if (expectedType != actualType &&
-                    !(!actualType.IsValueType && actualType.IsSubclassOf(expectedType))
-                    ) {
-                    Type genActualType = actualType.IsGenericType ? actualType.GetGenericTypeDefinition() : null;
-                    Type genExpectedType = expectedType.IsGenericType ? expectedType.GetGenericTypeDefinition() : null;
-                    Type[] genExpectedTypeArgs = genExpectedType != null ? expectedType.GetGenericArguments() : null;
+            private void GenerateConvertToType(Type actualType, Type expectedType) 
+			{
+	            if ((expectedType == actualType) || (!actualType.IsValueType && actualType.IsSubclassOf(expectedType)))
+		            return;
 
-                    Type elemType = TypeSystem.GetElementType(actualType);
-                    Type seqType = TypeSystem.GetSequenceType(elemType);
-                    bool actualIsSequence = seqType.IsAssignableFrom(actualType);
+	            var genExpectedType = expectedType.IsGenericType ? expectedType.GetGenericTypeDefinition() : null;
+	            var genExpectedTypeArgs = genExpectedType != null ? expectedType.GetGenericArguments() : null;
 
-                    if (expectedType == typeof(object) && actualType.IsValueType) {
-                        gen.Emit(OpCodes.Box, actualType);
-                    }
-                    else if (actualType == typeof(object) && expectedType.IsValueType) {
-                        gen.Emit(OpCodes.Unbox_Any, expectedType);
-                    }
-                    // is one type an explicit subtype of the other?
-                    else if ((actualType.IsSubclassOf(expectedType) || expectedType.IsSubclassOf(actualType))
-                        && !actualType.IsValueType && !expectedType.IsValueType) {
-                        // (T)expr
-                        gen.Emit(OpCodes.Castclass, expectedType);
-                    }
-                    // do we expected a sequence of a different element type?
-                    else if (genExpectedType == typeof(IEnumerable<>) && actualIsSequence) {
-                        if (elementType.IsInterface ||
-                            genExpectedTypeArgs[0].IsInterface ||
-                            elementType.IsSubclassOf(genExpectedTypeArgs[0]) ||
-                            genExpectedTypeArgs[0].IsSubclassOf(elementType) ||
-                            TypeSystem.GetNonNullableType(elementType) == TypeSystem.GetNonNullableType(genExpectedTypeArgs[0])
-                            ) {
-                            // reference or nullable conversion use seq.Cast<E>()
-                            MethodInfo miCast = TypeSystem.FindSequenceMethod("Cast", new Type[] { seqType }, genExpectedTypeArgs[0]);
-                            System.Diagnostics.Debug.Assert(miCast != null);
-                            gen.Emit(OpCodes.Call, miCast);
-                        }
-                        else {
-                            // otherwise use orb.Convert<E>(sequence)
-                            Type orbType = typeof(ObjectMaterializer<>).MakeGenericType(this.compiler.dataReaderType);
-                            MethodInfo miConvert = TypeSystem.FindStaticMethod(orbType, "Convert", new Type[] { seqType }, genExpectedTypeArgs[0]);
-                            System.Diagnostics.Debug.Assert(miConvert != null);
-                            gen.Emit(OpCodes.Call, miConvert);
-                        }
-                    }
-                    // Do we have a sequence where we wanted a singleton?
-                    else if (expectedType == elemType && actualIsSequence) {
-                        // seq.SingleOrDefault()
-                        MethodInfo miFirst = TypeSystem.FindSequenceMethod("SingleOrDefault", new Type[] { seqType }, expectedType);
-                        System.Diagnostics.Debug.Assert(miFirst != null);
-                        gen.Emit(OpCodes.Call, miFirst);
-                    }
-                    // do we have a non-nullable value where we want a nullable value?
-                    else if (TypeSystem.IsNullableType(expectedType) &&
-                             TypeSystem.GetNonNullableType(expectedType) == actualType) {
-                        // new Nullable<T>(expr)
-                        ConstructorInfo ci = expectedType.GetConstructor(new Type[] { actualType });
-                        gen.Emit(OpCodes.Newobj, ci);
-                    }
-                    // do we have a nullable value where we want a non-nullable value?
-                    else if (TypeSystem.IsNullableType(actualType) &&
-                             TypeSystem.GetNonNullableType(actualType) == expectedType) {
-                        // expr.GetValueOrDefault()
-                        LocalBuilder loc = gen.DeclareLocal(actualType);
-                        gen.Emit(OpCodes.Stloc, loc);
-                        gen.Emit(OpCodes.Ldloca, loc);
-                        this.GenerateGetValueOrDefault(actualType);
-                    }
-                    // do we have a value when we want an EntityRef or Link of that value
-                    else if (genExpectedType == typeof(EntityRef<>) || genExpectedType == typeof(Link<>)) {
-                        if (actualType.IsAssignableFrom(genExpectedTypeArgs[0])) {
-                            // new T(expr)
-                            if (actualType != genExpectedTypeArgs[0]) {
-                                // Ensure that the actual runtime type of the value is
-                                // compatible.  For example, in inheritance scenarios
-                                // the Type of the value can vary from row to row.
-                                this.GenerateConvertToType(actualType, genExpectedTypeArgs[0]);
-                            }
-                            ConstructorInfo ci = expectedType.GetConstructor(new Type[] { genExpectedTypeArgs[0] });
-                            System.Diagnostics.Debug.Assert(ci != null);
-                            gen.Emit(OpCodes.Newobj, ci);
-                        }
-                        else if (seqType.IsAssignableFrom(actualType)) {
-                            // new T(seq.SingleOrDefault())
-                            MethodInfo miFirst = TypeSystem.FindSequenceMethod("SingleOrDefault", new Type[] { seqType }, elemType);
-                            System.Diagnostics.Debug.Assert(miFirst != null);
-                            gen.Emit(OpCodes.Call, miFirst);
-                            ConstructorInfo ci = expectedType.GetConstructor(new Type[] { elemType });
-                            System.Diagnostics.Debug.Assert(ci != null);
-                            gen.Emit(OpCodes.Newobj, ci);
-                        }
-                        else {
-                            throw Error.CannotConvertToEntityRef(actualType);
-                        }
-                    }
-                    // do we have a sequence when we want IQueryable/IOrderedQueryable?
-                    else if ((expectedType == typeof(IQueryable) ||
-                              expectedType == typeof(IOrderedQueryable))
-                              && typeof(IEnumerable).IsAssignableFrom(actualType)) {
-                        // seq.AsQueryable()
-                        MethodInfo miAsQueryable = TypeSystem.FindQueryableMethod("AsQueryable", new Type[] { typeof(IEnumerable) });
-                        System.Diagnostics.Debug.Assert(miAsQueryable != null);
-                        gen.Emit(OpCodes.Call, miAsQueryable);
-                        if (genExpectedType == typeof(IOrderedQueryable)) {
-                            gen.Emit(OpCodes.Castclass, expectedType);
-                        }
-                    }
-                    // do we have a sequence when we want IQuerayble<T>/IOrderedQueryable<T>?
-                    else if ((genExpectedType == typeof(IQueryable<>) ||
-                              genExpectedType == typeof(IOrderedQueryable<>)) &&
-                             actualIsSequence
-                        ) {
-                        if (elemType != genExpectedTypeArgs[0]) {
-                            seqType = typeof(IEnumerable<>).MakeGenericType(genExpectedTypeArgs);
-                            this.GenerateConvertToType(actualType, seqType);
-                            elemType = genExpectedTypeArgs[0];
-                        }
-                        // seq.AsQueryable()
-                        MethodInfo miAsQueryable = TypeSystem.FindQueryableMethod("AsQueryable", new Type[] { seqType }, elemType);
-                        System.Diagnostics.Debug.Assert(miAsQueryable != null);
-                        gen.Emit(OpCodes.Call, miAsQueryable);
-                        if (genExpectedType == typeof(IOrderedQueryable<>)) {
-                            gen.Emit(OpCodes.Castclass, expectedType);
-                        }
-                    }
-                    // do we have a sequence when we want IOrderedEnumerable?
-                    else if (genExpectedType == typeof(IOrderedEnumerable<>) && actualIsSequence) {
-                        if (elemType != genExpectedTypeArgs[0]) {
-                            seqType = typeof(IEnumerable<>).MakeGenericType(genExpectedTypeArgs);
-                            this.GenerateConvertToType(actualType, seqType);
-                            elemType = genExpectedTypeArgs[0];
-                        }
-                        // new OrderedResults<E>(seq)
-                        Type orbType = typeof(ObjectMaterializer<>).MakeGenericType(this.compiler.dataReaderType);
-                        MethodInfo miCreateOrderedEnumerable = TypeSystem.FindStaticMethod(orbType, "CreateOrderedEnumerable", new Type[] { seqType }, elemType);
-                        System.Diagnostics.Debug.Assert(miCreateOrderedEnumerable != null);
-                        gen.Emit(OpCodes.Call, miCreateOrderedEnumerable);
-                    }
-                    // do we have a sequence when we want EntitySet<T> ?
-                    else if (genExpectedType == typeof(EntitySet<>) && actualIsSequence) {
-                        if (elemType != genExpectedTypeArgs[0]) {
-                            seqType = typeof(IEnumerable<>).MakeGenericType(genExpectedTypeArgs);
-                            this.GenerateConvertToType(actualType, seqType);
-                            actualType = seqType;
-                            elemType = genExpectedTypeArgs[0];
-                        }
-                        // loc = new EntitySet<E>(); loc.Assign(seq); loc
-                        LocalBuilder locSeq = gen.DeclareLocal(actualType);
-                        gen.Emit(OpCodes.Stloc, locSeq);
+	            var elemType = TypeSystem.GetElementType(actualType);
+	            var seqType = TypeSystem.GetSequenceType(elemType);
+	            var actualIsSequence = seqType.IsAssignableFrom(actualType);
 
-                        ConstructorInfo ci = expectedType.GetConstructor(System.Type.EmptyTypes);
-                        System.Diagnostics.Debug.Assert(ci != null);
-                        gen.Emit(OpCodes.Newobj, ci);
-                        LocalBuilder locEs = gen.DeclareLocal(expectedType);
-                        gen.Emit(OpCodes.Stloc, locEs);
+	            if (expectedType == typeof(object) && actualType.IsValueType) 
+				{
+		            gen.Emit(OpCodes.Box, actualType);
+	            }
+	            else if (actualType == typeof(object) && expectedType.IsValueType) 
+				{
+		            gen.Emit(OpCodes.Unbox_Any, expectedType);
+	            }
+	            else if ((actualType.IsSubclassOf(expectedType) || expectedType.IsSubclassOf(actualType)) && 
+					!actualType.IsValueType && 
+					!expectedType.IsValueType) 
+				{
+						// is one type an explicit subtype of the other?
+			            // (T)expr
+			            gen.Emit(OpCodes.Castclass, expectedType);
+		        }
+	            else if (genExpectedType == typeof(IEnumerable<>) && actualIsSequence) 
+				{
+					// do we expected a sequence of a different element type?
+					if (elementType.IsInterface ||
+			            genExpectedTypeArgs[0].IsInterface ||
+			            elementType.IsSubclassOf(genExpectedTypeArgs[0]) ||
+			            genExpectedTypeArgs[0].IsSubclassOf(elementType) ||
+			            TypeSystem.GetNonNullableType(elementType) == TypeSystem.GetNonNullableType(genExpectedTypeArgs[0])) 
+					{
+				            // reference or nullable conversion use seq.Cast<E>()
+				            var miCast = TypeSystem.FindSequenceMethod(
+								"Cast", 
+								new[]
+								{
+									seqType
+								}, 
+								genExpectedTypeArgs[0]);
+				            Debug.Assert(miCast != null);
+				            gen.Emit(OpCodes.Call, miCast);
+			        }
+		            else 
+					{
+			            // otherwise use orb.Convert<E>(sequence)
+			            var orbType = typeof(ObjectMaterializer<>).MakeGenericType(compiler.dataReaderType);
+			            var miConvert = TypeSystem.FindStaticMethod(
+							orbType, 
+							"Convert", 
+							new[]
+							{
+								seqType
+							}, 
+							genExpectedTypeArgs[0]);
+			            Debug.Assert(miConvert != null);
+			            gen.Emit(OpCodes.Call, miConvert);
+		            }
+	            }
+	            else if (expectedType == elemType && actualIsSequence) 
+				{
+					// Do we have a sequence where we wanted a singleton?
+					// seq.SingleOrDefault()
+		            var miFirst = TypeSystem.FindSequenceMethod(
+						"SingleOrDefault", 
+						new[]
+						{
+							seqType
+						}, 
+						expectedType);
+		            Debug.Assert(miFirst != null);
+		            gen.Emit(OpCodes.Call, miFirst);
+	            }
+	            else if (TypeSystem.IsNullableType(expectedType) &&
+		            TypeSystem.GetNonNullableType(expectedType) == actualType) 
+				{
+					// do we have a non-nullable value where we want a nullable value?
+					// new Nullable<T>(expr)
+			        var ci = expectedType.GetConstructor(new[]
+			        {
+				        actualType
+			        });
+			        gen.Emit(OpCodes.Newobj, ci);
+		        }
+	            else if (TypeSystem.IsNullableType(actualType) &&
+		            TypeSystem.GetNonNullableType(actualType) == expectedType) 
+				{
+					// do we have a nullable value where we want a non-nullable value?
+					// expr.GetValueOrDefault()
+			        var loc = gen.DeclareLocal(actualType);
+			        gen.Emit(OpCodes.Stloc, loc);
+			        gen.Emit(OpCodes.Ldloca, loc);
+			        GenerateGetValueOrDefault(actualType);
+		        }
+	            else if (genExpectedType == typeof(EntityRef<>) || genExpectedType == typeof(Link<>)) 
+				{
+					// do we have a value when we want an EntityRef or Link of that value
+					if (actualType.IsAssignableFrom(genExpectedTypeArgs[0]))
+					{
+			            // new T(expr)
+						// Ensure that the actual runtime type of the value is
+						// compatible.  For example, in inheritance scenarios
+						// the Type of the value can vary from row to row.
+						if (actualType != genExpectedTypeArgs[0])
+							GenerateConvertToType(actualType, genExpectedTypeArgs[0]);
+						var ci = expectedType.GetConstructor(new[]
+						{
+							genExpectedTypeArgs[0]
+						});
+			            Debug.Assert(ci != null);
+			            gen.Emit(OpCodes.Newobj, ci);
+		            }
+		            else if (seqType.IsAssignableFrom(actualType)) 
+					{
+			            // new T(seq.SingleOrDefault())
+			            var miFirst = TypeSystem.FindSequenceMethod(
+							"SingleOrDefault", 
+							new[]
+							{
+								seqType
+							}, 
+							elemType);
+			            Debug.Assert(miFirst != null);
+			            gen.Emit(OpCodes.Call, miFirst);
+			            var ci = expectedType.GetConstructor(new[]
+			            {
+				            elemType
+			            });
+			            Debug.Assert(ci != null);
+			            gen.Emit(OpCodes.Newobj, ci);
+		            }
+		            else 
+					{
+			            throw Error.CannotConvertToEntityRef(actualType);
+		            }
+	            }
+	            else if ((expectedType == typeof(IQueryable) ||
+		            expectedType == typeof(IOrderedQueryable))
+		            && typeof(IEnumerable).IsAssignableFrom(actualType)) 
+				{
+					// do we have a sequence when we want IQueryable/IOrderedQueryable?
+					// seq.AsQueryable()
+			        var miAsQueryable = TypeSystem.FindQueryableMethod(
+						"AsQueryable", 
+						new[]
+						{
+							typeof(IEnumerable)
+						});
+			        Debug.Assert(miAsQueryable != null);
+			        gen.Emit(OpCodes.Call, miAsQueryable);
+					if (genExpectedType == typeof(IOrderedQueryable))
+						gen.Emit(OpCodes.Castclass, expectedType);
+				}
+	            else if ((genExpectedType == typeof(IQueryable<>) || genExpectedType == typeof(IOrderedQueryable<>)) &&
+		            actualIsSequence) 
+				{
+					// do we have a sequence when we want IQuerayble<T>/IOrderedQueryable<T>?
+					if (elemType != genExpectedTypeArgs[0])
+					{
+				        seqType = typeof(IEnumerable<>).MakeGenericType(genExpectedTypeArgs);
+				        GenerateConvertToType(actualType, seqType);
+				        elemType = genExpectedTypeArgs[0];
+			        }
+			        // seq.AsQueryable()
+			        var miAsQueryable = TypeSystem.FindQueryableMethod(
+						"AsQueryable", 
+						new[]
+						{
+							seqType
+						}, 
+						elemType);
+			        Debug.Assert(miAsQueryable != null);
+			        gen.Emit(OpCodes.Call, miAsQueryable);
+					if (genExpectedType == typeof(IOrderedQueryable<>))
+						gen.Emit(OpCodes.Castclass, expectedType);
+				}
+	            else if (genExpectedType == typeof(IOrderedEnumerable<>) && actualIsSequence) 
+				{
+					// do we have a sequence when we want IOrderedEnumerable?
+					if (elemType != genExpectedTypeArgs[0])
+					{
+			            seqType = typeof(IEnumerable<>).MakeGenericType(genExpectedTypeArgs);
+			            GenerateConvertToType(actualType, seqType);
+			            elemType = genExpectedTypeArgs[0];
+		            }
+		            // new OrderedResults<E>(seq)
+		            var orbType = typeof(ObjectMaterializer<>).MakeGenericType(compiler.dataReaderType);
+		            var miCreateOrderedEnumerable = TypeSystem.FindStaticMethod(
+						orbType, 
+						"CreateOrderedEnumerable", 
+						new[]
+						{
+							seqType
+						}, 
+						elemType);
+		            Debug.Assert(miCreateOrderedEnumerable != null);
+		            gen.Emit(OpCodes.Call, miCreateOrderedEnumerable);
+	            }
+	            else if (genExpectedType == typeof(EntitySet<>) && actualIsSequence) 
+				{
+					// do we have a sequence when we want EntitySet<T> ?
+					if (elemType != genExpectedTypeArgs[0])
+					{
+			            seqType = typeof(IEnumerable<>).MakeGenericType(genExpectedTypeArgs);
+			            GenerateConvertToType(actualType, seqType);
+			            actualType = seqType;
+		            }
+		            // loc = new EntitySet<E>(); loc.Assign(seq); loc
+		            var locSeq = gen.DeclareLocal(actualType);
+		            gen.Emit(OpCodes.Stloc, locSeq);
 
-                        gen.Emit(OpCodes.Ldloc, locEs);
-                        gen.Emit(OpCodes.Ldloc, locSeq);
-                        MethodInfo miAssign = expectedType.GetMethod("Assign", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic, null, new Type[] { seqType }, null);
-                        System.Diagnostics.Debug.Assert(miAssign != null);
-                        gen.Emit(GetMethodCallOpCode(miAssign), miAssign);
+		            var ci = expectedType.GetConstructor(Type.EmptyTypes);
+		            Debug.Assert(ci != null);
+		            gen.Emit(OpCodes.Newobj, ci);
+		            var locEs = gen.DeclareLocal(expectedType);
+		            gen.Emit(OpCodes.Stloc, locEs);
 
-                        gen.Emit(OpCodes.Ldloc, locEs);
-                    }
-                    // do we have a sequence when we want something assignable from List<T>?
-                    else if (typeof(IEnumerable).IsAssignableFrom(expectedType) &&
-                            actualIsSequence &&
-                            expectedType.IsAssignableFrom(typeof(List<>).MakeGenericType(elemType))
-                        ) {
-                        // new List<E>(seq)
-                        Type listType = typeof(List<>).MakeGenericType(elemType);
-                        ConstructorInfo ci = listType.GetConstructor(new Type[] { seqType });
-                        System.Diagnostics.Debug.Assert(ci != null);
-                        gen.Emit(OpCodes.Newobj, ci);
-                    }
-                    // do we have a sequence when we want T[]?
-                    else if (expectedType.IsArray && expectedType.GetArrayRank() == 1 &&
-                             !actualType.IsArray && seqType.IsAssignableFrom(actualType) &&
-                             expectedType.GetElementType().IsAssignableFrom(elemType)
-                        ) {
-                        // seq.ToArray()
-                        MethodInfo miToArray = TypeSystem.FindSequenceMethod("ToArray", new Type[] { seqType }, elemType);
-                        System.Diagnostics.Debug.Assert(miToArray != null);
-                        gen.Emit(OpCodes.Call, miToArray);
-                    }
-                    // do we have a sequence when we want some other collection type?
-                    else if (expectedType.IsClass &&
-                            typeof(ICollection<>).MakeGenericType(elemType).IsAssignableFrom(expectedType) &&
-                            expectedType.GetConstructor(System.Type.EmptyTypes) != null &&
-                            seqType.IsAssignableFrom(actualType)
-                        ) {
-                        throw Error.GeneralCollectionMaterializationNotSupported();
-                    }
-                    // do we have an int when we want a bool?
-                    else if (expectedType == typeof(bool) && actualType == typeof(int)) {
-                        // expr != 0
-                        Label labZero = gen.DefineLabel();
-                        Label labExit = gen.DefineLabel();
-                        gen.Emit(OpCodes.Ldc_I4_0);
-                        gen.Emit(OpCodes.Ceq);
-                        gen.Emit(OpCodes.Brtrue_S, labZero);
-                        gen.Emit(OpCodes.Ldc_I4_1);
-                        gen.Emit(OpCodes.Br_S, labExit);
-                        gen.MarkLabel(labZero);
-                        gen.Emit(OpCodes.Ldc_I4_0);
-                        gen.MarkLabel(labExit);
-                    }
-                    else {
-                        // last-ditch attempt: convert at runtime using DBConvert
-                        // DBConvert.ChangeType(type, expr)
-                        if (actualType.IsValueType) {
-                            gen.Emit(OpCodes.Box, actualType);
-                        }
-                        gen.Emit(OpCodes.Ldtoken, expectedType);
-                        MethodInfo miGetTypeFromHandle = typeof(Type).GetMethod("GetTypeFromHandle", BindingFlags.Static | BindingFlags.Public);
-                        System.Diagnostics.Debug.Assert(miGetTypeFromHandle != null);
-                        gen.Emit(OpCodes.Call, miGetTypeFromHandle);
-                        MethodInfo miChangeType = typeof(DBConvert).GetMethod("ChangeType", BindingFlags.Static | BindingFlags.Public, null, new Type[] { typeof(object), typeof(Type) }, null);
-                        System.Diagnostics.Debug.Assert(miChangeType != null);
-                        gen.Emit(OpCodes.Call, miChangeType);
-                        if (expectedType.IsValueType) {
-                            gen.Emit(OpCodes.Unbox_Any, expectedType);
-                        }
-                        else if (expectedType != typeof(object)) {
-                            gen.Emit(OpCodes.Castclass, expectedType);
-                        }
-                    }
-                }
-            }
+		            gen.Emit(OpCodes.Ldloc, locEs);
+		            gen.Emit(OpCodes.Ldloc, locSeq);
+		            var miAssign = expectedType.GetMethod(
+						"Assign", 
+						BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic, 
+						null, 
+						new[]
+						{
+							seqType
+						}, 
+						null);
+		            Debug.Assert(miAssign != null);
+		            gen.Emit(GetMethodCallOpCode(miAssign), miAssign);
 
-            private Type GenerateColumnReference(SqlColumnRef cref) {
-                this.GenerateColumnAccess(cref.ClrType, cref.SqlType, cref.Column.Ordinal, null);
+		            gen.Emit(OpCodes.Ldloc, locEs);
+	            }
+	            else if (typeof(IEnumerable).IsAssignableFrom(expectedType) &&
+		            actualIsSequence &&
+		            expectedType.IsAssignableFrom(typeof(List<>).MakeGenericType(elemType))) 
+				{
+					// do we have a sequence when we want something assignable from List<T>?
+					// new List<E>(seq)
+			        var listType = typeof(List<>).MakeGenericType(elemType);
+			        var ci = listType.GetConstructor(new[]
+			        {
+				        seqType
+			        });
+			        Debug.Assert(ci != null);
+			        gen.Emit(OpCodes.Newobj, ci);
+		        }
+	            else if (expectedType.IsArray && 
+					expectedType.GetArrayRank() == 1 &&
+		            !actualType.IsArray && 
+					seqType.IsAssignableFrom(actualType) &&
+		            expectedType.GetElementType().IsAssignableFrom(elemType)) 
+				{
+					// do we have a sequence when we want T[]?
+					// seq.ToArray()
+			        var miToArray = TypeSystem.FindSequenceMethod(
+						"ToArray", 
+						new[]
+						{
+							seqType
+						}, 
+						elemType);
+			        Debug.Assert(miToArray != null);
+			        gen.Emit(OpCodes.Call, miToArray);
+		        }
+	            else if (expectedType.IsClass &&
+		            typeof(ICollection<>).MakeGenericType(elemType).IsAssignableFrom(expectedType) &&
+		            expectedType.GetConstructor(Type.EmptyTypes) != null &&
+		            seqType.IsAssignableFrom(actualType)) 
+				{
+					// do we have a sequence when we want some other collection type?
+					throw Error.GeneralCollectionMaterializationNotSupported();
+		        }
+	            else if (expectedType == typeof(bool) && actualType == typeof(int)) 
+				{
+					// do we have an int when we want a bool?
+					// expr != 0
+		            var labZero = gen.DefineLabel();
+		            var labExit = gen.DefineLabel();
+		            gen.Emit(OpCodes.Ldc_I4_0);
+		            gen.Emit(OpCodes.Ceq);
+		            gen.Emit(OpCodes.Brtrue_S, labZero);
+		            gen.Emit(OpCodes.Ldc_I4_1);
+		            gen.Emit(OpCodes.Br_S, labExit);
+		            gen.MarkLabel(labZero);
+		            gen.Emit(OpCodes.Ldc_I4_0);
+		            gen.MarkLabel(labExit);
+	            }
+	            else 
+				{
+		            // last-ditch attempt: convert at runtime using DBConvert
+		            // DBConvert.ChangeType(type, expr)
+					if (actualType.IsValueType)
+						gen.Emit(OpCodes.Box, actualType);
+					gen.Emit(OpCodes.Ldtoken, expectedType);
+		            var miGetTypeFromHandle = typeof(Type).GetMethod(
+						"GetTypeFromHandle", 
+						BindingFlags.Static | BindingFlags.Public);
+		            Debug.Assert(miGetTypeFromHandle != null);
+		            gen.Emit(OpCodes.Call, miGetTypeFromHandle);
+		            var miChangeType = typeof(DBConvert).GetMethod(
+						"ChangeType", 
+						BindingFlags.Static | BindingFlags.Public, 
+						null, 
+						new[]
+						{
+							typeof(object), 
+							typeof(Type)
+						}, 
+						null);
+		            Debug.Assert(miChangeType != null);
+		            gen.Emit(OpCodes.Call, miChangeType);
+					if (expectedType.IsValueType)
+						gen.Emit(OpCodes.Unbox_Any, expectedType);
+					else if (expectedType != typeof(object))
+						gen.Emit(OpCodes.Castclass, expectedType);
+				}
+			}
+
+            private Type GenerateColumnReference(SqlColumnRef cref) 
+			{
+                GenerateColumnAccess(cref.ClrType, cref.SqlType, cref.Column.Ordinal, null);
                 return cref.ClrType;
             }
 
-            private Type GenerateUserColumn(SqlUserColumn suc) {
+            private Type GenerateUserColumn(SqlUserColumn suc) 
+			{
                 // if the user column is not named, it must be the only one!
                 if (string.IsNullOrEmpty(suc.Name)) {
-                    this.GenerateColumnAccess(suc.ClrType, suc.SqlType, 0, null);
+                    GenerateColumnAccess(suc.ClrType, suc.SqlType, 0, null);
                     return suc.ClrType;
                 }
-                int iName = this.namedColumns.Count;
-                this.namedColumns.Add(new NamedColumn(suc.Name, suc.IsRequired));
 
-                Label labNotDefined = gen.DefineLabel();
-                Label labExit = gen.DefineLabel();
-                LocalBuilder locOrdinal = gen.DeclareLocal(typeof(int));
+                var iName = namedColumns.Count;
+                namedColumns.Add(new NamedColumn(suc.Name, suc.IsRequired));
+
+                var labNotDefined = gen.DefineLabel();
+                var labExit = gen.DefineLabel();
+                var locOrdinal = gen.DeclareLocal(typeof(int));
 
                 // ordinal = session.ordinals[i]
-                this.GenerateAccessOrdinals();
-                this.GenerateConstInt(iName);
-                this.GenerateArrayAccess(typeof(int), false);
+                GenerateAccessOrdinals();
+                GenerateConstInt(iName);
+                GenerateArrayAccess(typeof(int), false);
                 gen.Emit(OpCodes.Stloc, locOrdinal);
 
                 // if (ordinal < 0) goto labNotDefined
                 gen.Emit(OpCodes.Ldloc, locOrdinal);
-                this.GenerateConstInt(0);
+                GenerateConstInt(0);
                 gen.Emit(OpCodes.Clt);
                 gen.Emit(OpCodes.Brtrue, labNotDefined);
 
                 // access column at ordinal position
-                this.GenerateColumnAccess(suc.ClrType, suc.SqlType, 0, locOrdinal);
+                GenerateColumnAccess(suc.ClrType, suc.SqlType, 0, locOrdinal);
                 gen.Emit(OpCodes.Br_S, labExit);
 
                 // not defined?
                 gen.MarkLabel(labNotDefined);
-                this.GenerateDefault(suc.ClrType, false);
+                GenerateDefault(suc.ClrType, false);
 
                 gen.MarkLabel(labExit);
 
                 return suc.ClrType;
             }
 
-            private void GenerateColumnAccess(Type cType, ProviderType pType, int ordinal, LocalBuilder locOrdinal) {
-                Type rType = pType.GetClosestRuntimeType();
-                MethodInfo readerMethod = this.GetReaderMethod(this.compiler.dataReaderType, rType);
-                MethodInfo bufferMethod = this.GetReaderMethod(typeof(DbDataReader), rType);
+            private void GenerateColumnAccess(Type cType, ProviderType pType, int ordinal, LocalBuilder locOrdinal) 
+			{
+                var rType = pType.GetClosestRuntimeType();
+                var readerMethod = GetReaderMethod(compiler.dataReaderType, rType);
+                var bufferMethod = GetReaderMethod(typeof(DbDataReader), rType);
 
-                Label labIsNull = gen.DefineLabel();
-                Label labExit = gen.DefineLabel();
-                Label labReadFromBuffer = gen.DefineLabel();
+                var labIsNull = gen.DefineLabel();
+                var labExit = gen.DefineLabel();
+                var labReadFromBuffer = gen.DefineLabel();
 
                 // if (buffer != null) goto ReadFromBuffer
-                this.GenerateAccessBufferReader();
+                GenerateAccessBufferReader();
                 gen.Emit(OpCodes.Ldnull);
                 gen.Emit(OpCodes.Ceq);
                 gen.Emit(OpCodes.Brfalse, labReadFromBuffer);
 
                 // read from DataReader
                 // this.reader.IsNull?
-                this.GenerateAccessDataReader();
+                GenerateAccessDataReader();
                 if (locOrdinal != null)
                     gen.Emit(OpCodes.Ldloc, locOrdinal);
                 else
-                    this.GenerateConstInt(ordinal);
+                    GenerateConstInt(ordinal);
                 gen.Emit(GetMethodCallOpCode(this.compiler.miDRisDBNull), this.compiler.miDRisDBNull);
                 gen.Emit(OpCodes.Brtrue, labIsNull);
 
                 // this.reader.GetXXX()
-                this.GenerateAccessDataReader();
+                GenerateAccessDataReader();
                 if (locOrdinal != null)
                     gen.Emit(OpCodes.Ldloc, locOrdinal);
                 else
-                    this.GenerateConstInt(ordinal);
+                    GenerateConstInt(ordinal);
                 gen.Emit(GetMethodCallOpCode(readerMethod), readerMethod);
-                this.GenerateConvertToType(rType, cType, readerMethod.ReturnType);
+                GenerateConvertToType(rType, cType, readerMethod.ReturnType);
                 gen.Emit(OpCodes.Br_S, labExit);
 
                 // read from BUFFER
                 gen.MarkLabel(labReadFromBuffer);
 
                 // this.bufferReader.IsNull?
-                this.GenerateAccessBufferReader();
+                GenerateAccessBufferReader();
                 if (locOrdinal != null)
                     gen.Emit(OpCodes.Ldloc, locOrdinal);
                 else
-                    this.GenerateConstInt(ordinal);
-                gen.Emit(GetMethodCallOpCode(this.compiler.miBRisDBNull), this.compiler.miBRisDBNull);
+                    GenerateConstInt(ordinal);
+                gen.Emit(GetMethodCallOpCode(compiler.miBRisDBNull), compiler.miBRisDBNull);
                 gen.Emit(OpCodes.Brtrue, labIsNull);
 
                 // this.bufferReader.GetXXX()
-                this.GenerateAccessBufferReader();
+                GenerateAccessBufferReader();
                 if (locOrdinal != null)
                     gen.Emit(OpCodes.Ldloc, locOrdinal);
                 else
-                    this.GenerateConstInt(ordinal);
+                    GenerateConstInt(ordinal);
                 gen.Emit(GetMethodCallOpCode(bufferMethod), bufferMethod);
-                this.GenerateConvertToType(rType, cType, bufferMethod.ReturnType);
+                GenerateConvertToType(rType, cType, bufferMethod.ReturnType);
                 gen.Emit(OpCodes.Br_S, labExit);
 
                 // return NULL
                 gen.MarkLabel(labIsNull);
-                this.GenerateDefault(cType);
+                GenerateDefault(cType);
 
                 gen.MarkLabel(labExit);
             }
 
-            private Type GenerateClientCase(SqlClientCase scc, bool isDeferred, LocalBuilder locInstance) {
-                LocalBuilder locDiscriminator = gen.DeclareLocal(scc.Expression.ClrType);
-                this.GenerateExpressionForType(scc.Expression, scc.Expression.ClrType);
+            private Type GenerateClientCase(SqlClientCase scc, bool isDeferred, LocalBuilder locInstance) 
+			{
+                var locDiscriminator = gen.DeclareLocal(scc.Expression.ClrType);
+                GenerateExpressionForType(scc.Expression, scc.Expression.ClrType);
                 gen.Emit(OpCodes.Stloc, locDiscriminator);
 
-                Label labNext = gen.DefineLabel();
-                Label labEnd = gen.DefineLabel();
-                for (int i = 0, n = scc.Whens.Count; i < n; i++) {
-                    if (i > 0) {
+                var labNext = gen.DefineLabel();
+                var labEnd = gen.DefineLabel();
+                for (var i = 0; i < scc.Whens.Count; i++) 
+				{
+                    if (i > 0) 
+					{
                         gen.MarkLabel(labNext);
                         labNext = gen.DefineLabel();
                     }
-                    SqlClientWhen when = scc.Whens[i];
-                    if (when.Match != null) {
+                    var when = scc.Whens[i];
+                    if (when.Match != null) 
+					{
                         gen.Emit(OpCodes.Ldloc, locDiscriminator);
-                        this.GenerateExpressionForType(when.Match, scc.Expression.ClrType);
-                        this.GenerateEquals(locDiscriminator.LocalType);
+                        GenerateExpressionForType(when.Match, scc.Expression.ClrType);
+                        GenerateEquals(locDiscriminator.LocalType);
                         gen.Emit(OpCodes.Brfalse, labNext);
                     }
-                    if (isDeferred) {
-                        this.GenerateDeferredSource(when.Value, locInstance);
-                    }
-                    else {
-                        this.GenerateExpressionForType(when.Value, scc.ClrType);
-                    }
-                    gen.Emit(OpCodes.Br, labEnd);
+					if (isDeferred)
+						GenerateDeferredSource(when.Value, locInstance);
+					else
+						GenerateExpressionForType(when.Value, scc.ClrType);
+					gen.Emit(OpCodes.Br, labEnd);
                 }
                 gen.MarkLabel(labEnd);
 
@@ -2463,160 +2872,172 @@ namespace System.Data.Linq.SqlClient {
             }
         }
 
-        abstract class ObjectReaderBase<TDataReader> : ObjectMaterializer<TDataReader>
-            where TDataReader : DbDataReader {
-            protected ObjectReaderSession<TDataReader> session;
-            bool hasRead;
-            bool hasCurrentRow;
-            bool isFinished;
-            IDataServices services;
+        private abstract class ObjectReaderBase<TDataReader> : ObjectMaterializer<TDataReader>
+            where TDataReader : DbDataReader 
+		{
+            protected readonly ObjectReaderSession<TDataReader> session;
 
-            internal ObjectReaderBase(
+
+            private bool hasRead;
+			private bool hasCurrentRow;
+			private bool isFinished;
+			private readonly IDataServices services;
+
+
+            protected ObjectReaderBase(
                 ObjectReaderSession<TDataReader> session,
                 NamedColumn[] namedColumns,
                 object[] globals,
                 object[] arguments,
-                int nLocals
-                )
-                : base() {
+                int nLocals)
+			{
                 this.session = session;
-                this.services = session.Provider.Services;
-                this.DataReader = session.DataReader;
-                this.Globals = globals;
-                this.Arguments = arguments;
-                if (nLocals > 0) {
-                    this.Locals = new object[nLocals];
-                }
-                if (this.session.IsBuffered) {
-                    this.Buffer();
-                }
-                this.Ordinals = this.GetColumnOrdinals(namedColumns);
+                services = session.Provider.Services;
+                DataReader = session.DataReader;
+                Globals = globals;
+                Arguments = arguments;
+	            if (nLocals > 0)
+		            Locals = new object[nLocals];
+	            if (this.session.IsBuffered)
+		            Buffer();
+	            Ordinals = GetColumnOrdinals(namedColumns);
             }
+
+
+			public override bool CanDeferLoad
+			{
+				get { return services.Context.DeferredLoadingEnabled; }
+			}
+
+
+			internal bool IsBuffered
+			{
+				get { return BufferReader != null; }
+			}
+
 
             // This method is called from within this class's constructor (through a call to Buffer()) so it is sealed to prevent
             // derived classes from overriding it. See FxCop rule CA2214 for more information on why this is necessary.
-            public override sealed bool Read() {
-                if (this.isFinished) {
-                    return false;
+            public override sealed bool Read() 
+			{
+	            if (isFinished)
+		            return false;
+	            hasCurrentRow = BufferReader == null ? DataReader.Read() : BufferReader.Read();
+	            if (!hasCurrentRow) 
+				{
+                    isFinished = true;
+                    session.Finish(this);
                 }
-                if (this.BufferReader != null) {
-                    this.hasCurrentRow = this.BufferReader.Read();
-                }
-                else {
-                    this.hasCurrentRow = this.DataReader.Read();
-                }
-                if (!this.hasCurrentRow) {
-                    this.isFinished = true;
-                    this.session.Finish(this);
-                }
-                this.hasRead = true;
-                return this.hasCurrentRow;
+                hasRead = true;
+                return hasCurrentRow;
             }
 
-            internal bool IsBuffered {
-                get { return this.BufferReader != null; }
-            }
+			public override object InsertLookup(int iMetaType, object instance)
+			{
+				var mType = (MetaType)Globals[iMetaType];
+				return services.InsertLookupCachedObject(mType, instance);
+			}
 
-            [SuppressMessage("Microsoft.Globalization", "CA1306:SetLocaleForDataTypes", Justification = "[....]: Used only as a buffer and never used for string comparison.")]
-            internal void Buffer() {
-                if (this.BufferReader == null && (this.hasCurrentRow || !this.hasRead)) {
-                    if (this.session.IsBuffered) {
-                        this.BufferReader = this.session.GetNextBufferedReader();
+			public override void SendEntityMaterialized(int iMetaType, object instance)
+			{
+				var mType = (MetaType)Globals[iMetaType];
+				services.OnEntityMaterialized(mType, instance);
+			}
+
+			public override IEnumerable ExecuteSubQuery(int iSubQuery, object[] parentArgs)
+			{
+				if (session.ParentArguments != null)
+				{
+					// Create array to accumulate args, and add both parent
+					// args and the supplied args to the array
+					var nParent = session.ParentArguments.Length;
+					var tmp = new object[nParent + parentArgs.Length];
+					Array.Copy(session.ParentArguments, tmp, nParent);
+					Array.Copy(parentArgs, 0, tmp, nParent, parentArgs.Length);
+					parentArgs = tmp;
+				}
+				var subQuery = session.SubQueries[iSubQuery];
+				var results = (IEnumerable)subQuery.Execute(session.Provider, parentArgs, session.UserArguments).ReturnValue;
+				return results;
+			}
+
+			public override IEnumerable<T> GetLinkSource<T>(int iGlobalLink, int iLocalFactory, object[] keyValues)
+			{
+				var factory = (IDeferredSourceFactory)Locals[iLocalFactory];
+				if (factory == null)
+				{
+					var member = (MetaDataMember)Globals[iGlobalLink];
+					factory = services.GetDeferredSourceFactory(member);
+					Locals[iLocalFactory] = factory;
+				}
+				return (IEnumerable<T>)factory.CreateDeferredSource(keyValues);
+			}
+
+			public override IEnumerable<T> GetNestedLinkSource<T>(int iGlobalLink, int iLocalFactory, object instance)
+			{
+				var factory = (IDeferredSourceFactory)Locals[iLocalFactory];
+				if (factory == null)
+				{
+					var member = (MetaDataMember)Globals[iGlobalLink];
+					factory = services.GetDeferredSourceFactory(member);
+					Locals[iLocalFactory] = factory;
+				}
+				return (IEnumerable<T>)factory.CreateDeferredSource(instance);
+			}
+
+	        public override T CreateEntityProxy<T>()
+	        {
+		        return (T)services.Model.CreateEntityProxy(typeof(T));
+	        }
+
+
+	        internal void Buffer() 
+			{
+                if (BufferReader == null && (hasCurrentRow || !hasRead)) 
+				{
+                    if (session.IsBuffered) 
+					{
+                        BufferReader = session.GetNextBufferedReader();
                     }
-                    else {
-                        DataSet ds = new DataSet();
-                        ds.EnforceConstraints = false;
-                        DataTable bufferTable = new DataTable();
+                    else 
+					{
+                        var ds = new DataSet
+                        {
+	                        EnforceConstraints = false
+                        };
+						var bufferTable = new DataTable();
                         ds.Tables.Add(bufferTable);
-                        string[] names = this.session.GetActiveNames();
-                        bufferTable.Load(new Rereader(this.DataReader, this.hasCurrentRow, null), LoadOption.OverwriteChanges);
-                        this.BufferReader = new Rereader(bufferTable.CreateDataReader(), false, names);
+                        var names = session.GetActiveNames();
+                        bufferTable.Load(new Rereader(DataReader, hasCurrentRow, null), LoadOption.OverwriteChanges);
+                        BufferReader = new Rereader(bufferTable.CreateDataReader(), false, names);
                     }
-                    if (this.hasCurrentRow) {
-                        this.Read();
-                    }
-                }
+					if (hasCurrentRow)
+						Read();
+				}
             }
 
-            public override object InsertLookup(int iMetaType, object instance) {
-                MetaType mType = (MetaType)this.Globals[iMetaType];
-                return this.services.InsertLookupCachedObject(mType, instance);
-            }
 
-            public override void SendEntityMaterialized(int iMetaType, object instance) {
-                MetaType mType = (MetaType)this.Globals[iMetaType];
-                this.services.OnEntityMaterialized(mType, instance);
-            }
-
-            public override IEnumerable ExecuteSubQuery(int iSubQuery, object[] parentArgs) {
-                if (this.session.ParentArguments != null) {
-                    // Create array to accumulate args, and add both parent
-                    // args and the supplied args to the array
-                    int nParent = this.session.ParentArguments.Length;
-                    object[] tmp = new object[nParent + parentArgs.Length];
-                    Array.Copy(this.session.ParentArguments, tmp, nParent);
-                    Array.Copy(parentArgs, 0, tmp, nParent, parentArgs.Length);
-                    parentArgs = tmp;
-                }
-                ICompiledSubQuery subQuery = this.session.SubQueries[iSubQuery];
-                IEnumerable results = (IEnumerable)subQuery.Execute(this.session.Provider, parentArgs, this.session.UserArguments).ReturnValue;
-                return results;
-            }
-
-            public override bool CanDeferLoad {
-                get { return this.services.Context.DeferredLoadingEnabled; }
-            }
-
-            public override IEnumerable<T> GetLinkSource<T>(int iGlobalLink, int iLocalFactory, object[] keyValues) {
-                IDeferredSourceFactory factory = (IDeferredSourceFactory)this.Locals[iLocalFactory];
-                if (factory == null) {
-                    MetaDataMember member = (MetaDataMember)this.Globals[iGlobalLink];
-                    factory = this.services.GetDeferredSourceFactory(member);
-                    this.Locals[iLocalFactory] = factory;
-                }
-                return (IEnumerable<T>)factory.CreateDeferredSource(keyValues);
-            }
-
-            public override IEnumerable<T> GetNestedLinkSource<T>(int iGlobalLink, int iLocalFactory, object instance) {
-                IDeferredSourceFactory factory = (IDeferredSourceFactory)this.Locals[iLocalFactory];
-                if (factory == null) {
-                    MetaDataMember member = (MetaDataMember)this.Globals[iGlobalLink];
-                    factory = this.services.GetDeferredSourceFactory(member);
-                    this.Locals[iLocalFactory] = factory;
-                }
-                return (IEnumerable<T>)factory.CreateDeferredSource(instance);
-            }
-
-            private int[] GetColumnOrdinals(NamedColumn[] namedColumns) {
-                DbDataReader reader = null;
-                if (this.BufferReader != null) {
-                    reader = this.BufferReader;
-                }
-                else {
-                    reader = this.DataReader;
-                }
-                if (namedColumns == null || namedColumns.Length == 0) {
-                    return null;
-                }
-                int[] columnOrdinals = new int[namedColumns.Length];
-                Dictionary<string, int> lookup = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+            private int[] GetColumnOrdinals(NamedColumn[] namedColumns) 
+			{
+	            var reader = BufferReader ?? DataReader;
+	            if (namedColumns == null || namedColumns.Length == 0)
+		            return null;
+	            var columnOrdinals = new int[namedColumns.Length];
+                var lookup = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
                 //we need to compare the quoted names on both sides
                 //because the designer might quote the name unnecessarily
-                for (int i = 0, n = reader.FieldCount; i < n; i++) {
-                    lookup[SqlIdentifier.QuoteCompoundIdentifier(reader.GetName(i))] = i;
-                }
-                for (int i = 0, n = namedColumns.Length; i < n; i++) {
+	            for (int i = 0, n = reader.FieldCount; i < n; i++)
+		            lookup[SqlIdentifier.QuoteCompoundIdentifier(reader.GetName(i))] = i;
+	            for (int i = 0, n = namedColumns.Length; i < n; i++) 
+				{
                     int ordinal;
-                    if (lookup.TryGetValue(SqlIdentifier.QuoteCompoundIdentifier(namedColumns[i].Name), out ordinal)) {
-                        columnOrdinals[i] = ordinal;
-                    }
-                    else if (namedColumns[i].IsRequired) {
-                        throw Error.RequiredColumnDoesNotExist(namedColumns[i].Name);
-                    }
-                    else {
-                        columnOrdinals[i] = -1;
-                    }
-                }
+					if (lookup.TryGetValue(SqlIdentifier.QuoteCompoundIdentifier(namedColumns[i].Name), out ordinal))
+						columnOrdinals[i] = ordinal;
+					else if (namedColumns[i].IsRequired)
+						throw Error.RequiredColumnDoesNotExist(namedColumns[i].Name);
+					else
+						columnOrdinals[i] = -1;
+				}
                 return columnOrdinals;
             }
         }
@@ -2647,14 +3068,6 @@ namespace System.Data.Linq.SqlClient {
             }
 
             public void Dispose() {
-#if PERFORMANCE_BUILD
-                if (this.CollectQueryPerf) {
-                    timer.Stop();
-                    started = false;
-                    pcSqlQueryEnumGetCurrent.IncrementBy(timer.Duration);
-                    bpcSqlQueryEnumGetCurrent.Increment();
-                }
-#endif
                 // Technically, calling GC.SuppressFinalize is not required because the class does not
                 // have a finalizer, but it does no harm, protects against the case where a finalizer is added
                 // in the future, and prevents an FxCop warning.
@@ -2665,14 +3078,6 @@ namespace System.Data.Linq.SqlClient {
             }
 
             public bool MoveNext() {
-#if PERFORMANCE_BUILD
-                if (this.CollectQueryPerf) {
-                    if (!started) {
-                        started = true;
-                        timer.Start();
-                    }
-                }
-#endif
                 if (this.Read()) {
                     this.current = this.fnMaterialize(this);
                     return true;
@@ -2696,30 +3101,6 @@ namespace System.Data.Linq.SqlClient {
                     return this.Current;
                 }
             }
-
-#if PERFORMANCE_BUILD
-            PerformanceCounter pcSqlQueryEnumGetCurrent = null;
-            PerformanceCounter bpcSqlQueryEnumGetCurrent = null;
-            PerfTimer timer = null;
-            bool collectQueryPerf;
-            bool collectQueryPerfInitialized = false;
-            bool started;
-
-            private bool CollectQueryPerf {
-                get {
-                    if (!collectQueryPerfInitialized) {
-                        collectQueryPerf = this.enumerable.session.context.CollectQueryPerf;
-                        if (collectQueryPerf) {
-                            pcSqlQueryEnumGetCurrent = new PerformanceCounter("DLinq", "SqlQueryEnumGetCurrentElapsedTime", false);
-                            bpcSqlQueryEnumGetCurrent = new PerformanceCounter("DLinq", "SqlQueryEnumGetCurrentElapsedTimeBase", false);
-                            timer = new PerfTimer();
-                        }
-                        collectQueryPerfInitialized = true;
-                    }
-                    return this.collectQueryPerf;
-                }
-            }
-#endif
         }
 
         class ObjectReaderSession<TDataReader> : IObjectReaderSession, IDisposable, IConnectionUser
@@ -3001,5 +3382,4 @@ namespace System.Data.Linq.SqlClient {
             }
         }
     }
-#endif
 }

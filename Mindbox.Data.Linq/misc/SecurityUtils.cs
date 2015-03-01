@@ -4,32 +4,13 @@
 // </copyright>
 //------------------------------------------------------------------------------
 
-/*
- */
+using System;
+using System.Reflection;
+using System.Security;
+using System.Security.Permissions;
 
-
-#if WINFORMS_NAMESPACE
-    namespace System.Windows.Forms
-#elif DRAWING_NAMESPACE
-    namespace System.Drawing
-#elif WINFORMS_PUBLIC_GRAPHICS_LIBRARY
-    namespace System.Internal
-#elif SYSTEM_NAMESPACE
-    namespace System
-#elif SYSTEM_WEB
-    namespace System.Web
-#elif SYSTEM_DATA_LINQ
-    namespace System.Data.Linq
-#else
-namespace System.Windows.Forms 
-#endif
+namespace System.Data.Linq
 {
-    using System;
-    using System.Reflection;
-    using System.Diagnostics.CodeAnalysis;
-    using System.Security;
-    using System.Security.Permissions;
-
     /// <devdoc>
     ///     Useful methods to securely call 'dangerous' managed APIs (especially reflection).
     ///     See http://wiki/default.aspx/Microsoft.Projects.DotNetClient.SecurityConcernsAroundReflection
@@ -126,8 +107,6 @@ namespace System.Windows.Forms
 
             return Activator.CreateInstance(type, flags, null, args, null);
         }
-
-#if (!WINFORMS_NAMESPACE)
 
         /// <devdoc>
         ///     This helper method provides safe access to Activator.CreateInstance.
@@ -248,6 +227,5 @@ namespace System.Windows.Forms
             }
             return Array.CreateInstance(type, length);
         }
-#endif
     }
 }

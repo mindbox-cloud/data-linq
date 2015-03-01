@@ -3,14 +3,15 @@ using System.Collections;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Linq;
-using System.Reflection;
 using System.Text;
+using System.Data.Linq.Mapping;
+using System.Data.Linq.Provider;
+using System.Diagnostics;
 
-namespace System.Data.Linq {
-    using System.Data.Linq.Mapping;
-    using System.Data.Linq.Provider;
-
-    internal abstract class ChangeTracker {
+namespace System.Data.Linq 
+{
+    internal abstract class ChangeTracker 
+	{
         /// <summary>
         /// Starts tracking an object as 'unchanged'
         /// </summary>
@@ -518,39 +519,45 @@ namespace System.Data.Linq {
                     }
                 }
 
-                internal override object CreateDataCopy(object instance) {
-                    System.Diagnostics.Debug.Assert(instance != null);
-                    Type instanceType = instance.GetType();
-                    System.Diagnostics.Debug.Assert(instance.GetType() == this.type.Type);
+                internal override object CreateDataCopy(object instance) 
+				{
+                    Debug.Assert(instance != null);
+                    var instanceType = type.Model.UnproxyType(instance.GetType());
+					Debug.Assert(instanceType == type.Type);
 
-                    object copy = Activator.CreateInstance(this.Type.Type);
+	                var isProxy = instance.GetType() != type.Type;
+					var copy = isProxy ? type.Model.CreateEntityProxy(type.Type) : Activator.CreateInstance(type.Type);
 
-                    MetaType rootMetaType = this.tracker.services.Model.GetTable(instanceType).RowType.InheritanceRoot;
-                    foreach (MetaDataMember mm in rootMetaType.GetInheritanceType(instanceType).PersistentDataMembers) {
-                        if (this.Type.Type != instanceType && !mm.DeclaringType.Type.IsAssignableFrom(instanceType)) {
-                            continue;
-                        }
-                        if (mm.IsDeferred) {
+                    var rootMetaType = tracker.services.Model.GetTable(type.Type).RowType.InheritanceRoot;
+                    foreach (var mm in rootMetaType.GetInheritanceType(type.Type).PersistentDataMembers) 
+					{
+                        if (mm.IsDeferred) 
+						{
                             // do not copy associations
-                            if (!mm.IsAssociation) {
-                                if (mm.StorageAccessor.HasValue(instance)) {
-                                    object value = mm.DeferredValueAccessor.GetBoxedValue(instance);
+                            if (!mm.IsAssociation) 
+							{
+                                if (mm.StorageAccessor.HasValue(instance)) 
+								{
+                                    var value = mm.DeferredValueAccessor.GetBoxedValue(instance);
                                     mm.DeferredValueAccessor.SetBoxedValue(ref copy, value);
                                 }
-                                else {
-                                    IEnumerable ds = this.tracker.services.GetDeferredSourceFactory(mm).CreateDeferredSource(copy);
+                                else 
+								{
+                                    var ds = tracker.services.GetDeferredSourceFactory(mm).CreateDeferredSource(copy);
                                     mm.DeferredSourceAccessor.SetBoxedValue(ref copy, ds);
                                 }
                             }
                         }
-                        else {
+                        else 
+						{
                             // otherwise assign the value as-is to the backup instance
-                            object value = mm.StorageAccessor.GetBoxedValue(instance);
+                            var value = mm.StorageAccessor.GetBoxedValue(instance);
                             // assumes member values are immutable or will communicate changes to entity
                             // note: byte[] and char[] don't do this. 
                             mm.StorageAccessor.SetBoxedValue(ref copy, value);
                         }
                     }
+
                     return copy;
                 }
 
@@ -851,73 +858,5 @@ namespace System.Data.Linq {
             internal override void AcceptChanges() { }
             internal override IEnumerable<TrackedObject> GetInterestingObjects() { return new TrackedObject[0]; }
         }
-    }
-
-    internal abstract class TrackedObject {
-        internal abstract MetaType Type { get; }
-        /// <summary>
-        /// The current client value.
-        /// </summary>
-        internal abstract object Current { get; }
-        /// <summary>
-        /// The last read database value.  This is updated whenever the
-        /// item is refreshed.
-        /// </summary>
-        internal abstract object Original { get; }
-        internal abstract bool IsInteresting { get; } // new, deleted or possibly changed
-        internal abstract bool IsNew { get; }
-        internal abstract bool IsDeleted { get; }
-        internal abstract bool IsModified { get; }
-        internal abstract bool IsUnmodified { get; }
-        internal abstract bool IsPossiblyModified { get; }
-        internal abstract bool IsRemoved { get; }
-        internal abstract bool IsDead { get; }
-        /// <summary>
-        /// True if the object is being tracked (perhaps during a recursive
-        /// attach operation) but can be transitioned to other states.
-        /// </summary>
-        internal abstract bool IsWeaklyTracked { get; }
-        internal abstract bool HasDeferredLoaders { get; }        
-        internal abstract bool HasChangedValues();
-        internal abstract IEnumerable<ModifiedMemberInfo> GetModifiedMembers();
-        internal abstract bool HasChangedValue(MetaDataMember mm);
-        internal abstract bool CanInferDelete();
-        internal abstract void AcceptChanges();
-        internal abstract void ConvertToNew();
-        internal abstract void ConvertToPossiblyModified();
-        internal abstract void ConvertToPossiblyModified(object original);
-        internal abstract void ConvertToUnmodified();
-        internal abstract void ConvertToModified();
-        internal abstract void ConvertToDeleted();
-        internal abstract void ConvertToRemoved();
-        internal abstract void ConvertToDead();
-        /// <summary>
-        /// Refresh the item by making the value passed in the current 
-        /// Database value, and refreshing the current values using the
-        /// mode specified.
-        /// </summary>       
-        internal abstract void Refresh(RefreshMode mode, object freshInstance);
-        /// <summary>
-        /// Does the refresh operation for a single member.  This method does not 
-        /// update the baseline 'original' value.  You must call 
-        /// Refresh(RefreshMode.KeepCurrentValues, freshInstance) to finish the refresh 
-        /// after refreshing individual members.
-        /// </summary>
-        /// <param name="member"></param>
-        /// <param name="mode"></param>
-        /// <param name="freshValue"></param>
-        internal abstract void RefreshMember(MetaDataMember member, RefreshMode mode, object freshValue);
-        /// <summary>
-        /// Create a data-member only copy of the instance (no associations)
-        /// </summary>
-        /// <returns></returns>
-        internal abstract object CreateDataCopy(object instance);
-
-        internal abstract bool SynchDependentData();
-
-        internal abstract bool IsPendingGeneration(IEnumerable<MetaDataMember> keyMembers);
-        internal abstract bool IsMemberPendingGeneration(MetaDataMember keyMember);
-
-        internal abstract void InitializeDeferredLoaders();
     }
 }

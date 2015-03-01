@@ -1,6 +1,7 @@
 using System.Data.Linq.SqlClient;
 using System.Reflection;
 using System.Runtime.CompilerServices;
+using Mindbox.Data.Linq.Proxy;
 
 namespace System.Data.Linq.Mapping
 {
@@ -24,6 +25,13 @@ namespace System.Data.Linq.Mapping
 
 			var property = (PropertyInfo)member;
 			return PropertyAccessor.Create(accessorType, property, storageAccessor);
+		}
+
+		private static MetaAccessor MakeProxyAccessor(Type accessorType, MemberInfo member)
+		{
+			var property = (PropertyInfo)member;
+			var resultType = typeof(ProxyEntityRefAccessor<,>).MakeGenericType(accessorType, property.PropertyType);
+			return (MetaAccessor)Activator.CreateInstance(resultType, property);
 		}
 
 		[MethodImpl(MethodImplOptions.NoInlining | MethodImplOptions.NoOptimization)]
@@ -84,21 +92,6 @@ namespace System.Data.Linq.Mapping
 			throw Error.UnhandledDeferredStorageType(accessor.Type);
 		}
 
-		private static bool IsDeferredType(Type entityType)
-		{
-			if (entityType == null || entityType == typeof(object))
-				return false;
-
-			if (!entityType.IsGenericType)
-				return false;
-
-			var genericTypeDefinition = entityType.GetGenericTypeDefinition();
-			return genericTypeDefinition == typeof(Link<>) ||
-				typeof(EntitySet<>).IsAssignableFrom(genericTypeDefinition) ||
-				typeof(EntityRef<>).IsAssignableFrom(genericTypeDefinition) ||
-				IsDeferredType(entityType.BaseType);
-		} 
-
 
 		private readonly AttributedMetaType metaType;
 		private readonly MemberInfo member;
@@ -140,7 +133,8 @@ namespace System.Data.Linq.Mapping
 				storageMember = mis[0];
 			}
 			var storageType = storageMember == null ? type : TypeSystem.GetMemberType(storageMember);
-			isDeferred = IsDeferredType(storageType);
+			isDeferred = ((AttributedMetaModel)metaType.Model).IsDeferredMember(member, storageType);
+			DoesRequireProxy = ((AttributedMetaModel)metaType.Model).DoesMemberRequireProxy(member, storageType);
 
 			// auto-gen identities must be synced on insert
 			if ((columnAttribute != null) && 
@@ -366,6 +360,9 @@ namespace System.Data.Linq.Mapping
 		}
 
 
+		internal bool DoesRequireProxy { get; private set; }
+
+
 		public override bool IsDeclaredBy(MetaType declaringMetaType)
 		{
 			if (declaringMetaType == null)
@@ -390,7 +387,19 @@ namespace System.Data.Linq.Mapping
 				if (areAccessorsInitialized)
 					return;
 
-				if (storageMember == null)
+				if (DoesRequireProxy)
+				{
+					storageAccessor = MakeProxyAccessor(member.ReflectedType, member);
+					if (isDeferred)
+						MakeDeferredAccessors(
+							member.ReflectedType,
+							storageAccessor,
+							out storageAccessor,
+							out deferredValueAccessor,
+							out deferredSourceAccessor);
+					memberAccessor = MakeMemberAccessor(member.ReflectedType, member, storageAccessor);
+				}
+				else if (storageMember == null)
 				{
 					memberAccessor = storageAccessor = MakeMemberAccessor(member.ReflectedType, member, null);
 					if (isDeferred)

@@ -62,26 +62,6 @@ namespace System.Data.Linq.SqlClient {
         private ProviderMode mode = ProviderMode.NotYetDecided;
         private bool deleted = false;
 
-#if PERFORMANCE_BUILD
-        private bool collectPerfInfo;
-        private bool collectPerfInfoInitialized = false;
-        private bool collectQueryPerf;
-
-        internal bool CollectPerfInfo {
-            get { 
-                if (!collectPerfInfoInitialized) {
-                    string s = System.Environment.GetEnvironmentVariable("CollectDLinqPerfInfo");
-                    collectPerfInfo = (s != null) && (s == "On");
-                    collectPerfInfoInitialized = true;
-                }
-                return this.collectPerfInfo; 
-            }
-        }
-
-        internal bool CollectQueryPerf {
-            get { return this.collectQueryPerf; }
-        }
-#endif
 
         internal enum ProviderMode {
             NotYetDecided,
@@ -400,30 +380,28 @@ namespace System.Data.Linq.SqlClient {
             // If fileOrServerOrConnectionString != null, that means we just created the connection instance and we have to tell
             // the SqlConnectionManager that it should dispose the connection when the context is disposed. Otherwise the user owns
             // the connection and should dispose of it themselves.
-            this.conManager = new SqlConnectionManager(this, con, maxUsersPerConnection, fileOrServerOrConnectionString != null /*disposeConnection*/);
-            if (tx != null) {
-                this.conManager.Transaction = tx;
-            }
+            conManager = new SqlConnectionManager(this, con, maxUsersPerConnection, fileOrServerOrConnectionString != null /*disposeConnection*/);
+	        if (tx != null)
+		        conManager.Transaction = tx;
 
 #if DEBUG
             SqlNode.Formatter = new SqlFormatter();
 #endif
 
-#if ILGEN
             Type readerType;
-            if (this.mode == ProviderMode.SqlCE) {
+            if (mode == ProviderMode.SqlCE) 
+			{
                 readerType = con.GetType().Module.GetType(SqlCeDataReaderTypeName);
             }
-            else if (con is SqlConnection) {
+            else if (con is SqlConnection) 
+			{
                 readerType = typeof(SqlDataReader);
             }
-            else {
+            else 
+			{
                 readerType = typeof(DbDataReader);
             }
-            this.readerCompiler = new ObjectReaderCompiler(readerType, this.services);
-#else
-            this.readerCompiler = new ObjectReaderBuilder(this, this.services);
-#endif
+            readerCompiler = new ObjectReaderCompiler(readerType, services);
         }
 
         private static DbProviderFactory GetProvider(string providerName) {
@@ -854,26 +832,6 @@ namespace System.Data.Linq.SqlClient {
             }
             this.InitializeProviderMode();
 
-#if PERFORMANCE_BUILD
-            PerformanceCounter pcBuildQuery = null, bpcBuildQuery = null, pcExecQuery = null, bpcExecQuery = null,
-                   pcSession = null, bpcSession = null;
-            PerfTimer timerAll = null, timer = null;
-            if (this.CollectPerfInfo) {
-                string s = System.Environment.GetEnvironmentVariable("EnableDLinqQueryPerf");
-                collectQueryPerf = (s != null && s == "On");
-            }
-            if (collectQueryPerf) {
-                pcBuildQuery = new PerformanceCounter("DLinq", "BuildQueryElapsedTime", false);
-                bpcBuildQuery = new PerformanceCounter("DLinq", "BuildQueryElapsedTimeBase", false);
-                pcExecQuery = new PerformanceCounter("DLinq", "ExecuteQueryElapsedTime", false);
-                bpcExecQuery = new PerformanceCounter("DLinq", "ExecuteQueryElapsedTimeBase", false);
-                pcSession = new PerformanceCounter("DLinq", "SessionExecuteQueryElapsedTime", false);
-                bpcSession = new PerformanceCounter("DLinq", "SessionExecuteQueryElapsedTimeBase", false);
-                timerAll = new PerfTimer();
-                timer = new PerfTimer();
-                timerAll.Start();
-            }
-#endif
             query = Funcletizer.Funcletize(query);
 
             if (this.EnableCacheLookup) {
@@ -883,11 +841,6 @@ namespace System.Data.Linq.SqlClient {
                 }
             }
 
-#if PERFORMANCE_BUILD
-            if (collectQueryPerf) {
-                timer.Start();
-            }
-#endif
             SqlNodeAnnotations annotations = new SqlNodeAnnotations();
             QueryInfo[] qis = this.BuildQuery(query, annotations);
             CheckSqlCompatibility(qis, annotations);
@@ -909,32 +862,8 @@ namespace System.Data.Linq.SqlClient {
                 factory = this.GetReaderFactory(qi.Query, TypeSystem.GetElementType(qi.ResultType));
             }
 
-#if PERFORMANCE_BUILD
-                if (collectQueryPerf) {
-                    timer.Stop();
-                    pcBuildQuery.IncrementBy(timer.Duration);
-                    bpcBuildQuery.Increment();
-                }
-#endif
-
-#if PERFORMANCE_BUILD
-            if (collectQueryPerf) {
-                timer.Start();
-            }
-
-#endif
             IExecuteResult result = this.ExecuteAll(query, qis, factory, null, subQueries);
 
-#if PERFORMANCE_BUILD
-            if (collectQueryPerf) {
-                timer.Stop();
-                pcSession.IncrementBy(timer.Duration);
-                bpcSession.Increment();
-                timerAll.Stop();
-                pcExecQuery.IncrementBy(timerAll.Duration);
-                bpcExecQuery.Increment();
-            }
-#endif
             return result;
         }
 

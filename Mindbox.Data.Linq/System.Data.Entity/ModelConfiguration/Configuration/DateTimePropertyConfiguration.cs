@@ -112,7 +112,8 @@ namespace System.Data.Entity.ModelConfiguration.Configuration
 		/// <returns> The same DateTimePropertyConfiguration instance so that multiple calls can be chained. </returns>
 		public DateTimePropertyConfiguration HasPrecision(byte value)
 		{
-			throw new NotImplementedException();
+			precision = value;
+			return this;
 		}
 
 

@@ -17,7 +17,7 @@
     <DebugType>full</DebugType>
     <Optimize>false</Optimize>
     <OutputPath>bin\Debug\</OutputPath>
-    <DefineConstants>TRACE;DEBUG;SYSTEM_DATA_LINQ, ILGEN</DefineConstants>
+    <DefineConstants>TRACE;DEBUG</DefineConstants>
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
   </PropertyGroup>
@@ -25,11 +25,14 @@
     <DebugType>pdbonly</DebugType>
     <Optimize>true</Optimize>
     <OutputPath>bin\Release\</OutputPath>
-    <DefineConstants>TRACE;SYSTEM_DATA_LINQ, ILGEN</DefineConstants>
+    <DefineConstants>TRACE</DefineConstants>
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
   </PropertyGroup>
   <ItemGroup>
+    <Reference Include="Castle.Core">
+      <HintPath>..\packages\Castle.Core.3.3.3\lib\net45\Castle.Core.dll</HintPath>
+    </Reference>
     <Reference Include="Mindbox.Expressions">
       <HintPath>..\packages\Mindbox.Expressions.2.0.5420.33605\lib\net45\Mindbox.Expressions.dll</HintPath>
     </Reference>
@@ -65,7 +68,7 @@
     <Compile Include="IdentityManager.cs" />
     <Compile Include="ItemList.cs" />
     <Compile Include="Link.cs" />
-    <Compile Include="Mapping\Accessors.cs" />
+    <Compile Include="Mapping\EntitySetDefSourceAccessor.cs" />
     <Compile Include="Mapping\AssociationAttribute.cs" />
     <Compile Include="Mapping\AttributedMetaAssociation.cs" />
     <Compile Include="Mapping\AttributedMetaDataMember.cs" />
@@ -74,9 +77,23 @@
     <Compile Include="Mapping\ColumnAttribute.cs" />
     <Compile Include="Mapping\DataAttribute.cs" />
     <Compile Include="Mapping\DatabaseAttribute.cs" />
+    <Compile Include="Mapping\DGet.cs" />
+    <Compile Include="Mapping\DRSet.cs" />
+    <Compile Include="Mapping\DSet.cs" />
+    <Compile Include="Mapping\EntityRefDefSourceAccessor.cs" />
+    <Compile Include="Mapping\EntityRefDefValueAccessor.cs" />
+    <Compile Include="Mapping\EntityRefValueAccessor.cs" />
+    <Compile Include="Mapping\EntitySetDefValueAccessor.cs" />
+    <Compile Include="Mapping\EntitySetValueAccessor.cs" />
+    <Compile Include="Mapping\FieldAccessor.cs" />
     <Compile Include="Mapping\FunctionAttribute.cs" />
     <Compile Include="Mapping\InheritanceMappingAttribute.cs" />
+    <Compile Include="Mapping\LinkDefSourceAccessor.cs" />
+    <Compile Include="Mapping\LinkDefValueAccessor.cs" />
+    <Compile Include="Mapping\LinkValueAccessor.cs" />
     <Compile Include="Mapping\ParameterAttribute.cs" />
+    <Compile Include="Mapping\PropertyAccessor.cs" />
+    <Compile Include="Mindbox.Data.Linq\Proxy\ProxyEntityRefAccessor.cs" />
     <Compile Include="Mapping\ResultTypeAttribute.cs" />
     <Compile Include="Mapping\TableAttribute.cs" />
     <Compile Include="Mapping\UpdateCheck.cs" />
@@ -84,6 +101,8 @@
     <Compile Include="Mindbox.Data.Linq\Mapping\AssociationAttributeByMember.cs" />
     <Compile Include="Mindbox.Data.Linq\Mapping\Entity\IEntityTypeConfiguration.cs" />
     <Compile Include="Mindbox.Data.Linq\Mapping\Entity\IRequiredNavigationPropertyConfiguration.cs" />
+    <Compile Include="Mindbox.Data.Linq\Proxy\EntityProxyInterceptor.cs" />
+    <Compile Include="Mindbox.Data.Linq\Proxy\IEntityProxy.cs" />
     <Compile Include="Mindbox.Data.Linq\Mapping\MindboxMappingConfiguration.cs" />
     <Compile Include="Mindbox.Data.Linq\Mapping\MindboxMetaModel.cs" />
     <Compile Include="Mapping\AttributedMetaModel.cs" />
@@ -121,6 +140,7 @@
     <Compile Include="SqlClient\Common\Expressions.cs" />
     <Compile Include="SqlClient\Common\IConnectionManager.cs" />
     <Compile Include="SqlClient\Common\InheritanceRules.cs" />
+    <Compile Include="SqlClient\Common\MetaPosition.cs" />
     <Compile Include="SqlClient\Common\SqlFactory.cs" />
     <Compile Include="SqlClient\Common\SqlNode.cs" />
     <Compile Include="SqlClient\Common\SqlNodeAnnotation.cs" />
@@ -132,8 +152,8 @@
     <Compile Include="SqlClient\Common\TypeSystem.cs" />
     <Compile Include="SqlClient\Common\TypeSystemProvider.cs" />
     <Compile Include="Error.cs" />
+    <Compile Include="SqlClient\Implementation\ObjectMaterializer.cs" />
     <Compile Include="SqlClient\OptimizationFlags.cs" />
-    <Compile Include="SqlClient\PerfTimer.cs" />
     <Compile Include="SqlClient\Query\ContainsRowNumberChecker.cs" />
     <Compile Include="SqlClient\Query\Funcletizer.cs" />
     <Compile Include="SqlClient\Query\LongTypeConverter.cs" />
@@ -217,6 +237,7 @@
     <Compile Include="System.Data.Entity\ModelConfiguration\Configuration\ValueConditionConfiguration.cs" />
     <Compile Include="System.Data.Entity\ModelConfiguration\EntityTypeConfiguration.cs" />
     <Compile Include="EntitySet.cs" />
+    <Compile Include="TrackedObject.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="packages.config" />
