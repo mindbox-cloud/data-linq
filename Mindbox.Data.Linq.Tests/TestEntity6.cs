@@ -24,26 +24,26 @@ namespace Mindbox.Data.Linq.Tests
 		}
 
 
-		public int Id { get; set; }
-		public string UserName { get; set; }
-		public string PasswordHash { get; set; }
-		public string Email { get; set; }
-		public string StaffTypeSystemName { get; set; }
-		public byte[] RowVersion { get; set; }
-		public DateTime? AccountExpirationDateTimeUtc { get; set; }
-		public bool IsBlocked { get; set; }
-		public int CreatorId { get; set; }
-		public DateTime CreationDateTimeUtc { get; set; }
-		public string FirstName { get; set; }
-		public string LastName { get; set; }
-		public string Comment { get; set; }
+		public virtual int Id { get; set; }
+		public virtual string UserName { get; set; }
+		public virtual string PasswordHash { get; set; }
+		public virtual string Email { get; set; }
+		public virtual string StaffTypeSystemName { get; set; }
+		public virtual byte[] RowVersion { get; set; }
+		public virtual DateTime? AccountExpirationDateTimeUtc { get; set; }
+		public virtual bool IsBlocked { get; set; }
+		public virtual int CreatorId { get; set; }
+		public virtual DateTime CreationDateTimeUtc { get; set; }
+		public virtual string FirstName { get; set; }
+		public virtual string LastName { get; set; }
+		public virtual string Comment { get; set; }
 
 		[Association(
 			Name = "UserPermission_Staff",
 			Storage = "personalPermissions",
 			ThisKey = "Id",
 			OtherKey = "StaffId")]
-		public EntitySet<TestEntity7> PersonalPermissions
+		public virtual EntitySet<TestEntity7> PersonalPermissions
 		{
 			get { return personalPermissions; }
 			set { personalPermissions.Assign(value); }

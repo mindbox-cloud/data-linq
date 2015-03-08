@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.Data.Linq.Mapping;
 using System.Reflection;
 using System.Text;
@@ -124,7 +125,9 @@ namespace Mindbox.Data.Linq.Mapping
 				entityType,
 				new[]
 				{
-					typeof(IEntityProxy)
+					typeof(IEntityProxy),
+					typeof(INotifyPropertyChanging),
+					typeof(INotifyPropertyChanged)
 				},
 				new EntityProxyInterceptor(this));
 		}

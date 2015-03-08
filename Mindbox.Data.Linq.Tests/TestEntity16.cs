@@ -8,15 +8,15 @@ using System.Threading.Tasks;
 
 namespace Mindbox.Data.Linq.Tests
 {
-	public class TestEntity11
+	public class TestEntity16
 	{
-		private TestEntity9 other;
+		private TestEntity10 other;
 
 
 		public virtual int Id { get; set; }
 		public virtual int OtherId { get; set; }
 
-		public virtual TestEntity9 Other
+		public virtual TestEntity10 Other
 		{
 			get { return other; }
 			set
@@ -27,11 +27,11 @@ namespace Mindbox.Data.Linq.Tests
 		}
 
 
-		public class TestEntity11Configuration : EntityTypeConfiguration<TestEntity11>
+		public class TestEntity16Configuration : EntityTypeConfiguration<TestEntity16>
 		{
-			public TestEntity11Configuration()
+			public TestEntity16Configuration()
 			{
-				ToTable("Test11");
+				ToTable("Test16");
 				HasKey(entity => entity.Id);
 				Property(entity => entity.Id).HasDatabaseGeneratedOption(DatabaseGeneratedOption.Identity);
 				HasRequired(entity => entity.Other).WithMany().HasForeignKey(entity => entity.OtherId);

@@ -65,6 +65,7 @@
     <Compile Include="TestEntity3.cs" />
     <Compile Include="TestEntity10.cs" />
     <Compile Include="TestEntity11.cs" />
+    <Compile Include="TestEntity16.cs" />
     <Compile Include="TestEntity9.cs" />
     <Compile Include="TestEntity8.cs" />
     <Compile Include="TestEntity7.cs" />

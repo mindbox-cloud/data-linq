@@ -13,8 +13,8 @@ namespace Mindbox.Data.Linq.Tests
 		private TestEntity10 other;
 
 
-		public int Id { get; set; }
-		public int OtherId { get; set; }
+		public virtual int Id { get; set; }
+		public virtual int OtherId { get; set; }
 
 		public virtual TestEntity10 Other
 		{

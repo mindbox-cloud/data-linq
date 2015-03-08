@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.ComponentModel;
 using System.Data.Linq.SqlClient;
 using System.Linq;
 using System.Reflection;
@@ -10,6 +11,15 @@ namespace System.Data.Linq.Mapping
 {
 	internal class AttributedMetaType : MetaType 
 	{
+		private static bool IsOverridableBySubclasses(MethodInfo method)
+		{
+			if (method == null)
+				throw new ArgumentNullException("method");
+
+			return method.IsVirtual && !method.IsFinal && (method.IsPublic || method.IsFamily || method.IsFamilyOrAssembly);
+		}
+
+
 		internal object inheritanceCode;
 
 	
@@ -50,6 +60,29 @@ namespace System.Data.Linq.Mapping
 			identities = dataMembers.Where(dataMember => dataMember.IsPrimaryKey).ToList().AsReadOnly();
 			persistentMembers = dataMembers.Where(dataMember => dataMember.IsPersistent).ToList().AsReadOnly();
 			DoesRequireProxy = dataMembers.Cast<AttributedMetaDataMember>().Any(dataMember => dataMember.DoesRequireProxy);
+
+			if (DoesRequireProxy)
+			{
+				if (typeof(INotifyPropertyChanging).IsAssignableFrom(type))
+					throw new InvalidOperationException(
+						"Entity type requiring proxy cannot implement INotifyPropertyChanging: " + type + ".");
+				if (typeof(INotifyPropertyChanged).IsAssignableFrom(type))
+					throw new InvalidOperationException(
+						"Entity type requiring proxy cannot implement INotifyPropertyChanged: " + type + ".");
+
+				var areAllDataMembersOverridable = dataMembers.Cast<AttributedMetaDataMember>().All(
+					dataMember =>
+					{
+						var property = dataMember.Member as PropertyInfo;
+						return (property != null) &&
+							(property.GetMethod != null) &&
+							IsOverridableBySubclasses(property.GetMethod) &&
+							IsOverridableBySubclasses(property.SetMethod);
+					});
+				if (!areAllDataMembersOverridable)
+					throw new InvalidOperationException(
+						"Entity type requiring proxy must have all data members overridable: " + type + ".");
+			}
 		}
 
 

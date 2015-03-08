@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.Data.Linq;
 using System.Data.Linq.Mapping;
 using System.Data.SqlClient;
@@ -1136,6 +1137,62 @@ namespace Mindbox.Data.Linq.Tests
 
 						Assert.AreNotEqual(default(int), item15.Id);
 						Assert.AreEqual(1, item15.Value);
+					}
+				});
+		}
+
+		[TestMethod]
+		public void CompletelyVirtualProxyHasChangeTrackingInterfacesRealDatabase()
+		{
+			var configuration = new MindboxMappingConfiguration();
+			configuration.ModelBuilder.Configurations.Add(new TestEntity10.TestEntity10Configuration());
+			configuration.ModelBuilder.Configurations.Add(new TestEntity16.TestEntity16Configuration());
+
+			RunRealDatabaseTest(
+				configuration,
+				connection =>
+				{
+					var createTable10Command = new SqlCommand(
+						"create table Test10 (Id int identity(1,1) not null primary key, Value binary(5) not null)",
+						connection);
+					createTable10Command.ExecuteNonQuery();
+
+					var createTable9Command = new SqlCommand(
+						"create table Test16 " +
+							"(Id int identity(1,1) not null primary key, " +
+							"OtherId int not null foreign key references Test10 (Id))",
+						connection);
+					createTable9Command.ExecuteNonQuery();
+
+					var insert10Command = new SqlCommand(
+						"insert into Test10 (Value) values (0x1122334455); select scope_identity()",
+						connection);
+					var id10 = Convert.ToInt32(insert10Command.ExecuteScalar());
+
+					var insert16Command = new SqlCommand("insert into Test16 (OtherId) values (@OtherId)", connection);
+					insert16Command.Parameters.AddWithValue("OtherId", id10);
+					insert16Command.ExecuteNonQuery();
+				},
+				dataContextFactory =>
+				{
+					using (var context = dataContextFactory())
+					{
+						var item16 = context.GetTable<TestEntity16>().Single();
+						Assert.IsInstanceOfType(item16, typeof(INotifyPropertyChanging));
+						Assert.IsInstanceOfType(item16, typeof(INotifyPropertyChanged));
+
+						var wasChangingNotified = false;
+						var wasChangedNotified = false;
+
+						var notifyPropertyChanging = (INotifyPropertyChanging)item16;
+						notifyPropertyChanging.PropertyChanging += (sender, e) => wasChangingNotified = true;
+
+						var notifyPropertyChanged = (INotifyPropertyChanged)item16;
+						notifyPropertyChanged.PropertyChanged += (sender, e) => wasChangedNotified = true;
+
+						item16.Id = -100;
+						Assert.IsTrue(wasChangingNotified);
+						Assert.IsTrue(wasChangedNotified);
 					}
 				});
 		}
