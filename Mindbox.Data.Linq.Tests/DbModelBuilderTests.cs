@@ -1157,12 +1157,12 @@ namespace Mindbox.Data.Linq.Tests
 						connection);
 					createTable10Command.ExecuteNonQuery();
 
-					var createTable9Command = new SqlCommand(
+					var createTable16Command = new SqlCommand(
 						"create table Test16 " +
 							"(Id int identity(1,1) not null primary key, " +
 							"OtherId int not null foreign key references Test10 (Id))",
 						connection);
-					createTable9Command.ExecuteNonQuery();
+					createTable16Command.ExecuteNonQuery();
 
 					var insert10Command = new SqlCommand(
 						"insert into Test10 (Value) values (0x1122334455); select scope_identity()",
@@ -1193,6 +1193,37 @@ namespace Mindbox.Data.Linq.Tests
 						item16.Id = -100;
 						Assert.IsTrue(wasChangingNotified);
 						Assert.IsTrue(wasChangedNotified);
+					}
+				});
+		}
+
+		[TestMethod]
+		public void CompletelyVirtualClassWithoutChangeTrackingRequiresProxyRealDatabase()
+		{
+			var configuration = new MindboxMappingConfiguration();
+			configuration.ModelBuilder.Configurations.Add(new TestEntity17.TestEntity17Configuration());
+
+			RunRealDatabaseTest(
+				configuration,
+				connection =>
+				{
+					var createTable17Command = new SqlCommand(
+						"create table Test17 (Id int identity(1,1) not null primary key, Value binary(5) not null)",
+						connection);
+					createTable17Command.ExecuteNonQuery();
+
+					var insert17Command = new SqlCommand(
+						"insert into Test17 (Value) values (0x1122334455)",
+						connection);
+					insert17Command.ExecuteNonQuery();
+				},
+				dataContextFactory =>
+				{
+					using (var context = dataContextFactory())
+					{
+						var item17 = context.GetTable<TestEntity17>().Single();
+						Assert.IsInstanceOfType(item17, typeof(INotifyPropertyChanging));
+						Assert.IsInstanceOfType(item17, typeof(INotifyPropertyChanged));
 					}
 				});
 		}

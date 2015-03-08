@@ -59,7 +59,11 @@ namespace System.Data.Linq.Mapping
 			InitDataMembers();
 			identities = dataMembers.Where(dataMember => dataMember.IsPrimaryKey).ToList().AsReadOnly();
 			persistentMembers = dataMembers.Where(dataMember => dataMember.IsPersistent).ToList().AsReadOnly();
-			DoesRequireProxy = dataMembers.Cast<AttributedMetaDataMember>().Any(dataMember => dataMember.DoesRequireProxy);
+			DoesRequireProxy = dataMembers.Cast<AttributedMetaDataMember>().Any(dataMember => 
+				dataMember.DoesRequireProxy) ||
+				(!typeof(INotifyPropertyChanging).IsAssignableFrom(type) &&
+					!typeof(INotifyPropertyChanged).IsAssignableFrom(type) &&
+					AreAllDataMembersOverridable);
 
 			if (DoesRequireProxy)
 			{
@@ -69,17 +73,7 @@ namespace System.Data.Linq.Mapping
 				if (typeof(INotifyPropertyChanged).IsAssignableFrom(type))
 					throw new InvalidOperationException(
 						"Entity type requiring proxy cannot implement INotifyPropertyChanged: " + type + ".");
-
-				var areAllDataMembersOverridable = dataMembers.Cast<AttributedMetaDataMember>().All(
-					dataMember =>
-					{
-						var property = dataMember.Member as PropertyInfo;
-						return (property != null) &&
-							(property.GetMethod != null) &&
-							IsOverridableBySubclasses(property.GetMethod) &&
-							IsOverridableBySubclasses(property.SetMethod);
-					});
-				if (!areAllDataMembersOverridable)
+				if (!AreAllDataMembersOverridable)
 					throw new InvalidOperationException(
 						"Entity type requiring proxy must have all data members overridable: " + type + ".");
 			}
@@ -291,6 +285,23 @@ namespace System.Data.Linq.Mapping
 
 
 		internal bool DoesRequireProxy { get; private set; }
+
+
+		private bool AreAllDataMembersOverridable
+		{
+			get
+			{
+				return dataMembers.Cast<AttributedMetaDataMember>().All(
+					dataMember =>
+					{
+						var property = dataMember.Member as PropertyInfo;
+						return (property != null) &&
+							(property.GetMethod != null) &&
+							IsOverridableBySubclasses(property.GetMethod) &&
+							IsOverridableBySubclasses(property.SetMethod);
+					});
+			}
+		}
 
 
 		public override MetaDataMember GetDataMember(MemberInfo mi)
