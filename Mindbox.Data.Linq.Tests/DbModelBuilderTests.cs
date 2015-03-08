@@ -1062,6 +1062,83 @@ namespace Mindbox.Data.Linq.Tests
 				});
 		}
 
+		[TestMethod]
+		public void ProtectedSetterViaAttributeWithoutStorage()
+		{
+			var configuration = new MindboxMappingConfiguration();
+			var mappingSource = new MindboxMappingSource(configuration);
+			var metaTable = mappingSource.GetModel(typeof(DataContext)).GetTable(typeof(TestEntity14));
+
+			var member = (AttributedMetaDataMember)metaTable.RowType.PersistentDataMembers.Single(aMember =>
+				aMember.Name == "Id");
+			Assert.IsTrue(member.IsPersistent);
+		}
+
+		[TestMethod]
+		public void ProtectedSetterViaAttributeWithoutStorageRealDatabase()
+		{
+			var configuration = new MindboxMappingConfiguration();
+
+			RunRealDatabaseTest(
+				configuration,
+				connection =>
+				{
+					var createTable14Command = new SqlCommand(
+						"create table TestEntity14 (Id int identity(1,1) not null primary key, Value int not null)",
+						connection);
+					createTable14Command.ExecuteNonQuery();
+
+					var insert14Command = new SqlCommand(
+						"insert into TestEntity14 (Value) values (1)",
+						connection);
+					insert14Command.ExecuteNonQuery();
+				},
+				dataContextFactory =>
+				{
+					using (var context = dataContextFactory())
+					{
+						var item14 = context
+							.GetTable<TestEntity14>()
+							.Single();
+
+						Assert.AreNotEqual(default(int), item14.Id);
+						Assert.AreEqual(1, item14.Value);
+					}
+				});
+		}
+
+		[TestMethod]
+		public void PrivateSetterViaAttributeWithoutStorageRealDatabase()
+		{
+			var configuration = new MindboxMappingConfiguration();
+
+			RunRealDatabaseTest(
+				configuration,
+				connection =>
+				{
+					var createTable15Command = new SqlCommand(
+						"create table TestEntity15 (Id int identity(1,1) not null primary key, Value int not null)",
+						connection);
+					createTable15Command.ExecuteNonQuery();
+
+					var insert15Command = new SqlCommand(
+						"insert into TestEntity15 (Value) values (1)",
+						connection);
+					insert15Command.ExecuteNonQuery();
+				},
+				dataContextFactory =>
+				{
+					using (var context = dataContextFactory())
+					{
+						var item15 = context
+							.GetTable<TestEntity15>()
+							.Single();
+
+						Assert.AreNotEqual(default(int), item15.Id);
+						Assert.AreEqual(1, item15.Value);
+					}
+				});
+		}
 
 
 		private void RunRealDatabaseTest(
