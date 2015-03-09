@@ -93,6 +93,7 @@
     <Compile Include="Mapping\LinkValueAccessor.cs" />
     <Compile Include="Mapping\ParameterAttribute.cs" />
     <Compile Include="Mapping\PropertyAccessor.cs" />
+    <Compile Include="Mindbox.Data.Linq\IEntitySet.cs" />
     <Compile Include="Mindbox.Data.Linq\Proxy\ProxyEntityRefAccessor.cs" />
     <Compile Include="Mapping\ResultTypeAttribute.cs" />
     <Compile Include="Mapping\TableAttribute.cs" />

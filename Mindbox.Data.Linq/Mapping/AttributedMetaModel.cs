@@ -108,11 +108,13 @@ namespace System.Data.Linq.Mapping
 	        if (rowType == null)
 		        throw Error.ArgumentNull("rowType");
 
+	        var nonProxyRowType = UnproxyType(rowType);
+
 	        MetaTable table;
             metaModelLock.AcquireReaderLock(Timeout.Infinite);
             try 
 			{
-				if (metaTables.TryGetValue(rowType, out table))
+				if (metaTables.TryGetValue(nonProxyRowType, out table))
 					return table;
 			}
             finally 
@@ -123,7 +125,7 @@ namespace System.Data.Linq.Mapping
             metaModelLock.AcquireWriterLock(Timeout.Infinite);
             try 
 			{
-                table = GetTableNoLocks(rowType);
+                table = GetTableNoLocks(nonProxyRowType);
             }
             finally 
 			{
@@ -137,11 +139,13 @@ namespace System.Data.Linq.Mapping
 	        if (type == null)
 		        throw Error.ArgumentNull("type");
 
+	        var nonProxyType = UnproxyType(type);
+
 	        MetaType mtype;
             metaModelLock.AcquireReaderLock(Timeout.Infinite);
             try 
 			{
-				if (metaTypes.TryGetValue(type, out mtype))
+				if (metaTypes.TryGetValue(nonProxyType, out mtype))
 					return mtype;
 			}
             finally 
@@ -151,18 +155,18 @@ namespace System.Data.Linq.Mapping
 
             // Attributed meta model allows us to learn about tables we did not
             // statically know about
-            var tab = GetTable(type);
+            var tab = GetTable(nonProxyType);
 	        if (tab != null)
-		        return tab.RowType.GetInheritanceType(type);
+		        return tab.RowType.GetInheritanceType(nonProxyType);
 
 	        InitFunctions();
             metaModelLock.AcquireWriterLock(Timeout.Infinite);
             try 
 			{
-                if (!metaTypes.TryGetValue(type, out mtype)) 
+                if (!metaTypes.TryGetValue(nonProxyType, out mtype)) 
 				{
-                    mtype = new UnmappedType(this, type);
-                    metaTypes.Add(type, mtype);
+                    mtype = new UnmappedType(this, nonProxyType);
+                    metaTypes.Add(nonProxyType, mtype);
                 }
             }
             finally 

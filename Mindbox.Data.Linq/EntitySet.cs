@@ -4,10 +4,11 @@ using System.Collections.Generic;
 using System.ComponentModel;
 using System.Linq;
 using System.Text;
+using Mindbox.Data.Linq;
 
 namespace System.Data.Linq 
 {
-    public sealed class EntitySet<TEntity> : IList, IList<TEntity>, IListSource
+    public sealed class EntitySet<TEntity> : IList, IList<TEntity>, IListSource, IEntitySet
         where TEntity : class 
 	{
         private IEnumerable<TEntity> source;
@@ -22,6 +23,7 @@ namespace System.Data.Linq
         private bool isLoaded;
 		private bool listChanged;
 		private IBindingList cachedList;
+	    private EventHandler listChanging;
 
 
         public EntitySet() 
@@ -152,6 +154,12 @@ namespace System.Data.Linq
 		}
 
 		public event ListChangedEventHandler ListChanged;
+
+		event EventHandler IEntitySet.ListChanging
+		{
+			add { listChanging += value; }
+			remove { listChanging -= value; }
+		}
 
 
 		/// <summary>
@@ -474,6 +482,7 @@ namespace System.Data.Linq
 
 		private void OnAdd(TEntity entity)
 		{
+			OnListChanging();
 			if (onAdd != null)
 			{
 				var previousOnAddEntity = onAddEntity;
@@ -491,6 +500,7 @@ namespace System.Data.Linq
 
 		private void OnRemove(TEntity entity)
 		{
+			OnListChanging();
 			if (onRemove != null)
 			{
 				var previousOnRemoveEntity = onRemoveEntity;
@@ -505,6 +515,12 @@ namespace System.Data.Linq
 				}
 			}
 		}
+
+	    private void OnListChanging()
+	    {
+		    if (listChanging != null)
+			    listChanging(this, EventArgs.Empty);
+	    }
 
 		private void OnListChanged(ListChangedType type, int index)
 		{

@@ -24,6 +24,10 @@ namespace Mindbox.Data.Linq.Proxy
 				entityProxy.SetEntityRef(default(MemberInfo), default(EntityRef<object>)))
 			.GetGenericMethodDefinition();
 
+		private static readonly MethodInfo entityProxyHandleEntitySetChangingMethod = ReflectionExpressions
+			.GetMethodInfo<IEntityProxy>(entityProxy =>
+				entityProxy.HandleEntitySetChanging(default(object), default(EventArgs)));
+
 		private static readonly MethodInfo handleEntityRefGetterMethodDefinition = ReflectionExpressions
 			.GetMethodInfo<EntityProxyInterceptor>(interceptor =>
 				interceptor.HandleEntityRefGetter<object>(default(IInvocation)))
@@ -158,9 +162,9 @@ namespace Mindbox.Data.Linq.Proxy
 						var newValue = invocation.Arguments[0];
 						if (!Equals(oldValue, newValue))
 						{
-							NotifyPropertyChanging(invocation, property.Name);
+							NotifyPropertyChanging(proxy, property.Name);
 							invocation.Proceed();
-							NotifyPropertyChanged(invocation, property.Name);
+							NotifyPropertyChanged(proxy, property.Name);
 						}
 						return;
 					}
@@ -203,6 +207,12 @@ namespace Mindbox.Data.Linq.Proxy
 				invocation.ReturnValue = entityRefsByGetMethod.TryGetValue(getMethod, out entityRef)
 					? entityRef
 					: Activator.CreateInstance(typeof(EntityRef<>).MakeGenericType(getMethod.ReturnType));
+				return;
+			}
+
+			if (invocation.Method == entityProxyHandleEntitySetChangingMethod)
+			{
+				NotifyPropertyChanging(proxy, string.Empty);
 				return;
 			}
 
@@ -249,24 +259,24 @@ namespace Mindbox.Data.Linq.Proxy
 			throw new NotImplementedException();
 		}
 
-		private void NotifyPropertyChanging(IInvocation invocation, string propertyName)
+		private void NotifyPropertyChanging(IEntityProxy proxy, string propertyName)
 		{
-			if (invocation == null)
-				throw new ArgumentNullException("invocation");
+			if (proxy == null)
+				throw new ArgumentNullException("proxy");
 
 			var currentHandler = propertyChangingEventHandler;
 			if (currentHandler != null)
-				currentHandler(invocation.Proxy, new PropertyChangingEventArgs(propertyName));
+				currentHandler(proxy, new PropertyChangingEventArgs(propertyName));
 		}
 
-		private void NotifyPropertyChanged(IInvocation invocation, string propertyName)
+		private void NotifyPropertyChanged(IEntityProxy proxy, string propertyName)
 		{
-			if (invocation == null)
-				throw new ArgumentNullException("invocation");
+			if (proxy == null)
+				throw new ArgumentNullException("proxy");
 
 			var currentHandler = propertyChangedEventHandler;
 			if (currentHandler != null)
-				currentHandler(invocation.Proxy, new PropertyChangedEventArgs(propertyName));
+				currentHandler(proxy, new PropertyChangedEventArgs(propertyName));
 		}
 
 		private EntityRef<TEntity> GetEntityRef<TEntity>(MethodInfo getMethod)
@@ -317,6 +327,7 @@ namespace Mindbox.Data.Linq.Proxy
 			if (property == null)
 				throw new ArgumentNullException("property");
 
+			var proxy = (IEntityProxy)invocation.Proxy;
 			var shouldNotify = false;
 			if (!isSettingAfterEntityRefLoad)
 			{
@@ -325,7 +336,7 @@ namespace Mindbox.Data.Linq.Proxy
 				if (!entityRef.HasLoadedOrAssignedValue || !Equals(entityRef.Entity, newEntity))
 				{
 					shouldNotify = true;
-					NotifyPropertyChanging(invocation, property.Name);
+					NotifyPropertyChanging(proxy, property.Name);
 
 					entityRef.Entity = newEntity;
 					entityRefsByGetMethod[property.GetMethod] = entityRef;
@@ -335,7 +346,7 @@ namespace Mindbox.Data.Linq.Proxy
 			invocation.Proceed();
 
 			if (shouldNotify)
-				NotifyPropertyChanged(invocation, property.Name);
+				NotifyPropertyChanged(proxy, property.Name);
 		}
 
 		private void SetEntityRef<TEntity>(EntityRef<TEntity> entityRef, MethodInfo getMethod, IEntityProxy proxy)

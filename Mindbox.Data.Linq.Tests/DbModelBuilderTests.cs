@@ -1228,6 +1228,56 @@ namespace Mindbox.Data.Linq.Tests
 				});
 		}
 
+		[TestMethod]
+		public void ProxyWorksOnManyEndOfOneToManyRelationshipRealDatabase()
+		{
+			var configuration = new MindboxMappingConfiguration();
+
+			RunRealDatabaseTest(
+				configuration,
+				connection =>
+				{
+					var createTable19Command = new SqlCommand(
+						"create table Test19 (Id int identity(1,1) not null primary key)",
+						connection);
+					createTable19Command.ExecuteNonQuery();
+
+					var createTable18Command = new SqlCommand(
+						"create table Test18 (" +
+							"Id int identity(1,1) not null primary key, " +
+							"OtherId int not null foreign key references Test19 (Id))",
+						connection);
+					createTable18Command.ExecuteNonQuery();
+
+					var insert19Command = new SqlCommand(
+						"insert into Test19 default values",
+						connection);
+					insert19Command.ExecuteNonQuery();
+				},
+				dataContextFactory =>
+				{
+					using (var context = dataContextFactory())
+					{
+						var item19 = context.GetTable<TestEntity19>().Single();
+						Assert.IsInstanceOfType(item19, typeof(INotifyPropertyChanging));
+						Assert.IsInstanceOfType(item19, typeof(INotifyPropertyChanged));
+
+						new TestEntity18
+						{
+							Other = item19
+						};
+
+						context.SubmitChanges();
+					}
+
+					using (var context = dataContextFactory())
+					{
+						var item19 = context.GetTable<TestEntity19>().Single();
+						Assert.AreEqual(1, item19.Others.Count);
+					}
+				});
+		}
+
 
 		private void RunRealDatabaseTest(
 			MindboxMappingConfiguration configuration, 

@@ -15,5 +15,7 @@ namespace Mindbox.Data.Linq.Proxy
 
 		void SetEntityRef<T>(MemberInfo getMethod, EntityRef<T> entityRef)
 			where T : class;
+
+		void HandleEntitySetChanging(object sender, EventArgs e);
 	}
 }

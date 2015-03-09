@@ -121,7 +121,7 @@ namespace Mindbox.Data.Linq.Mapping
 			if (entityType == null)
 				throw new ArgumentNullException("entityType");
 
-			return proxyGenerator.CreateClassProxy(
+			var proxy = proxyGenerator.CreateClassProxy(
 				entityType,
 				new[]
 				{
@@ -130,6 +130,11 @@ namespace Mindbox.Data.Linq.Mapping
 					typeof(INotifyPropertyChanged)
 				},
 				new EntityProxyInterceptor(this));
+			foreach (var dataMember in GetMetaType(entityType).DataMembers.OfType<AttributedMetaDataMember>())
+				if (dataMember.IsAssociation && dataMember.Association.IsMany && !dataMember.DoesRequireProxy)
+					((IEntitySet)dataMember.StorageAccessor.GetBoxedValue(proxy)).ListChanging +=
+						((IEntityProxy)proxy).HandleEntitySetChanging;
+			return proxy;
 		}
 
 		internal override Type UnproxyType(Type type)
