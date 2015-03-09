@@ -11,7 +11,7 @@
     <description>$description$</description>
     <projectUrl>https://github.com/mindbox-moscow/data-linq</projectUrl>
     <releaseNotes>
-			Using proxies when possible for all entities which don't implement INotifyPropertyChanging and INotifyPropertyChanged.
+			BUG: EntitySet in proxy class failed to track changes.
 		</releaseNotes>
     <copyright>Copyright 2015 Mindbox; Copyright ...-2014 Microsoft</copyright>
     <tags>linq iqueryable</tags>
