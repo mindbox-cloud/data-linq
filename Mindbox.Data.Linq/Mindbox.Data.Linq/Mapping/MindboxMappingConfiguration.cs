@@ -79,6 +79,9 @@ namespace Mindbox.Data.Linq.Mapping
 
 		public void Freeze()
 		{
+			if (IsFrozen)
+				throw new InvalidOperationException("IsFrozen");
+
 			IsFrozen = true;
 
 			modelBuilder.Validate();

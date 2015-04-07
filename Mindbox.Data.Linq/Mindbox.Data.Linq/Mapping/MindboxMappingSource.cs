@@ -13,7 +13,8 @@ namespace Mindbox.Data.Linq.Mapping
 			if (configuration == null)
 				throw new ArgumentNullException("configuration");
 
-			configuration.Freeze();
+			if (!configuration.IsFrozen)
+				configuration.Freeze();
 			Configuration = configuration;
 		}
 
