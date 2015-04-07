@@ -47,6 +47,20 @@ namespace Mindbox.Data.Linq.Tests
 		}
 
 		[TestMethod]
+		public void TableAttributeViaBuilderWithAlreadyFrozenConfiguration()
+		{
+			var configuration = new MindboxMappingConfiguration();
+			configuration.ModelBuilder.Configurations.Add(new TestEntity6.TestEntity6Configuration());
+			configuration.Freeze();
+
+			var mappingSource = new MindboxMappingSource(configuration);
+			var metaTable = mappingSource.GetModel(typeof(DataContext)).GetTable(typeof(TestEntity6));
+
+			Assert.IsNotNull(metaTable);
+			Assert.AreEqual("administration.Staff", metaTable.TableName);
+		}
+
+		[TestMethod]
 		public void BooleanColumnViaAttribute()
 		{
 			var incompatibilityDetected = false;
