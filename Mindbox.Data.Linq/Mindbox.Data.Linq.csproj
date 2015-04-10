@@ -94,6 +94,7 @@
     <Compile Include="Mapping\ParameterAttribute.cs" />
     <Compile Include="Mapping\PropertyAccessor.cs" />
     <Compile Include="Mindbox.Data.Linq\IEntitySet.cs" />
+    <Compile Include="Mindbox.Data.Linq\Mapping\Entity\IOptionalNavigationPropertyConfiguration.cs" />
     <Compile Include="Mindbox.Data.Linq\Proxy\ProxyEntityRefAccessor.cs" />
     <Compile Include="Mapping\ResultTypeAttribute.cs" />
     <Compile Include="Mapping\TableAttribute.cs" />
@@ -241,7 +242,9 @@
     <Compile Include="TrackedObject.cs" />
   </ItemGroup>
   <ItemGroup>
-    <None Include="Mindbox.Data.Linq.nuspec" />
+    <None Include="Mindbox.Data.Linq.nuspec">
+      <SubType>Designer</SubType>
+    </None>
     <None Include="packages.config" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />

@@ -1,6 +1,9 @@
 ﻿using System.Collections.Generic;
 using System.Linq;
 using System.Linq.Expressions;
+using System.Reflection;
+using Mindbox.Data.Linq.Mapping;
+using Mindbox.Data.Linq.Mapping.Entity;
 
 namespace System.Data.Entity.ModelConfiguration.Configuration
 {
@@ -9,10 +12,24 @@ namespace System.Data.Entity.ModelConfiguration.Configuration
 	/// </summary>
 	/// <typeparam name="TEntityType"> The entity type that the relationship originates from. </typeparam>
 	/// <typeparam name="TTargetEntityType"> The entity type that the relationship targets. </typeparam>
-	public class OptionalNavigationPropertyConfiguration<TEntityType, TTargetEntityType>
+	public class OptionalNavigationPropertyConfiguration<TEntityType, TTargetEntityType> : 
+		IOptionalNavigationPropertyConfiguration
 		where TEntityType : class
 		where TTargetEntityType : class
 	{
+		private ForeignKeyNavigationPropertyConfiguration foreignKeyConfiguration;
+		private readonly PropertyInfo associationProperty;
+
+
+		internal OptionalNavigationPropertyConfiguration(PropertyInfo associationProperty)
+		{
+			if (associationProperty == null)
+				throw new ArgumentNullException("associationProperty");
+
+			this.associationProperty = associationProperty;
+		}
+
+	
 		/// <summary>
 		/// Configures the relationship to be optional:many with a navigation property on the other side of the relationship.
 		/// </summary>
@@ -33,7 +50,11 @@ namespace System.Data.Entity.ModelConfiguration.Configuration
 		/// <returns> A configuration object that can be used to further configure the relationship. </returns>
 		public DependentNavigationPropertyConfiguration<TEntityType> WithMany()
 		{
-			throw new NotImplementedException();
+			if (foreignKeyConfiguration == null)
+				foreignKeyConfiguration = new DependentNavigationPropertyConfiguration<TEntityType>(
+					associationProperty,
+					isRequired: false);
+			return (DependentNavigationPropertyConfiguration<TEntityType>)foreignKeyConfiguration;
 		}
 
 		/// <summary>
@@ -111,6 +132,29 @@ namespace System.Data.Entity.ModelConfiguration.Configuration
 		public ForeignKeyNavigationPropertyConfiguration WithOptionalPrincipal()
 		{
 			throw new NotImplementedException();
+		}
+
+		ColumnAttributeByMember IOptionalNavigationPropertyConfiguration.TryGetColumnAttribute(DbModelBuilder dbModelBuilder)
+		{
+			if (dbModelBuilder == null)
+				throw new ArgumentNullException("dbModelBuilder");
+
+			if (foreignKeyConfiguration == null)
+				throw new InvalidOperationException("foreignKeyConfiguration == null");
+
+			return foreignKeyConfiguration.TryGetColumnAttribute(dbModelBuilder);
+		}
+
+		AssociationAttributeByMember IOptionalNavigationPropertyConfiguration.GetAssociationAttribute(
+			DbModelBuilder dbModelBuilder)
+		{
+			if (dbModelBuilder == null)
+				throw new ArgumentNullException("dbModelBuilder");
+
+			if (foreignKeyConfiguration == null)
+				throw new InvalidOperationException("foreignKeyConfiguration == null");
+
+			return foreignKeyConfiguration.GetAssociationAttribute(dbModelBuilder);
 		}
 	}
 }

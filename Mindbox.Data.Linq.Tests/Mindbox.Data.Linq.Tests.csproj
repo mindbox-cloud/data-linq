@@ -56,6 +56,7 @@
     <Compile Include="InheritanceConfigurationTests.cs" />
     <Compile Include="IValueStorage.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="TestEntity23.cs" />
     <Compile Include="TestEntity19.cs" />
     <Compile Include="TestEntity18.cs" />
     <Compile Include="TestEntity17.cs" />
@@ -69,6 +70,9 @@
     <Compile Include="TestEntity10.cs" />
     <Compile Include="TestEntity11.cs" />
     <Compile Include="TestEntity16.cs" />
+    <Compile Include="TestEntity20.cs" />
+    <Compile Include="TestEntity21.cs" />
+    <Compile Include="TestEntity22.cs" />
     <Compile Include="TestEntity9.cs" />
     <Compile Include="TestEntity8.cs" />
     <Compile Include="TestEntity7.cs" />

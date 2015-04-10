@@ -840,6 +840,340 @@ namespace Mindbox.Data.Linq.Tests
 		}
 
 		[TestMethod]
+		public void OptionalOneWayOneToManyAssociationViaAttribute()
+		{
+			var incompatibilityDetected = false;
+			var configuration = new MindboxMappingConfiguration();
+			configuration.EntityFrameworkIncompatibility += (sender, incompatibility) =>
+			{
+				if (incompatibility == EntityFrameworkIncompatibility.AssociationAttribute)
+					incompatibilityDetected = true;
+			};
+			var mappingSource = new MindboxMappingSource(configuration);
+			var metaModel = mappingSource.GetModel(typeof(DataContext));
+			var entityMetaType = metaModel.GetMetaType(typeof(TestEntity20));
+
+			var foreignKeyMember = entityMetaType
+				.DataMembers
+				.SingleOrDefault(aMetaDataMember => aMetaDataMember.Name == "CreatorId");
+			Assert.IsNotNull(foreignKeyMember);
+			Assert.AreEqual("CreatorId", foreignKeyMember.MappedName);
+			Assert.IsNull(foreignKeyMember.Association);
+			Assert.AreEqual(AutoSync.Never, foreignKeyMember.AutoSync);
+			Assert.IsTrue(foreignKeyMember.CanBeNull);
+			Assert.AreEqual("int null", foreignKeyMember.DbType);
+			Assert.IsNull(foreignKeyMember.Expression);
+			Assert.IsFalse(foreignKeyMember.IsAssociation);
+			Assert.IsFalse(foreignKeyMember.IsDbGenerated);
+			Assert.IsFalse(foreignKeyMember.IsDeferred);
+			Assert.IsFalse(foreignKeyMember.IsDiscriminator);
+			Assert.IsTrue(foreignKeyMember.IsPersistent);
+			Assert.IsFalse(foreignKeyMember.IsPrimaryKey);
+			Assert.IsFalse(foreignKeyMember.IsVersion);
+			Assert.AreEqual(typeof(int?), foreignKeyMember.Type);
+			Assert.AreEqual(UpdateCheck.Always, foreignKeyMember.UpdateCheck);
+
+			var associationMember = entityMetaType
+				.DataMembers
+				.SingleOrDefault(aMetaDataMember => aMetaDataMember.Name == "Creator");
+			Assert.IsNotNull(associationMember);
+			Assert.IsNotNull(associationMember.MappedName);
+			Assert.IsNotNull(associationMember.Association);
+			Assert.AreEqual(AutoSync.Never, associationMember.AutoSync);
+			Assert.IsTrue(associationMember.CanBeNull);
+			Assert.IsNull(associationMember.DbType);
+			Assert.IsNull(associationMember.Expression);
+			Assert.IsTrue(associationMember.IsAssociation);
+			Assert.IsFalse(associationMember.IsDbGenerated);
+			Assert.IsTrue(associationMember.IsDeferred);
+			Assert.IsFalse(associationMember.IsDiscriminator);
+			Assert.IsTrue(associationMember.IsPersistent);
+			Assert.IsFalse(associationMember.IsPrimaryKey);
+			Assert.IsFalse(associationMember.IsVersion);
+			Assert.AreEqual(typeof(TestEntity20), associationMember.Type);
+			Assert.AreEqual(UpdateCheck.Never, associationMember.UpdateCheck);
+			Assert.IsFalse(associationMember.Association.DeleteOnNull);
+			Assert.IsNull(associationMember.Association.DeleteRule);
+			Assert.IsTrue(associationMember.Association.IsForeignKey);
+			Assert.IsFalse(associationMember.Association.IsMany);
+			Assert.IsTrue(associationMember.Association.IsNullable);
+			Assert.IsFalse(associationMember.Association.IsUnique);
+			Assert.IsTrue(associationMember.Association.OtherKeyIsPrimaryKey);
+			Assert.IsFalse(associationMember.Association.ThisKeyIsPrimaryKey);
+			Assert.IsNotNull(associationMember.Association.OtherKey);
+			Assert.AreEqual(1, associationMember.Association.OtherKey.Count);
+			Assert.AreEqual(entityMetaType, associationMember.Association.OtherKey[0].DeclaringType);
+			Assert.AreEqual("Id", associationMember.Association.OtherKey[0].Name);
+			Assert.IsNotNull(associationMember.Association.ThisKey);
+			Assert.AreEqual(1, associationMember.Association.ThisKey.Count);
+			Assert.AreEqual(entityMetaType, associationMember.Association.ThisKey[0].DeclaringType);
+			Assert.AreEqual("CreatorId", associationMember.Association.ThisKey[0].Name);
+			Assert.IsNull(associationMember.Association.OtherMember);
+			Assert.AreEqual(entityMetaType, associationMember.Association.OtherType);
+			Assert.AreEqual(associationMember, associationMember.Association.ThisMember);
+
+			Assert.IsTrue(incompatibilityDetected);
+		}
+
+		[TestMethod]
+		public void OptionalOneWayOneToManyAssociationViaBuilderWithoutDeferredLoading()
+		{
+			var configuration = new MindboxMappingConfiguration();
+			configuration.ModelBuilder.Configurations.Add(new TestEntity21.TestEntity21Configuration());
+
+			var mappingSource = new MindboxMappingSource(configuration);
+			var metaModel = mappingSource.GetModel(typeof(DataContext));
+			var entityMetaType = metaModel.GetMetaType(typeof(TestEntity21));
+
+			var foreignKeyMember = entityMetaType
+				.DataMembers
+				.SingleOrDefault(aMetaDataMember => aMetaDataMember.Name == "CreatorId");
+			Assert.IsNotNull(foreignKeyMember);
+			Assert.AreEqual("CreatorId", foreignKeyMember.MappedName);
+			Assert.IsNull(foreignKeyMember.Association);
+			Assert.AreEqual(AutoSync.Never, foreignKeyMember.AutoSync);
+			Assert.IsTrue(foreignKeyMember.CanBeNull);
+			Assert.AreEqual("int null", foreignKeyMember.DbType);
+			Assert.IsNull(foreignKeyMember.Expression);
+			Assert.IsFalse(foreignKeyMember.IsAssociation);
+			Assert.IsFalse(foreignKeyMember.IsDbGenerated);
+			Assert.IsFalse(foreignKeyMember.IsDeferred);
+			Assert.IsFalse(foreignKeyMember.IsDiscriminator);
+			Assert.IsTrue(foreignKeyMember.IsPersistent);
+			Assert.IsFalse(foreignKeyMember.IsPrimaryKey);
+			Assert.IsFalse(foreignKeyMember.IsVersion);
+			Assert.AreEqual(typeof(int?), foreignKeyMember.Type);
+			Assert.AreEqual(UpdateCheck.Always, foreignKeyMember.UpdateCheck);
+
+			var associationMember = entityMetaType
+				.DataMembers
+				.SingleOrDefault(aMetaDataMember => aMetaDataMember.Name == "Creator");
+			Assert.IsNotNull(associationMember);
+			Assert.IsNotNull(associationMember.MappedName);
+			Assert.IsNotNull(associationMember.Association);
+			Assert.AreEqual(AutoSync.Never, associationMember.AutoSync);
+			Assert.IsTrue(associationMember.CanBeNull);
+			Assert.IsNull(associationMember.DbType);
+			Assert.IsNull(associationMember.Expression);
+			Assert.IsTrue(associationMember.IsAssociation);
+			Assert.IsFalse(associationMember.IsDbGenerated);
+			Assert.IsFalse(associationMember.IsDiscriminator);
+			Assert.IsTrue(associationMember.IsPersistent);
+			Assert.IsFalse(associationMember.IsPrimaryKey);
+			Assert.IsFalse(associationMember.IsVersion);
+			Assert.AreEqual(typeof(TestEntity21), associationMember.Type);
+			Assert.AreEqual(UpdateCheck.Never, associationMember.UpdateCheck);
+			Assert.IsFalse(associationMember.Association.DeleteOnNull);
+			Assert.IsNull(associationMember.Association.DeleteRule);
+			Assert.IsTrue(associationMember.Association.IsForeignKey);
+			Assert.IsFalse(associationMember.Association.IsMany);
+			Assert.IsTrue(associationMember.Association.IsNullable);
+			Assert.IsFalse(associationMember.Association.IsUnique);
+			Assert.IsTrue(associationMember.Association.OtherKeyIsPrimaryKey);
+			Assert.IsFalse(associationMember.Association.ThisKeyIsPrimaryKey);
+			Assert.IsNotNull(associationMember.Association.OtherKey);
+			Assert.AreEqual(1, associationMember.Association.OtherKey.Count);
+			Assert.AreEqual(entityMetaType, associationMember.Association.OtherKey[0].DeclaringType);
+			Assert.AreEqual("Id", associationMember.Association.OtherKey[0].Name);
+			Assert.IsNotNull(associationMember.Association.ThisKey);
+			Assert.AreEqual(1, associationMember.Association.ThisKey.Count);
+			Assert.AreEqual(entityMetaType, associationMember.Association.ThisKey[0].DeclaringType);
+			Assert.AreEqual("CreatorId", associationMember.Association.ThisKey[0].Name);
+			Assert.IsNull(associationMember.Association.OtherMember);
+			Assert.AreEqual(entityMetaType, associationMember.Association.OtherType);
+			Assert.AreEqual(associationMember, associationMember.Association.ThisMember);
+		}
+
+		[TestMethod]
+		public void OptionalOneWayOneToManyAssociationViaBuilderDeferredLoading()
+		{
+			var configuration = new MindboxMappingConfiguration();
+			configuration.ModelBuilder.Configurations.Add(new TestEntity21.TestEntity21Configuration());
+
+			var mappingSource = new MindboxMappingSource(configuration);
+			var metaModel = mappingSource.GetModel(typeof(DataContext));
+			var entityMetaType = metaModel.GetMetaType(typeof(TestEntity21));
+
+			var foreignKeyMember = entityMetaType
+				.DataMembers
+				.SingleOrDefault(aMetaDataMember => aMetaDataMember.Name == "Creator");
+			Assert.IsNotNull(foreignKeyMember);
+			Assert.IsTrue(foreignKeyMember.IsDeferred);
+		}
+
+		[TestMethod]
+		public void OptionalOneWayOneToManyAssociationViaBuilderDeferredLoadingRealDatabase()
+		{
+			var configuration = new MindboxMappingConfiguration();
+			configuration.ModelBuilder.Configurations.Add(new TestEntity22.TestEntity22Configuration());
+			configuration.ModelBuilder.Configurations.Add(new TestEntity23.TestEntity23Configuration());
+
+			RunRealDatabaseTest(
+				configuration,
+				connection =>
+				{
+					var createTable23Command = new SqlCommand(
+						"create table Test23 (Id int identity(1,1) not null primary key, Value int not null)",
+						connection);
+					createTable23Command.ExecuteNonQuery();
+
+					var createTable22Command = new SqlCommand(
+						"create table Test22 " +
+							"(Id int identity(1,1) not null primary key, " +
+							"OtherId int null foreign key references Test23 (Id))",
+						connection);
+					createTable22Command.ExecuteNonQuery();
+
+					var insert23ACommand = new SqlCommand(
+						"insert into Test23 (Value) values (6); select scope_identity()",
+						connection);
+					var id23A = Convert.ToInt32(insert23ACommand.ExecuteScalar());
+
+					var insert23BCommand = new SqlCommand("insert into Test23 (Value) values (8)", connection);
+					insert23BCommand.ExecuteNonQuery();
+
+					var insert22Command = new SqlCommand("insert into Test22 (OtherId) values (@OtherId)", connection);
+					insert22Command.Parameters.AddWithValue("OtherId", id23A);
+					insert22Command.ExecuteNonQuery();
+				},
+				dataContextFactory =>
+				{
+					using (var context = dataContextFactory())
+					{
+						var item22 = context.GetTable<TestEntity22>().Single();
+						var proxyType = item22.GetType();
+						Assert.AreNotEqual(typeof(TestEntity22), proxyType);
+						Assert.IsNotNull(item22.Other);
+
+						Assert.AreEqual(6, item22.Other.Value);
+
+						var newItem23 = context.GetTable<TestEntity23>().OrderByDescending(x => x.Id).First();
+						item22.Other = newItem23;
+
+						context.SubmitChanges();
+					}
+
+					using (var context = dataContextFactory())
+					{
+						var item22 = context.GetTable<TestEntity22>().Single();
+						Assert.IsNotNull(item22.Other);
+
+						Assert.AreEqual(8, item22.Other.Value);
+					}
+				});
+		}
+
+		[TestMethod]
+		public void OptionalOneWayOneToManyAssociationViaBuilderDeferredLoadingRealDatabaseWasNull()
+		{
+			var configuration = new MindboxMappingConfiguration();
+			configuration.ModelBuilder.Configurations.Add(new TestEntity22.TestEntity22Configuration());
+			configuration.ModelBuilder.Configurations.Add(new TestEntity23.TestEntity23Configuration());
+
+			RunRealDatabaseTest(
+				configuration,
+				connection =>
+				{
+					var createTable23Command = new SqlCommand(
+						"create table Test23 (Id int identity(1,1) not null primary key, Value int not null)",
+						connection);
+					createTable23Command.ExecuteNonQuery();
+
+					var createTable22Command = new SqlCommand(
+						"create table Test22 " +
+							"(Id int identity(1,1) not null primary key, " +
+							"OtherId int null foreign key references Test23 (Id))",
+						connection);
+					createTable22Command.ExecuteNonQuery();
+
+					var insert23Command = new SqlCommand("insert into Test23 (Value) values (8)", connection);
+					insert23Command.ExecuteNonQuery();
+
+					var insert22Command = new SqlCommand("insert into Test22 (OtherId) values (null)", connection);
+					insert22Command.ExecuteNonQuery();
+				},
+				dataContextFactory =>
+				{
+					using (var context = dataContextFactory())
+					{
+						var item22 = context.GetTable<TestEntity22>().Single();
+						var proxyType = item22.GetType();
+						Assert.AreNotEqual(typeof(TestEntity22), proxyType);
+						Assert.IsNull(item22.Other);
+
+						var newItem23 = context.GetTable<TestEntity23>().OrderByDescending(x => x.Id).First();
+						item22.Other = newItem23;
+
+						context.SubmitChanges();
+					}
+
+					using (var context = dataContextFactory())
+					{
+						var item22 = context.GetTable<TestEntity22>().Single();
+						Assert.IsNotNull(item22.Other);
+
+						Assert.AreEqual(8, item22.Other.Value);
+					}
+				});
+		}
+
+		[TestMethod]
+		public void OptionalOneWayOneToManyAssociationViaBuilderDeferredLoadingRealDatabaseSetNull()
+		{
+			var configuration = new MindboxMappingConfiguration();
+			configuration.ModelBuilder.Configurations.Add(new TestEntity22.TestEntity22Configuration());
+			configuration.ModelBuilder.Configurations.Add(new TestEntity23.TestEntity23Configuration());
+
+			RunRealDatabaseTest(
+				configuration,
+				connection =>
+				{
+					var createTable23Command = new SqlCommand(
+						"create table Test23 (Id int identity(1,1) not null primary key, Value int not null)",
+						connection);
+					createTable23Command.ExecuteNonQuery();
+
+					var createTable22Command = new SqlCommand(
+						"create table Test22 " +
+							"(Id int identity(1,1) not null primary key, " +
+							"OtherId int null foreign key references Test23 (Id))",
+						connection);
+					createTable22Command.ExecuteNonQuery();
+
+					var insert23Command = new SqlCommand(
+						"insert into Test23 (Value) values (6); select scope_identity()",
+						connection);
+					var id23 = Convert.ToInt32(insert23Command.ExecuteScalar());
+
+					var insert22Command = new SqlCommand("insert into Test22 (OtherId) values (@OtherId)", connection);
+					insert22Command.Parameters.AddWithValue("OtherId", id23);
+					insert22Command.ExecuteNonQuery();
+				},
+				dataContextFactory =>
+				{
+					using (var context = dataContextFactory())
+					{
+						var item22 = context.GetTable<TestEntity22>().Single();
+						var proxyType = item22.GetType();
+						Assert.AreNotEqual(typeof(TestEntity22), proxyType);
+						Assert.IsNotNull(item22.Other);
+
+						Assert.AreEqual(6, item22.Other.Value);
+
+						item22.Other = null;
+
+						context.SubmitChanges();
+					}
+
+					using (var context = dataContextFactory())
+					{
+						var item22 = context.GetTable<TestEntity22>().Single();
+						Assert.IsNull(item22.Other);
+					}
+				});
+		}
+
+		[TestMethod]
 		public void ProxyInEntityRefDeferredLoadingRealDatabase()
 		{
 			var configuration = new MindboxMappingConfiguration();

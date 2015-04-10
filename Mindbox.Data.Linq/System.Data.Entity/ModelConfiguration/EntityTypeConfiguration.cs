@@ -21,6 +21,8 @@ namespace System.Data.Entity.ModelConfiguration
 		private PropertyInfo primaryKeyProperty;
 		private readonly Dictionary<PropertyInfo, IRequiredNavigationPropertyConfiguration> requiredAssociationsByProperty =
 			new Dictionary<PropertyInfo, IRequiredNavigationPropertyConfiguration>();
+		private readonly Dictionary<PropertyInfo, IOptionalNavigationPropertyConfiguration> optionalAssociationsByProperty =
+			new Dictionary<PropertyInfo, IOptionalNavigationPropertyConfiguration>();
 
 
 		Type IEntityTypeConfiguration.EntityType
@@ -38,7 +40,10 @@ namespace System.Data.Entity.ModelConfiguration
 		/// Configures the primary key property(s) for this entity type.
 		/// </summary>
 		/// <typeparam name="TKey"> The type of the key. </typeparam>
-		/// <param name="keyExpression"> A lambda expression representing the property to be used as the primary key. C#: t => t.Id VB.Net: Function(t) t.Id If the primary key is made up of multiple properties then specify an anonymous type including the properties. C#: t => new { t.Id1, t.Id2 } VB.Net: Function(t) New With { t.Id1, t.Id2 } </param>
+		/// <param name="keyExpression"> A lambda expression representing the property to be used as the primary key. 
+		/// C#: t => t.Id VB.Net: Function(t) t.Id 
+		/// If the primary key is made up of multiple properties then specify an anonymous type including the properties. 
+		/// C#: t => new { t.Id1, t.Id2 } VB.Net: Function(t) New With { t.Id1, t.Id2 } </param>
 		/// <returns> The same EntityTypeConfiguration instance so that multiple calls can be chained. </returns>
 		public EntityTypeConfiguration<TEntityType> HasKey<TKey>(Expression<Func<TEntityType, TKey>> keyExpression)
 		{
@@ -53,7 +58,8 @@ namespace System.Data.Entity.ModelConfiguration
 		/// Excludes a property from the model so that it will not be mapped to the database.
 		/// </summary>
 		/// <typeparam name="TProperty"> The type of the property to be ignored. </typeparam>
-		/// <param name="propertyExpression"> A lambda expression representing the property to be configured. C#: t => t.MyProperty VB.Net: Function(t) t.MyProperty </param>
+		/// <param name="propertyExpression"> A lambda expression representing the property to be configured. 
+		/// C#: t => t.MyProperty VB.Net: Function(t) t.MyProperty </param>
 		/// <returns> The same EntityTypeConfiguration instance so that multiple calls can be chained. </returns>
 		public EntityTypeConfiguration<TEntityType> Ignore<TProperty>(
 			Expression<Func<TEntityType, TProperty>> propertyExpression)
@@ -148,7 +154,8 @@ namespace System.Data.Entity.ModelConfiguration
 		/// The foreign key in the database will be nullable.
 		/// </summary>
 		/// <typeparam name="TTargetEntity"> The type of the entity at the other end of the relationship. </typeparam>
-		/// <param name="navigationPropertyExpression"> A lambda expression representing the navigation property for the relationship. C#: t => t.MyProperty VB.Net: Function(t) t.MyProperty </param>
+		/// <param name="navigationPropertyExpression"> A lambda expression representing the navigation property 
+		/// for the relationship. C#: t => t.MyProperty VB.Net: Function(t) t.MyProperty </param>
 		/// <returns> A configuration object that can be used to further configure the relationship. </returns>
 		public OptionalNavigationPropertyConfiguration<TEntityType, TTargetEntity> HasOptional<TTargetEntity>(
 			Expression<Func<TEntityType, TTargetEntity>> navigationPropertyExpression)
@@ -157,7 +164,15 @@ namespace System.Data.Entity.ModelConfiguration
 			if (navigationPropertyExpression == null)
 				throw new ArgumentNullException("navigationPropertyExpression");
 
-			throw new NotImplementedException();
+			var navigationProperty = ReflectionExpressions.GetPropertyInfo(navigationPropertyExpression);
+			IOptionalNavigationPropertyConfiguration propertyConfiguration;
+			if (!optionalAssociationsByProperty.TryGetValue(navigationProperty, out propertyConfiguration))
+			{
+				propertyConfiguration =
+					new OptionalNavigationPropertyConfiguration<TEntityType, TTargetEntity>(navigationProperty);
+				optionalAssociationsByProperty.Add(navigationProperty, propertyConfiguration);
+			}
+			return (OptionalNavigationPropertyConfiguration<TEntityType, TTargetEntity>)propertyConfiguration;
 		}
 
 		/// <summary>
@@ -166,7 +181,8 @@ namespace System.Data.Entity.ModelConfiguration
 		/// The foreign key in the database will be non-nullable.
 		/// </summary>
 		/// <typeparam name="TTargetEntity"> The type of the entity at the other end of the relationship. </typeparam>
-		/// <param name="navigationPropertyExpression"> A lambda expression representing the navigation property for the relationship. C#: t => t.MyProperty VB.Net: Function(t) t.MyProperty </param>
+		/// <param name="navigationPropertyExpression"> A lambda expression representing the navigation property 
+		/// for the relationship. C#: t => t.MyProperty VB.Net: Function(t) t.MyProperty </param>
 		/// <returns> A configuration object that can be used to further configure the relationship. </returns>
 		public RequiredNavigationPropertyConfiguration<TEntityType, TTargetEntity> HasRequired<TTargetEntity>(
 			Expression<Func<TEntityType, TTargetEntity>> navigationPropertyExpression)
@@ -190,7 +206,8 @@ namespace System.Data.Entity.ModelConfiguration
 		/// Configures a many relationship from this entity type.
 		/// </summary>
 		/// <typeparam name="TTargetEntity"> The type of the entity at the other end of the relationship. </typeparam>
-		/// <param name="navigationPropertyExpression"> A lambda expression representing the navigation property for the relationship. C#: t => t.MyProperty VB.Net: Function(t) t.MyProperty </param>
+		/// <param name="navigationPropertyExpression"> A lambda expression representing the navigation property 
+		/// for the relationship. C#: t => t.MyProperty VB.Net: Function(t) t.MyProperty </param>
 		/// <returns> A configuration object that can be used to further configure the relationship. </returns>
 		public ManyNavigationPropertyConfiguration<TEntityType, TTargetEntity> HasMany<TTargetEntity>(
 			Expression<Func<TEntityType, ICollection<TTargetEntity>>> navigationPropertyExpression)
@@ -215,9 +232,19 @@ namespace System.Data.Entity.ModelConfiguration
 				yield return columnAttributeByMember;
 			}
 
-			foreach (var requiredAssociationByProperty in requiredAssociationsByProperty.Values)
+			foreach (var requiredNavigationPropertyConfiguration in requiredAssociationsByProperty.Values)
 			{
-				var columnAttributeByMember = requiredAssociationByProperty.TryGetColumnAttribute(dbModelBuilder);
+				var columnAttributeByMember = requiredNavigationPropertyConfiguration.TryGetColumnAttribute(dbModelBuilder);
+				if (columnAttributeByMember != null)
+				{
+					AdjustIsPrimaryKey(columnAttributeByMember);
+					yield return columnAttributeByMember;
+				}
+			}
+
+			foreach (var optionalNavigationPropertyConfiguration in optionalAssociationsByProperty.Values)
+			{
+				var columnAttributeByMember = optionalNavigationPropertyConfiguration.TryGetColumnAttribute(dbModelBuilder);
 				if (columnAttributeByMember != null)
 				{
 					AdjustIsPrimaryKey(columnAttributeByMember);
@@ -240,8 +267,10 @@ namespace System.Data.Entity.ModelConfiguration
 			if (dbModelBuilder == null)
 				throw new ArgumentNullException("dbModelBuilder");
 
-			foreach (var requiredAssociationByProperty in requiredAssociationsByProperty.Values)
-				yield return requiredAssociationByProperty.GetAssociationAttribute(dbModelBuilder);
+			foreach (var requiredNavigationPropertyConfiguration in requiredAssociationsByProperty.Values)
+				yield return requiredNavigationPropertyConfiguration.GetAssociationAttribute(dbModelBuilder);
+			foreach (var optionalNavigationPropertyConfiguration in optionalAssociationsByProperty.Values)
+				yield return optionalNavigationPropertyConfiguration.GetAssociationAttribute(dbModelBuilder);
 		}
 
 
