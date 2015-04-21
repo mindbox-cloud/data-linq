@@ -33,6 +33,11 @@ namespace Mindbox.Data.Linq.Proxy
 				interceptor.HandleEntityRefGetter<object>(default(IInvocation)))
 			.GetGenericMethodDefinition();
 
+		private static readonly MethodInfo isValidForeignKeySettingMethodDefinition = ReflectionExpressions
+			.GetMethodInfo<EntityProxyInterceptor>(interceptor =>
+				interceptor.IsValidForeignKeySetting<object>(default(MethodInfo)))
+			.GetGenericMethodDefinition();
+
 		private static readonly MethodInfo handleEntityRefSetterMethodDefinition = ReflectionExpressions
 			.GetMethodInfo<EntityProxyInterceptor>(interceptor =>
 				interceptor.HandleEntityRefSetter<object>(
@@ -74,6 +79,7 @@ namespace Mindbox.Data.Linq.Proxy
 
 		private readonly MindboxMetaModel model;
 		private bool isSettingAfterEntityRefLoad;
+		private bool isSettingForeignKeysForEntityRef;
 		private PropertyChangingEventHandler propertyChangingEventHandler;
 		private PropertyChangedEventHandler propertyChangedEventHandler;
 
@@ -162,6 +168,16 @@ namespace Mindbox.Data.Linq.Proxy
 
 					if (metaMember.IsPersistent && (invocation.Method == property.SetMethod))
 					{
+						if (!isSettingForeignKeysForEntityRef)
+							foreach (var association in metaMember.DeclaringType.Associations)
+								if (association.IsForeignKey)
+									foreach (var thisKeyItem in association.ThisKey)
+										if ((thisKeyItem == metaMember) && 
+												!Equals(
+													thisKeyItem.StorageAccessor.GetBoxedValue(proxy), 
+													invocation.Arguments[0]))
+											ValidateForeignKeySetting(((PropertyInfo)association.ThisMember.Member).GetMethod);
+
 						var oldValue = property.GetValue(invocation.Proxy);
 						var newValue = invocation.Arguments[0];
 						if (!Equals(oldValue, newValue))
@@ -323,6 +339,32 @@ namespace Mindbox.Data.Linq.Proxy
 			invocation.Proceed();
 		}
 
+		private void ValidateForeignKeySetting(MethodInfo associationGetMethod)
+		{
+			if (associationGetMethod == null)
+				throw new ArgumentNullException("associationGetMethod");
+
+			var isValidForeignKeySetting = (bool)isValidForeignKeySettingMethodDefinition
+				.MakeGenericMethod(associationGetMethod.ReturnType)
+				.Invoke(
+					this,
+					new object[]
+					{
+						associationGetMethod
+					});
+			if (!isValidForeignKeySetting)
+				throw new ForeignKeyReferenceAlreadyHasValueException();
+		}
+
+		private bool IsValidForeignKeySetting<TEntity>(MethodInfo associationGetMethod)
+			where TEntity : class
+		{
+			if (associationGetMethod == null)
+				throw new ArgumentNullException("associationGetMethod");
+
+			return !GetEntityRef<TEntity>(associationGetMethod).HasLoadedOrAssignedValue;
+		}
+
 		private void HandleEntityRefSetter<TEntity>(
 			IInvocation invocation, 
 			PropertyInfo property,
@@ -350,15 +392,25 @@ namespace Mindbox.Data.Linq.Proxy
 					entityRef.Entity = newEntity;
 					entityRefsByGetMethod[property.GetMethod] = entityRef;
 
-					for (var keyItemIndex = 0; keyItemIndex < metaMember.Association.ThisKey.Count; keyItemIndex++)
+					if (isSettingForeignKeysForEntityRef)
+						throw new InvalidOperationException("isSettingForeignKeysForEntityRef");
+					isSettingForeignKeysForEntityRef = true;
+					try
 					{
-						var thisKeyItem = metaMember.Association.ThisKey[keyItemIndex];
-						var otherKeyItem = metaMember.Association.OtherKey[keyItemIndex];
-						var keyItemValue = newEntity == null ? 
-							(thisKeyItem.Type.IsValueType ? Activator.CreateInstance(thisKeyItem.Type) : null) :
-							otherKeyItem.MemberAccessor.GetBoxedValue(newEntity);
-						object thisObject = proxy;
-						thisKeyItem.StorageAccessor.SetBoxedValue(ref thisObject, keyItemValue);
+						for (var keyItemIndex = 0; keyItemIndex < metaMember.Association.ThisKey.Count; keyItemIndex++)
+						{
+							var thisKeyItem = metaMember.Association.ThisKey[keyItemIndex];
+							var otherKeyItem = metaMember.Association.OtherKey[keyItemIndex];
+							var keyItemValue = newEntity == null
+								? (thisKeyItem.Type.IsValueType ? Activator.CreateInstance(thisKeyItem.Type) : null)
+								: otherKeyItem.MemberAccessor.GetBoxedValue(newEntity);
+							object thisObject = proxy;
+							thisKeyItem.StorageAccessor.SetBoxedValue(ref thisObject, keyItemValue);
+						}
+					}
+					finally
+					{
+						isSettingForeignKeysForEntityRef = false;
 					}
 				}
 			}

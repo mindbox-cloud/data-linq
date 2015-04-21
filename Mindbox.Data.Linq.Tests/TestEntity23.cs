@@ -20,7 +20,7 @@ namespace Mindbox.Data.Linq.Tests
 			{
 				ToTable("Test23");
 				HasKey(entity => entity.Id);
-				Property(entity => entity.Id).HasDatabaseGeneratedOption(DatabaseGeneratedOption.Identity);
+				Property(entity => entity.Id);
 				Property(entity => entity.Value).IsRequired();
 			}
 		}

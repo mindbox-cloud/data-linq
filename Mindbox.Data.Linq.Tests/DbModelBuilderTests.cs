@@ -1659,6 +1659,93 @@ namespace Mindbox.Data.Linq.Tests
 				});
 		}
 
+		[TestMethod]
+		public void CannotSetForeignKeyForAssignedEntityRefRealDatabase()
+		{
+			var configuration = new MindboxMappingConfiguration();
+			configuration.ModelBuilder.Configurations.Add(new TestEntity24.TestEntity24Configuration());
+			configuration.ModelBuilder.Configurations.Add(new TestEntity23.TestEntity23Configuration());
+
+			RunRealDatabaseTest(
+				configuration,
+				connection =>
+				{
+				},
+				dataContextFactory =>
+				{
+					using (var context = dataContextFactory())
+					{
+						var item24 = context.CreateObject<TestEntity24>();
+						var item23 = new TestEntity23
+						{
+							Id = 14,
+							Value = 18
+						};
+						item24.Other = item23;
+
+						try
+						{
+							item24.OtherId = 666;
+							Assert.Fail("No ForeignKeyReferenceAlreadyHasValueException thrown.");
+						}
+						catch (ForeignKeyReferenceAlreadyHasValueException)
+						{
+						}
+					}
+				});
+		}
+
+		[TestMethod]
+		public void CanSetForeignKeyForUnassignedEntityRefRealDatabase()
+		{
+			var configuration = new MindboxMappingConfiguration();
+			configuration.ModelBuilder.Configurations.Add(new TestEntity24.TestEntity24Configuration());
+			configuration.ModelBuilder.Configurations.Add(new TestEntity23.TestEntity23Configuration());
+
+			RunRealDatabaseTest(
+				configuration,
+				connection =>
+				{
+					var createTable23Command = new SqlCommand(
+						"create table Test23 (Id int not null primary key, Value int not null)",
+						connection);
+					createTable23Command.ExecuteNonQuery();
+					var createTable24Command = new SqlCommand(
+						"create table Test24 (Id int not null primary key, OtherId int null foreign key references Test23 (Id))",
+						connection);
+					createTable24Command.ExecuteNonQuery();
+				},
+				dataContextFactory =>
+				{
+					using (var context = dataContextFactory())
+					{
+						var item23 = new TestEntity23
+						{
+							Id = 14,
+							Value = 18
+						};
+						context.GetTable<TestEntity23>().InsertOnSubmit(item23);
+						context.SubmitChanges();
+					}
+
+					using (var context = dataContextFactory())
+					{
+						var item24 = context.CreateObject<TestEntity24>();
+						item24.Id = 8;
+						item24.OtherId = 14;
+						context.GetTable<TestEntity24>().InsertOnSubmit(item24);
+						context.SubmitChanges();
+					}
+
+					using (var context = dataContextFactory())
+					{
+						var item24 = context.GetTable<TestEntity24>().Single(anItem24 => anItem24.Id == 8);
+						Assert.AreEqual(14, item24.OtherId);
+						Assert.AreEqual(14, item24.Other.Id);
+					}
+				});
+		}
+
 
 		private void RunRealDatabaseTest(
 			MindboxMappingConfiguration configuration, 

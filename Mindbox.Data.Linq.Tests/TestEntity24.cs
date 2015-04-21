@@ -21,7 +21,7 @@ namespace Mindbox.Data.Linq.Tests
 			{
 				ToTable("Test24");
 				HasKey(entity => entity.Id);
-				Property(entity => entity.Id).HasDatabaseGeneratedOption(DatabaseGeneratedOption.Identity);
+				Property(entity => entity.Id);
 				HasOptional(entity => entity.Other).WithMany().HasForeignKey(entity => entity.OtherId);
 			}
 		}
