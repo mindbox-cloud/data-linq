@@ -362,9 +362,8 @@ namespace System.Data.Linq.SqlClient
 							if (mc.Object != null && !CanBeCompared(mc.Object))
 								return false;
 
-							// TODO: Is it a bug???
 							foreach (var argument in mc.Arguments)
-								if (!CanBeCompared(mc.Arguments[0]))
+								if (!CanBeCompared(argument))
 									return false;
 							return true;
 						}

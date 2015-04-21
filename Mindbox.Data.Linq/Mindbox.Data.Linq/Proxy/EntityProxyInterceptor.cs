@@ -35,7 +35,10 @@ namespace Mindbox.Data.Linq.Proxy
 
 		private static readonly MethodInfo handleEntityRefSetterMethodDefinition = ReflectionExpressions
 			.GetMethodInfo<EntityProxyInterceptor>(interceptor =>
-				interceptor.HandleEntityRefSetter<object>(default(IInvocation), default(PropertyInfo)))
+				interceptor.HandleEntityRefSetter<object>(
+					default(IInvocation), 
+					default(PropertyInfo),
+					default(AttributedMetaDataMember)))
 			.GetGenericMethodDefinition();
 
 		private static readonly MethodInfo setEntityRefMethodDefinition = ReflectionExpressions
@@ -150,7 +153,8 @@ namespace Mindbox.Data.Linq.Proxy
 									new object[]
 									{
 										invocation,
-										property
+										property,
+										metaMember
 									});
 						}
 						return;
@@ -319,13 +323,18 @@ namespace Mindbox.Data.Linq.Proxy
 			invocation.Proceed();
 		}
 
-		private void HandleEntityRefSetter<TEntity>(IInvocation invocation, PropertyInfo property)
+		private void HandleEntityRefSetter<TEntity>(
+			IInvocation invocation, 
+			PropertyInfo property,
+			AttributedMetaDataMember metaMember)
 			where TEntity : class
 		{
 			if (invocation == null)
 				throw new ArgumentNullException("invocation");
 			if (property == null)
 				throw new ArgumentNullException("property");
+			if (metaMember == null)
+				throw new ArgumentNullException("metaMember");
 
 			var proxy = (IEntityProxy)invocation.Proxy;
 			var shouldNotify = false;
@@ -340,6 +349,17 @@ namespace Mindbox.Data.Linq.Proxy
 
 					entityRef.Entity = newEntity;
 					entityRefsByGetMethod[property.GetMethod] = entityRef;
+
+					for (var keyItemIndex = 0; keyItemIndex < metaMember.Association.ThisKey.Count; keyItemIndex++)
+					{
+						var thisKeyItem = metaMember.Association.ThisKey[keyItemIndex];
+						var otherKeyItem = metaMember.Association.OtherKey[keyItemIndex];
+						var keyItemValue = newEntity == null ? 
+							(thisKeyItem.Type.IsValueType ? Activator.CreateInstance(thisKeyItem.Type) : null) :
+							otherKeyItem.MemberAccessor.GetBoxedValue(newEntity);
+						object thisObject = proxy;
+						thisKeyItem.StorageAccessor.SetBoxedValue(ref thisObject, keyItemValue);
+					}
 				}
 			}
 

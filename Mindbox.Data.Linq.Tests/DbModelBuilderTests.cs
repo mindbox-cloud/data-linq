@@ -1626,6 +1626,39 @@ namespace Mindbox.Data.Linq.Tests
 				});
 		}
 
+		[TestMethod]
+		public void EntityRefSetsNullableForeignKeyRealDatabase()
+		{
+			var configuration = new MindboxMappingConfiguration();
+			configuration.ModelBuilder.Configurations.Add(new TestEntity24.TestEntity24Configuration());
+			configuration.ModelBuilder.Configurations.Add(new TestEntity23.TestEntity23Configuration());
+
+			RunRealDatabaseTest(
+				configuration,
+				connection =>
+				{
+				},
+				dataContextFactory =>
+				{
+					using (var context = dataContextFactory())
+					{
+						var item24 = context.CreateObject<TestEntity24>();
+						var item23 = new TestEntity23
+						{
+							Id = 14,
+							Value = 18
+						};
+						item24.Other = item23;
+						Assert.AreEqual(item23, item24.Other);
+						Assert.AreEqual(14, item24.OtherId);
+
+						item24.Other = null;
+						Assert.IsNull(item24.Other);
+						Assert.IsNull(item24.OtherId);
+					}
+				});
+		}
+
 
 		private void RunRealDatabaseTest(
 			MindboxMappingConfiguration configuration, 

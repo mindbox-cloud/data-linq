@@ -102,5 +102,12 @@ namespace System.Data.Linq.Mapping
 
 			return type;
 		}
+
+	    internal T CreateObject<T>()
+	    {
+		    if (ShouldEntityProxyBeCreated(typeof(T)))
+			    return (T)CreateEntityProxy(typeof(T));
+		    return Activator.CreateInstance<T>();
+	    }
 	}
 }
