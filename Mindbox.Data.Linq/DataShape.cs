@@ -9,7 +9,8 @@ using System.Data.Linq.SqlClient;
 using System.Diagnostics.CodeAnalysis;
 
 namespace System.Data.Linq {
-    sealed public class DataLoadOptions {
+    sealed public class DataLoadOptions : IEquatable<DataLoadOptions>
+    {
         bool frozen;
         Dictionary<MetaPosition, MemberInfo> includes = new Dictionary<MetaPosition, MemberInfo>();
         Dictionary<MetaPosition, LambdaExpression> subqueries = new Dictionary<MetaPosition, LambdaExpression>();
@@ -287,5 +288,63 @@ namespace System.Data.Linq {
         internal bool IsEmpty {
             get { return this.includes.Count == 0 && this.subqueries.Count == 0; }
         }
+
+	    public bool Equals(DataLoadOptions other)
+	    {
+		    if (other == null)
+			    return false;
+
+		    bool areShapesEquivalent = ShapesAreEquivalent(this, other);
+		    if (!areShapesEquivalent)
+			    return false;
+
+		    if (other.subqueries.Count != subqueries.Count)
+			    return false;
+
+		    if (other.subqueries.Keys.Any(metaPosition => !subqueries.ContainsKey(metaPosition)))
+			    return false;
+
+		    return true;
+	    }
+
+	    public override bool Equals(object obj)
+	    {
+			return Equals(obj as DataLoadOptions);
+	    }
+
+	    public override int GetHashCode()
+	    {
+			// We're redefining equality checking to make two equivalent DataLoadOptions instances equals,
+			// hence we must also override GetHashCode.
+
+			// Unfortunately, DataLoadOptions fields are all mutable so we're left with the choice:
+			// 1) Return different hashe values at different points in object lifecycle
+			// 2) Return the same hash value for all instances
+
+			// Since the objects is Freezable, so there is an explicit point in time at which it becomes "usable",
+			// and since it's very unlikely that someone will put such objects in a hash table before setting up the includes,
+			// we're going with option 1. 
+
+			// This WILL BREAK the behavior of some data structures is someone puts DataLoadOptions
+			// in a hash table before setting up all the options.
+
+		    unchecked
+		    {
+			    int includesHash = 0;
+			    foreach (var include in includes)
+				    includesHash += include.Key.GetHashCode();
+
+			    int subqueriesHash = 0;
+			    foreach (var query in subqueries)
+				    subqueriesHash += query.Key.GetHashCode();
+
+			    int hash = 3
+					+ 23 * includesHash
+					+ 31 * subqueriesHash;
+					
+			    return hash;
+		    }
+		    
+	    }
     }
 }

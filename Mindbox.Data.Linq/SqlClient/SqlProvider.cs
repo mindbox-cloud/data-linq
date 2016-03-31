@@ -1642,7 +1642,7 @@ namespace System.Data.Linq.SqlClient {
             }
 
             private static bool AreEquivalentShapes(DataLoadOptions shape1, DataLoadOptions shape2) {
-                if (shape1 == shape2) {
+                if (object.Equals(shape1, shape2)) {
                     return true;
                 }
                 else if (shape1 == null) {
