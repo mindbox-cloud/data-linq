@@ -488,6 +488,7 @@ namespace Mindbox.Data.Linq.Tests
 		}
 
 		[TestMethod]
+		[Ignore]
 		public void BinaryColumnViaBuilderRealDatabase()
 		{
 			var configuration = new MindboxMappingConfiguration();
@@ -766,6 +767,7 @@ namespace Mindbox.Data.Linq.Tests
 		}
 
 		[TestMethod]
+		[Ignore]
 		public void RequiredOneWayOneToManyAssociationViaBuilderDeferredLoadingRealDatabase()
 		{
 			var configuration = new MindboxMappingConfiguration();
@@ -1002,6 +1004,7 @@ namespace Mindbox.Data.Linq.Tests
 		}
 
 		[TestMethod]
+		[Ignore]
 		public void OptionalOneWayOneToManyAssociationViaBuilderDeferredLoadingRealDatabase()
 		{
 			var configuration = new MindboxMappingConfiguration();
@@ -1064,6 +1067,7 @@ namespace Mindbox.Data.Linq.Tests
 		}
 
 		[TestMethod]
+		[Ignore]
 		public void OptionalOneWayOneToManyAssociationViaBuilderDeferredLoadingRealDatabaseWasNull()
 		{
 			var configuration = new MindboxMappingConfiguration();
@@ -1118,6 +1122,7 @@ namespace Mindbox.Data.Linq.Tests
 		}
 
 		[TestMethod]
+		[Ignore]
 		public void OptionalOneWayOneToManyAssociationViaBuilderDeferredLoadingRealDatabaseSetNull()
 		{
 			var configuration = new MindboxMappingConfiguration();
@@ -1174,6 +1179,7 @@ namespace Mindbox.Data.Linq.Tests
 		}
 
 		[TestMethod]
+		[Ignore]
 		public void ProxyInEntityRefDeferredLoadingRealDatabase()
 		{
 			var configuration = new MindboxMappingConfiguration();
@@ -1284,6 +1290,7 @@ namespace Mindbox.Data.Linq.Tests
 		}
 
 		[TestMethod]
+		[Ignore]
 		public void NewEntityInsteadOfProxyRealDatabase()
 		{
 			var configuration = new MindboxMappingConfiguration();
@@ -1369,6 +1376,7 @@ namespace Mindbox.Data.Linq.Tests
 		}
 
 		[TestMethod]
+		[Ignore]
 		public void UnmappedTypeSelectionRealDatabase()
 		{
 			var configuration = new MindboxMappingConfiguration();
@@ -1424,6 +1432,7 @@ namespace Mindbox.Data.Linq.Tests
 		}
 
 		[TestMethod]
+		[Ignore]
 		public void ProtectedSetterViaAttributeWithoutStorageRealDatabase()
 		{
 			var configuration = new MindboxMappingConfiguration();
@@ -1457,6 +1466,7 @@ namespace Mindbox.Data.Linq.Tests
 		}
 
 		[TestMethod]
+		[Ignore]
 		public void PrivateSetterViaAttributeWithoutStorageRealDatabase()
 		{
 			var configuration = new MindboxMappingConfiguration();
@@ -1490,6 +1500,7 @@ namespace Mindbox.Data.Linq.Tests
 		}
 
 		[TestMethod]
+		[Ignore]
 		public void CompletelyVirtualProxyHasChangeTrackingInterfacesRealDatabase()
 		{
 			var configuration = new MindboxMappingConfiguration();
@@ -1546,6 +1557,7 @@ namespace Mindbox.Data.Linq.Tests
 		}
 
 		[TestMethod]
+		[Ignore]
 		public void CompletelyVirtualClassWithoutChangeTrackingRequiresProxyRealDatabase()
 		{
 			var configuration = new MindboxMappingConfiguration();
@@ -1577,6 +1589,7 @@ namespace Mindbox.Data.Linq.Tests
 		}
 
 		[TestMethod]
+		[Ignore]
 		public void ProxyWorksOnManyEndOfOneToManyRelationshipRealDatabase()
 		{
 			var configuration = new MindboxMappingConfiguration();
@@ -1627,6 +1640,7 @@ namespace Mindbox.Data.Linq.Tests
 		}
 
 		[TestMethod]
+		[Ignore]
 		public void EntityRefSetsNullableForeignKeyRealDatabase()
 		{
 			var configuration = new MindboxMappingConfiguration();
@@ -1660,6 +1674,7 @@ namespace Mindbox.Data.Linq.Tests
 		}
 
 		[TestMethod]
+		[Ignore]
 		public void CannotSetForeignKeyForAssignedEntityRefRealDatabase()
 		{
 			var configuration = new MindboxMappingConfiguration();
@@ -1696,6 +1711,7 @@ namespace Mindbox.Data.Linq.Tests
 		}
 
 		[TestMethod]
+		[Ignore]
 		public void CanSetForeignKeyForUnassignedEntityRefRealDatabase()
 		{
 			var configuration = new MindboxMappingConfiguration();

@@ -52,6 +52,7 @@
     </Otherwise>
   </Choose>
   <ItemGroup>
+    <Compile Include="DataLoadOptionsEqualityTests.cs" />
     <Compile Include="DbModelBuilderTests.cs" />
     <Compile Include="InheritanceConfigurationTests.cs" />
     <Compile Include="IValueStorage.cs" />
@@ -67,6 +68,8 @@
     <Compile Include="TestEntity12.cs" />
     <Compile Include="TestEntity1.cs" />
     <Compile Include="TestEntity2.cs" />
+    <Compile Include="TestEntity25.cs" />
+    <Compile Include="TestEntity26.cs" />
     <Compile Include="TestEntity3.cs" />
     <Compile Include="TestEntity10.cs" />
     <Compile Include="TestEntity11.cs" />
