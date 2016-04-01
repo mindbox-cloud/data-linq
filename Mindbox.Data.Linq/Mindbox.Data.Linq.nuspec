@@ -11,8 +11,8 @@
     <description>$description$</description>
     <projectUrl>https://github.com/mindbox-moscow/data-linq</projectUrl>
     <releaseNotes>
-			Optional one-way FK via EF Code First API.
-		</releaseNotes>
+        $releaseNotes$
+    </releaseNotes>
     <copyright>Copyright 2015 Mindbox; Copyright ...-2014 Microsoft</copyright>
     <tags>linq iqueryable</tags>
   </metadata>
