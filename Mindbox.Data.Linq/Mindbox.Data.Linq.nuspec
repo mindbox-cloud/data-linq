@@ -11,7 +11,7 @@
     <description>$description$</description>
     <projectUrl>https://github.com/mindbox-moscow/data-linq</projectUrl>
     <releaseNotes>
-        $releaseNotes$
+        Improved things.
     </releaseNotes>
     <copyright>Copyright 2015 Mindbox; Copyright ...-2014 Microsoft</copyright>
     <tags>linq iqueryable</tags>
