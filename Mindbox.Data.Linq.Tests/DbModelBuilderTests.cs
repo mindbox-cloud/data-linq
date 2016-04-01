@@ -1762,6 +1762,39 @@ namespace Mindbox.Data.Linq.Tests
 				});
 		}
 
+		[TestMethod]
+		public void TryGetAttached()
+		{
+			var configuration = new MindboxMappingConfiguration();
+
+			RunRealDatabaseTest(
+				configuration,
+				connection =>
+				{
+					var createTable15Command = new SqlCommand(
+						"create table TestEntity15 (Id int identity(1,1) not null primary key, Value int not null)",
+						connection);
+					createTable15Command.ExecuteNonQuery();
+
+					var insert15Command = new SqlCommand(
+						"insert into TestEntity15 (Value) values (1)",
+						connection);
+					insert15Command.ExecuteNonQuery();
+				},
+				dataContextFactory =>
+				{
+					using (var context = dataContextFactory())
+					{
+						var item = context.GetTable<TestEntity15>().Single();
+
+						var cachedItem = context.GetTable<TestEntity15>().TryGetAttached(new object[] { item .Id });
+						var unknownItem = context.GetTable<TestEntity15>().TryGetAttached(new object[] { 0 });
+
+						Assert.AreEqual(item, cachedItem);
+						Assert.IsNull(unknownItem);
+					}
+				});
+		}
 
 		private void RunRealDatabaseTest(
 			MindboxMappingConfiguration configuration, 

@@ -11,7 +11,7 @@ namespace Mindbox.Data.Linq.Tests
 	public class TestEntity15
 	{
 		[Column(IsPrimaryKey = true)]
-		public int Id { get; private set; }
+		public int Id { get; set; }
 
 		[Column]
 		public int Value { get; set; }

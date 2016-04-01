@@ -34,5 +34,11 @@ namespace System.Data.Linq
 		/// <param name="entity">Entity object to be removed.</param>
 		/// <exception cref="InvalidOperationException">Throws if the specified object is not in the set.</exception>
 		void DeleteOnSubmit(TEntity entity);
+
+		/// <summary>
+		/// Find entity in cache (identity map) by key.
+		/// </summary>
+		/// <param name="keyValues"></param>
+		TEntity TryGetAttached(object[] keyValues);
 	}
 }

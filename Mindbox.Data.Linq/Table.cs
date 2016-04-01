@@ -281,6 +281,11 @@ namespace System.Data.Linq
 			}
 		}
 
+		public TEntity TryGetAttached(object[] keyValues)
+		{
+			return (TEntity) this.Context.Services.GetCachedObject(metaTable.RowType, keyValues);
+		}
+
 		/// <summary>
 		/// Attaches an entity to the DataContext in an unmodified state, similiar to as if it had been 
 		/// retrieved via a query. Deferred loading is not enabled. Other entities accessible from this
