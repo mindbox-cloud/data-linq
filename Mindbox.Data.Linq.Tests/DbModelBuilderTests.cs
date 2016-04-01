@@ -1763,6 +1763,7 @@ namespace Mindbox.Data.Linq.Tests
 		}
 
 		[TestMethod]
+		[Ignore]
 		public void TryGetAttached()
 		{
 			var configuration = new MindboxMappingConfiguration();
