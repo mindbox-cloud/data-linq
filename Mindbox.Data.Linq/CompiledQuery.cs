@@ -25,7 +25,7 @@ namespace System.Data.Linq {
 
         private CompiledQuery(LambdaExpression query, DataContext dataContext) {
             this.query = query;
-			EnsureCompiled(dataContext);
+			Compile(dataContext);
         }
 
         public LambdaExpression Expression {
@@ -322,16 +322,10 @@ namespace System.Data.Linq {
             return this.compiled.Execute(context.Provider, args).ReturnValue;
         }
 
-	    private void EnsureCompiled(DataContext context)
+	    private void Compile(DataContext context)
 	    {
-			lock (this)
-			{
-				if (this.compiled == null)
-				{
-					this.compiled = context.Provider.Compile(this.query);
-					this.mappingSource = context.Mapping.MappingSource;
-				}
-			}
+			this.compiled = context.Provider.Compile(this.query);
+			this.mappingSource = context.Mapping.MappingSource;
 		}
     }
 }
