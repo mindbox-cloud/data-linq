@@ -23,8 +23,9 @@ namespace System.Data.Linq {
         ICompiledQuery compiled;
         MappingSource mappingSource;
 
-        private CompiledQuery(LambdaExpression query) {
+        private CompiledQuery(LambdaExpression query, DataContext dataContext) {
             this.query = query;
+			EnsureCompiled(dataContext);
         }
 
         public LambdaExpression Expression {
@@ -32,7 +33,7 @@ namespace System.Data.Linq {
         }
 
         [SuppressMessage("Microsoft.Design", "CA1006:DoNotNestGenericTypesInMemberSignatures", Justification = "[....]: Generic types are an important part of Linq APIs and they could not exist without nested generic support.")]
-        public static Func<TArg0, TResult> Compile<TArg0, TResult>(Expression<Func<TArg0, TResult>> query) where TArg0 : DataContext {
+        public static Func<TArg0, TResult> Compile<TArg0, TResult>(Expression<Func<TArg0, TResult>> query, TArg0 context) where TArg0 : DataContext {
             if (query == null) {
                 Error.ArgumentNull("query");
             }
@@ -40,12 +41,12 @@ namespace System.Data.Linq {
                 return query.Compile();
             }
             else {
-                return new CompiledQuery(query).Invoke<TArg0, TResult>;
+                return new CompiledQuery(query, context).Invoke<TArg0, TResult>;
             }
         }
 
         [SuppressMessage("Microsoft.Design", "CA1006:DoNotNestGenericTypesInMemberSignatures", Justification = "[....]: Generic types are an important part of Linq APIs and they could not exist without nested generic support.")]
-        public static Func<TArg0, TArg1, TResult> Compile<TArg0, TArg1, TResult>(Expression<Func<TArg0, TArg1, TResult>> query) where TArg0 : DataContext {
+        public static Func<TArg0, TArg1, TResult> Compile<TArg0, TArg1, TResult>(Expression<Func<TArg0, TArg1, TResult>> query, TArg0 context) where TArg0 : DataContext {
             if (query == null) {
                 Error.ArgumentNull("query");
             }
@@ -53,12 +54,12 @@ namespace System.Data.Linq {
                 return query.Compile();
             }
             else {
-                return new CompiledQuery(query).Invoke<TArg0, TArg1, TResult>;
+                return new CompiledQuery(query, context).Invoke<TArg0, TArg1, TResult>;
             }
         }
 
         [SuppressMessage("Microsoft.Design", "CA1006:DoNotNestGenericTypesInMemberSignatures", Justification = "[....]: Generic types are an important part of Linq APIs and they could not exist without nested generic support.")]
-        public static Func<TArg0, TArg1, TArg2, TResult> Compile<TArg0, TArg1, TArg2, TResult>(Expression<Func<TArg0, TArg1, TArg2, TResult>> query) where TArg0 : DataContext {
+        public static Func<TArg0, TArg1, TArg2, TResult> Compile<TArg0, TArg1, TArg2, TResult>(Expression<Func<TArg0, TArg1, TArg2, TResult>> query, TArg0 context) where TArg0 : DataContext {
             if (query == null) {
                 Error.ArgumentNull("query");
             }
@@ -66,12 +67,12 @@ namespace System.Data.Linq {
                 return query.Compile();
             }
             else {
-                return new CompiledQuery(query).Invoke<TArg0, TArg1, TArg2, TResult>;
+                return new CompiledQuery(query, context).Invoke<TArg0, TArg1, TArg2, TResult>;
             }
         }
 
         [SuppressMessage("Microsoft.Design", "CA1006:DoNotNestGenericTypesInMemberSignatures", Justification = "[....]: Generic types are an important part of Linq APIs and they could not exist without nested generic support.")]
-        public static Func<TArg0, TArg1, TArg2, TArg3, TResult> Compile<TArg0, TArg1, TArg2, TArg3, TResult>(Expression<Func<TArg0, TArg1, TArg2, TArg3, TResult>> query) where TArg0 : DataContext {
+        public static Func<TArg0, TArg1, TArg2, TArg3, TResult> Compile<TArg0, TArg1, TArg2, TArg3, TResult>(Expression<Func<TArg0, TArg1, TArg2, TArg3, TResult>> query, TArg0 context) where TArg0 : DataContext {
             if (query == null) {
                 Error.ArgumentNull("query");
             }
@@ -79,12 +80,12 @@ namespace System.Data.Linq {
                 return query.Compile();
             }
             else {
-                return new CompiledQuery(query).Invoke<TArg0, TArg1, TArg2, TArg3, TResult>;
+                return new CompiledQuery(query, context).Invoke<TArg0, TArg1, TArg2, TArg3, TResult>;
             }
         }
 
         [SuppressMessage("Microsoft.Design", "CA1006:DoNotNestGenericTypesInMemberSignatures", Justification = "[....]: Generic types are an important part of Linq APIs and they could not exist without nested generic support.")]
-        public static Func<TArg0, TArg1, TArg2, TArg3, TArg4, TResult> Compile<TArg0, TArg1, TArg2, TArg3, TArg4, TResult>(Expression<Func<TArg0, TArg1, TArg2, TArg3, TArg4, TResult>> query) where TArg0 : DataContext {
+        public static Func<TArg0, TArg1, TArg2, TArg3, TArg4, TResult> Compile<TArg0, TArg1, TArg2, TArg3, TArg4, TResult>(Expression<Func<TArg0, TArg1, TArg2, TArg3, TArg4, TResult>> query, TArg0 context) where TArg0 : DataContext {
             if (query == null) {
                 Error.ArgumentNull("query");
             }
@@ -92,12 +93,12 @@ namespace System.Data.Linq {
                 return query.Compile();
             }
             else {
-                return new CompiledQuery(query).Invoke<TArg0, TArg1, TArg2, TArg3, TArg4, TResult>;
+                return new CompiledQuery(query, context).Invoke<TArg0, TArg1, TArg2, TArg3, TArg4, TResult>;
             }
         }
 
         [SuppressMessage("Microsoft.Design", "CA1006:DoNotNestGenericTypesInMemberSignatures", Justification = "[....]: Generic types are an important part of Linq APIs and they could not exist without nested generic support.")]
-        public static Func<TArg0, TArg1, TArg2, TArg3, TArg4, TArg5, TResult> Compile<TArg0, TArg1, TArg2, TArg3, TArg4, TArg5, TResult>(Expression<Func<TArg0, TArg1, TArg2, TArg3, TArg4, TArg5, TResult>> query) where TArg0 : DataContext {
+        public static Func<TArg0, TArg1, TArg2, TArg3, TArg4, TArg5, TResult> Compile<TArg0, TArg1, TArg2, TArg3, TArg4, TArg5, TResult>(Expression<Func<TArg0, TArg1, TArg2, TArg3, TArg4, TArg5, TResult>> query, TArg0 context) where TArg0 : DataContext {
             if (query == null) {
                 Error.ArgumentNull("query");
             }
@@ -105,12 +106,12 @@ namespace System.Data.Linq {
                 return query.Compile();
             }
             else {
-                return new CompiledQuery(query).Invoke<TArg0, TArg1, TArg2, TArg3, TArg4, TArg5, TResult>;
+                return new CompiledQuery(query, context).Invoke<TArg0, TArg1, TArg2, TArg3, TArg4, TArg5, TResult>;
             }
         }
 
         [SuppressMessage("Microsoft.Design", "CA1006:DoNotNestGenericTypesInMemberSignatures", Justification = "[....]: Generic types are an important part of Linq APIs and they could not exist without nested generic support.")]
-        public static Func<TArg0, TArg1, TArg2, TArg3, TArg4, TArg5, TArg6, TResult> Compile<TArg0, TArg1, TArg2, TArg3, TArg4, TArg5, TArg6, TResult>(Expression<Func<TArg0, TArg1, TArg2, TArg3, TArg4, TArg5, TArg6, TResult>> query) where TArg0 : DataContext {
+        public static Func<TArg0, TArg1, TArg2, TArg3, TArg4, TArg5, TArg6, TResult> Compile<TArg0, TArg1, TArg2, TArg3, TArg4, TArg5, TArg6, TResult>(Expression<Func<TArg0, TArg1, TArg2, TArg3, TArg4, TArg5, TArg6, TResult>> query, TArg0 context) where TArg0 : DataContext {
             if (query == null) {
                 Error.ArgumentNull("query");
             }
@@ -118,12 +119,12 @@ namespace System.Data.Linq {
                 return query.Compile();
             }
             else {
-                return new CompiledQuery(query).Invoke<TArg0, TArg1, TArg2, TArg3, TArg4, TArg5, TArg6, TResult>;
+                return new CompiledQuery(query, context).Invoke<TArg0, TArg1, TArg2, TArg3, TArg4, TArg5, TArg6, TResult>;
             }
         }
 
         [SuppressMessage("Microsoft.Design", "CA1006:DoNotNestGenericTypesInMemberSignatures", Justification = "[....]: Generic types are an important part of Linq APIs and they could not exist without nested generic support.")]
-        public static Func<TArg0, TArg1, TArg2, TArg3, TArg4, TArg5, TArg6, TArg7, TResult> Compile<TArg0, TArg1, TArg2, TArg3, TArg4, TArg5, TArg6, TArg7, TResult>(Expression<Func<TArg0, TArg1, TArg2, TArg3, TArg4, TArg5, TArg6, TArg7, TResult>> query) where TArg0 : DataContext {
+        public static Func<TArg0, TArg1, TArg2, TArg3, TArg4, TArg5, TArg6, TArg7, TResult> Compile<TArg0, TArg1, TArg2, TArg3, TArg4, TArg5, TArg6, TArg7, TResult>(Expression<Func<TArg0, TArg1, TArg2, TArg3, TArg4, TArg5, TArg6, TArg7, TResult>> query, TArg0 context) where TArg0 : DataContext {
             if (query == null) {
                 Error.ArgumentNull("query");
             }
@@ -131,12 +132,12 @@ namespace System.Data.Linq {
                 return query.Compile();
             }
             else {
-                return new CompiledQuery(query).Invoke<TArg0, TArg1, TArg2, TArg3, TArg4, TArg5, TArg6, TArg7, TResult>;
+                return new CompiledQuery(query, context).Invoke<TArg0, TArg1, TArg2, TArg3, TArg4, TArg5, TArg6, TArg7, TResult>;
             }
         }
 
         [SuppressMessage("Microsoft.Design", "CA1006:DoNotNestGenericTypesInMemberSignatures", Justification = "[....]: Generic types are an important part of Linq APIs and they could not exist without nested generic support.")]
-        public static Func<TArg0, TArg1, TArg2, TArg3, TArg4, TArg5, TArg6, TArg7, TArg8, TResult> Compile<TArg0, TArg1, TArg2, TArg3, TArg4, TArg5, TArg6, TArg7, TArg8, TResult>(Expression<Func<TArg0, TArg1, TArg2, TArg3, TArg4, TArg5, TArg6, TArg7, TArg8, TResult>> query) where TArg0 : DataContext {
+        public static Func<TArg0, TArg1, TArg2, TArg3, TArg4, TArg5, TArg6, TArg7, TArg8, TResult> Compile<TArg0, TArg1, TArg2, TArg3, TArg4, TArg5, TArg6, TArg7, TArg8, TResult>(Expression<Func<TArg0, TArg1, TArg2, TArg3, TArg4, TArg5, TArg6, TArg7, TArg8, TResult>> query, TArg0 context) where TArg0 : DataContext {
             if (query == null) {
                 Error.ArgumentNull("query");
             }
@@ -144,12 +145,12 @@ namespace System.Data.Linq {
                 return query.Compile();
             }
             else {
-                return new CompiledQuery(query).Invoke<TArg0, TArg1, TArg2, TArg3, TArg4, TArg5, TArg6, TArg7, TArg8, TResult>;
+                return new CompiledQuery(query, context).Invoke<TArg0, TArg1, TArg2, TArg3, TArg4, TArg5, TArg6, TArg7, TArg8, TResult>;
             }
         }
 
         [SuppressMessage("Microsoft.Design", "CA1006:DoNotNestGenericTypesInMemberSignatures", Justification = "[....]: Generic types are an important part of Linq APIs and they could not exist without nested generic support.")]
-        public static Func<TArg0, TArg1, TArg2, TArg3, TArg4, TArg5, TArg6, TArg7, TArg8, TArg9, TResult> Compile<TArg0, TArg1, TArg2, TArg3, TArg4, TArg5, TArg6, TArg7, TArg8, TArg9, TResult>(Expression<Func<TArg0, TArg1, TArg2, TArg3, TArg4, TArg5, TArg6, TArg7, TArg8, TArg9, TResult>> query) where TArg0 : DataContext {
+        public static Func<TArg0, TArg1, TArg2, TArg3, TArg4, TArg5, TArg6, TArg7, TArg8, TArg9, TResult> Compile<TArg0, TArg1, TArg2, TArg3, TArg4, TArg5, TArg6, TArg7, TArg8, TArg9, TResult>(Expression<Func<TArg0, TArg1, TArg2, TArg3, TArg4, TArg5, TArg6, TArg7, TArg8, TArg9, TResult>> query, TArg0 context) where TArg0 : DataContext {
             if (query == null) {
                 Error.ArgumentNull("query");
             }
@@ -157,12 +158,12 @@ namespace System.Data.Linq {
                 return query.Compile();
             }
             else {
-                return new CompiledQuery(query).Invoke<TArg0, TArg1, TArg2, TArg3, TArg4, TArg5, TArg6, TArg7, TArg8, TArg9, TResult>;
+                return new CompiledQuery(query, context).Invoke<TArg0, TArg1, TArg2, TArg3, TArg4, TArg5, TArg6, TArg7, TArg8, TArg9, TResult>;
             }
         }
 
         [SuppressMessage("Microsoft.Design", "CA1006:DoNotNestGenericTypesInMemberSignatures", Justification = "[....]: Generic types are an important part of Linq APIs and they could not exist without nested generic support.")]
-        public static Func<TArg0, TArg1, TArg2, TArg3, TArg4, TArg5, TArg6, TArg7, TArg8, TArg9, TArg10, TResult> Compile<TArg0, TArg1, TArg2, TArg3, TArg4, TArg5, TArg6, TArg7, TArg8, TArg9, TArg10, TResult>(Expression<Func<TArg0, TArg1, TArg2, TArg3, TArg4, TArg5, TArg6, TArg7, TArg8, TArg9, TArg10, TResult>> query) where TArg0 : DataContext {
+        public static Func<TArg0, TArg1, TArg2, TArg3, TArg4, TArg5, TArg6, TArg7, TArg8, TArg9, TArg10, TResult> Compile<TArg0, TArg1, TArg2, TArg3, TArg4, TArg5, TArg6, TArg7, TArg8, TArg9, TArg10, TResult>(Expression<Func<TArg0, TArg1, TArg2, TArg3, TArg4, TArg5, TArg6, TArg7, TArg8, TArg9, TArg10, TResult>> query, TArg0 context) where TArg0 : DataContext {
             if (query == null) {
                 Error.ArgumentNull("query");
             }
@@ -170,12 +171,12 @@ namespace System.Data.Linq {
                 return query.Compile();
             }
             else {
-                return new CompiledQuery(query).Invoke<TArg0, TArg1, TArg2, TArg3, TArg4, TArg5, TArg6, TArg7, TArg8, TArg9, TArg10, TResult>;
+                return new CompiledQuery(query, context).Invoke<TArg0, TArg1, TArg2, TArg3, TArg4, TArg5, TArg6, TArg7, TArg8, TArg9, TArg10, TResult>;
             }
         }
 
         [SuppressMessage("Microsoft.Design", "CA1006:DoNotNestGenericTypesInMemberSignatures", Justification = "[....]: Generic types are an important part of Linq APIs and they could not exist without nested generic support.")]
-        public static Func<TArg0, TArg1, TArg2, TArg3, TArg4, TArg5, TArg6, TArg7, TArg8, TArg9, TArg10, TArg11, TResult> Compile<TArg0, TArg1, TArg2, TArg3, TArg4, TArg5, TArg6, TArg7, TArg8, TArg9, TArg10, TArg11, TResult>(Expression<Func<TArg0, TArg1, TArg2, TArg3, TArg4, TArg5, TArg6, TArg7, TArg8, TArg9, TArg10, TArg11, TResult>> query) where TArg0 : DataContext {
+        public static Func<TArg0, TArg1, TArg2, TArg3, TArg4, TArg5, TArg6, TArg7, TArg8, TArg9, TArg10, TArg11, TResult> Compile<TArg0, TArg1, TArg2, TArg3, TArg4, TArg5, TArg6, TArg7, TArg8, TArg9, TArg10, TArg11, TResult>(Expression<Func<TArg0, TArg1, TArg2, TArg3, TArg4, TArg5, TArg6, TArg7, TArg8, TArg9, TArg10, TArg11, TResult>> query, TArg0 context) where TArg0 : DataContext {
             if (query == null) {
                 Error.ArgumentNull("query");
             }
@@ -183,12 +184,12 @@ namespace System.Data.Linq {
                 return query.Compile();
             }
             else {
-                return new CompiledQuery(query).Invoke<TArg0, TArg1, TArg2, TArg3, TArg4, TArg5, TArg6, TArg7, TArg8, TArg9, TArg10, TArg11, TResult>;
+                return new CompiledQuery(query, context).Invoke<TArg0, TArg1, TArg2, TArg3, TArg4, TArg5, TArg6, TArg7, TArg8, TArg9, TArg10, TArg11, TResult>;
             }
         }
 
         [SuppressMessage("Microsoft.Design", "CA1006:DoNotNestGenericTypesInMemberSignatures", Justification = "[....]: Generic types are an important part of Linq APIs and they could not exist without nested generic support.")]
-        public static Func<TArg0, TArg1, TArg2, TArg3, TArg4, TArg5, TArg6, TArg7, TArg8, TArg9, TArg10, TArg11, TArg12, TResult> Compile<TArg0, TArg1, TArg2, TArg3, TArg4, TArg5, TArg6, TArg7, TArg8, TArg9, TArg10, TArg11, TArg12, TResult>(Expression<Func<TArg0, TArg1, TArg2, TArg3, TArg4, TArg5, TArg6, TArg7, TArg8, TArg9, TArg10, TArg11, TArg12, TResult>> query) where TArg0 : DataContext {
+        public static Func<TArg0, TArg1, TArg2, TArg3, TArg4, TArg5, TArg6, TArg7, TArg8, TArg9, TArg10, TArg11, TArg12, TResult> Compile<TArg0, TArg1, TArg2, TArg3, TArg4, TArg5, TArg6, TArg7, TArg8, TArg9, TArg10, TArg11, TArg12, TResult>(Expression<Func<TArg0, TArg1, TArg2, TArg3, TArg4, TArg5, TArg6, TArg7, TArg8, TArg9, TArg10, TArg11, TArg12, TResult>> query, TArg0 context) where TArg0 : DataContext {
             if (query == null) {
                 Error.ArgumentNull("query");
             }
@@ -196,12 +197,12 @@ namespace System.Data.Linq {
                 return query.Compile();
             }
             else {
-                return new CompiledQuery(query).Invoke<TArg0, TArg1, TArg2, TArg3, TArg4, TArg5, TArg6, TArg7, TArg8, TArg9, TArg10, TArg11, TArg12, TResult>;
+                return new CompiledQuery(query, context).Invoke<TArg0, TArg1, TArg2, TArg3, TArg4, TArg5, TArg6, TArg7, TArg8, TArg9, TArg10, TArg11, TArg12, TResult>;
             }
         }
 
         [SuppressMessage("Microsoft.Design", "CA1006:DoNotNestGenericTypesInMemberSignatures", Justification = "[....]: Generic types are an important part of Linq APIs and they could not exist without nested generic support.")]
-        public static Func<TArg0, TArg1, TArg2, TArg3, TArg4, TArg5, TArg6, TArg7, TArg8, TArg9, TArg10, TArg11, TArg12, TArg13, TResult> Compile<TArg0, TArg1, TArg2, TArg3, TArg4, TArg5, TArg6, TArg7, TArg8, TArg9, TArg10, TArg11, TArg12, TArg13, TResult>(Expression<Func<TArg0, TArg1, TArg2, TArg3, TArg4, TArg5, TArg6, TArg7, TArg8, TArg9, TArg10, TArg11, TArg12, TArg13, TResult>> query) where TArg0 : DataContext {
+        public static Func<TArg0, TArg1, TArg2, TArg3, TArg4, TArg5, TArg6, TArg7, TArg8, TArg9, TArg10, TArg11, TArg12, TArg13, TResult> Compile<TArg0, TArg1, TArg2, TArg3, TArg4, TArg5, TArg6, TArg7, TArg8, TArg9, TArg10, TArg11, TArg12, TArg13, TResult>(Expression<Func<TArg0, TArg1, TArg2, TArg3, TArg4, TArg5, TArg6, TArg7, TArg8, TArg9, TArg10, TArg11, TArg12, TArg13, TResult>> query, TArg0 context) where TArg0 : DataContext {
             if (query == null) {
                 Error.ArgumentNull("query");
             }
@@ -209,12 +210,12 @@ namespace System.Data.Linq {
                 return query.Compile();
             }
             else {
-                return new CompiledQuery(query).Invoke<TArg0, TArg1, TArg2, TArg3, TArg4, TArg5, TArg6, TArg7, TArg8, TArg9, TArg10, TArg11, TArg12, TArg13, TResult>;
+                return new CompiledQuery(query, context).Invoke<TArg0, TArg1, TArg2, TArg3, TArg4, TArg5, TArg6, TArg7, TArg8, TArg9, TArg10, TArg11, TArg12, TArg13, TResult>;
             }
         }
 
         [SuppressMessage("Microsoft.Design", "CA1006:DoNotNestGenericTypesInMemberSignatures", Justification = "[....]: Generic types are an important part of Linq APIs and they could not exist without nested generic support.")]
-        public static Func<TArg0, TArg1, TArg2, TArg3, TArg4, TArg5, TArg6, TArg7, TArg8, TArg9, TArg10, TArg11, TArg12, TArg13, TArg14, TResult> Compile<TArg0, TArg1, TArg2, TArg3, TArg4, TArg5, TArg6, TArg7, TArg8, TArg9, TArg10, TArg11, TArg12, TArg13, TArg14, TResult>(Expression<Func<TArg0, TArg1, TArg2, TArg3, TArg4, TArg5, TArg6, TArg7, TArg8, TArg9, TArg10, TArg11, TArg12, TArg13, TArg14, TResult>> query) where TArg0 : DataContext {
+        public static Func<TArg0, TArg1, TArg2, TArg3, TArg4, TArg5, TArg6, TArg7, TArg8, TArg9, TArg10, TArg11, TArg12, TArg13, TArg14, TResult> Compile<TArg0, TArg1, TArg2, TArg3, TArg4, TArg5, TArg6, TArg7, TArg8, TArg9, TArg10, TArg11, TArg12, TArg13, TArg14, TResult>(Expression<Func<TArg0, TArg1, TArg2, TArg3, TArg4, TArg5, TArg6, TArg7, TArg8, TArg9, TArg10, TArg11, TArg12, TArg13, TArg14, TResult>> query, TArg0 context) where TArg0 : DataContext {
             if (query == null) {
                 Error.ArgumentNull("query");
             }
@@ -222,12 +223,12 @@ namespace System.Data.Linq {
                 return query.Compile();
             }
             else {
-                return new CompiledQuery(query).Invoke<TArg0, TArg1, TArg2, TArg3, TArg4, TArg5, TArg6, TArg7, TArg8, TArg9, TArg10, TArg11, TArg12, TArg13, TArg14, TResult>;
+                return new CompiledQuery(query, context).Invoke<TArg0, TArg1, TArg2, TArg3, TArg4, TArg5, TArg6, TArg7, TArg8, TArg9, TArg10, TArg11, TArg12, TArg13, TArg14, TResult>;
             }
         }
 
         [SuppressMessage("Microsoft.Design", "CA1006:DoNotNestGenericTypesInMemberSignatures", Justification = "[....]: Generic types are an important part of Linq APIs and they could not exist without nested generic support.")]
-        public static Func<TArg0, TArg1, TArg2, TArg3, TArg4, TArg5, TArg6, TArg7, TArg8, TArg9, TArg10, TArg11, TArg12, TArg13, TArg14, TArg15, TResult> Compile<TArg0, TArg1, TArg2, TArg3, TArg4, TArg5, TArg6, TArg7, TArg8, TArg9, TArg10, TArg11, TArg12, TArg13, TArg14, TArg15, TResult>(Expression<Func<TArg0, TArg1, TArg2, TArg3, TArg4, TArg5, TArg6, TArg7, TArg8, TArg9, TArg10, TArg11, TArg12, TArg13, TArg14, TArg15, TResult>> query) where TArg0 : DataContext {
+        public static Func<TArg0, TArg1, TArg2, TArg3, TArg4, TArg5, TArg6, TArg7, TArg8, TArg9, TArg10, TArg11, TArg12, TArg13, TArg14, TArg15, TResult> Compile<TArg0, TArg1, TArg2, TArg3, TArg4, TArg5, TArg6, TArg7, TArg8, TArg9, TArg10, TArg11, TArg12, TArg13, TArg14, TArg15, TResult>(Expression<Func<TArg0, TArg1, TArg2, TArg3, TArg4, TArg5, TArg6, TArg7, TArg8, TArg9, TArg10, TArg11, TArg12, TArg13, TArg14, TArg15, TResult>> query, TArg0 context) where TArg0 : DataContext {
             if (query == null) {
                 Error.ArgumentNull("query");
             }
@@ -235,7 +236,7 @@ namespace System.Data.Linq {
                 return query.Compile();
             }
             else {
-                return new CompiledQuery(query).Invoke<TArg0, TArg1, TArg2, TArg3, TArg4, TArg5, TArg6, TArg7, TArg8, TArg9, TArg10, TArg11, TArg12, TArg13, TArg14, TArg15, TResult>;
+                return new CompiledQuery(query, context).Invoke<TArg0, TArg1, TArg2, TArg3, TArg4, TArg5, TArg6, TArg7, TArg8, TArg9, TArg10, TArg11, TArg12, TArg13, TArg14, TArg15, TResult>;
             }
         }
 
@@ -312,12 +313,7 @@ namespace System.Data.Linq {
                 throw Error.ArgumentNull("context");
             }
             if (this.compiled == null) {
-                lock (this) {
-                    if (this.compiled == null) {
-                        this.compiled = context.Provider.Compile(this.query);
-                        this.mappingSource = context.Mapping.MappingSource;
-                    }
-                }
+				throw new InvalidOperationException("query should have already been compiled");
             }
             else {
                 if (context.Mapping.MappingSource != this.mappingSource)
@@ -325,5 +321,17 @@ namespace System.Data.Linq {
             }
             return this.compiled.Execute(context.Provider, args).ReturnValue;
         }
+
+	    private void EnsureCompiled(DataContext context)
+	    {
+			lock (this)
+			{
+				if (this.compiled == null)
+				{
+					this.compiled = context.Provider.Compile(this.query);
+					this.mappingSource = context.Mapping.MappingSource;
+				}
+			}
+		}
     }
 }
