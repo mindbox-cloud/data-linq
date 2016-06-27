@@ -1,3 +1,5 @@
+using System.Reflection;
+
 namespace System.Data.Linq.Mapping
 {
 	/// <summary>
@@ -20,8 +22,11 @@ namespace System.Data.Linq.Mapping
 		/// <summary>
 		/// Set the boxed value on an instance.
 		/// </summary>
-		public override void SetBoxedValue(ref object instance, object value) 
+		public override void SetBoxedValue(ref object instance, object value)
 		{
+			if (Target != null && value == null && typeof(TMember).IsValueType)
+				throw new InvalidOperationException($"Can't assign null to {Target.DeclaringType.Name}.{Target.Name}");
+
 			var tInst = (TEntity)instance;
 			SetValue(ref tInst, (TMember)value);
 			instance = tInst;
@@ -94,5 +99,7 @@ namespace System.Data.Linq.Mapping
 		{
 			return false;
 		}
+
+		public virtual MemberInfo Target { get; }
 	}
 }
