@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Reflection;
 
 namespace System.Data.Linq.Mapping
 {
@@ -27,5 +28,7 @@ namespace System.Data.Linq.Mapping
 				throw Error.EntityRefAlreadyLoaded();
 			acc.SetValue(ref instance, new EntityRef<V>(value));
 		}
+
+		public override MemberInfo Target => acc.Target;
 	}
 }

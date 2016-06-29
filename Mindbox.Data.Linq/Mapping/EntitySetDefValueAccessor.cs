@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Reflection;
 
 namespace System.Data.Linq.Mapping
 {
@@ -19,5 +20,7 @@ namespace System.Data.Linq.Mapping
 			}
 			eset.Assign(value);
 		}
+
+		public override MemberInfo Target => acc.Target;
 	}
 }

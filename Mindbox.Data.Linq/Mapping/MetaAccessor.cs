@@ -24,7 +24,7 @@ namespace System.Data.Linq.Mapping
 		/// </summary>
 		public override void SetBoxedValue(ref object instance, object value)
 		{
-			if (Target != null && value == null && IsNotNullableValueType(typeof(TMember)))
+			if (value == null && IsNotNullableValueType(typeof(TMember)))
 				throw new InvalidOperationException($"Can't assign null to {Target.DeclaringType.Name}.{Target.Name}");
 
 			var tInst = (TEntity)instance;
@@ -108,6 +108,6 @@ namespace System.Data.Linq.Mapping
 			return false;
 		}
 
-		public virtual MemberInfo Target { get; }
+		public abstract MemberInfo Target { get; }
 	}
 }

@@ -1,3 +1,5 @@
+using System.Reflection;
+
 namespace System.Data.Linq.Mapping
 {
 	internal class EntitySetValueAccessor<T, V> : MetaAccessor<T, EntitySet<V>> where V : class {
@@ -28,5 +30,7 @@ namespace System.Data.Linq.Mapping
 			EntitySet<V> es = this.acc.GetValue((T)instance);
 			return es != null && es.HasLoadedValues;
 		}
+
+		public override MemberInfo Target => acc.Target;
 	}
 }

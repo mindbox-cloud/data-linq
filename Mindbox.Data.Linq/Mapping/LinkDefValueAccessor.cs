@@ -1,3 +1,5 @@
+using System.Reflection;
+
 namespace System.Data.Linq.Mapping
 {
 	internal class LinkDefValueAccessor<T, V> : MetaAccessor<T, V> {
@@ -12,5 +14,7 @@ namespace System.Data.Linq.Mapping
 		public override void SetValue(ref T instance, V value) {
 			this.acc.SetValue(ref instance, new Link<V>(value));
 		}
+
+		public override MemberInfo Target => acc.Target;
 	}
 }
