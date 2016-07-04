@@ -101,7 +101,7 @@ namespace System.Data.Linq.Mapping
 					throw Error.UnableToAssignValueToReadonlyProperty(pi);
 			}
 
-			public override MemberInfo Target => pi;
+			internal override MemberInfo Target => pi;
 		}
 	}
 }

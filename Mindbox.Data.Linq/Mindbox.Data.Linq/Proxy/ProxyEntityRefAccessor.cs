@@ -44,6 +44,6 @@ namespace Mindbox.Data.Linq.Proxy
 			((IEntityProxy)instance).SetEntityRef(property.GetGetMethod(), value);
 		}
 
-		public override MemberInfo Target => property;
+		internal override MemberInfo Target => property;
 	}
 }

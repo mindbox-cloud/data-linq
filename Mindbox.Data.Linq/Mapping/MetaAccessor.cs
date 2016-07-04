@@ -24,20 +24,12 @@ namespace System.Data.Linq.Mapping
 		/// </summary>
 		public override void SetBoxedValue(ref object instance, object value)
 		{
-			if (value == null && IsNotNullableValueType(typeof(TMember)))
-				throw new InvalidOperationException($"Can't assign null to {Target.DeclaringType.Name}.{Target.Name}");
+			if (value == null && !typeof(TMember).IsNullable())
+				throw Error.CannotAssignNull(Target);
 
 			var tInst = (TEntity)instance;
 			SetValue(ref tInst, (TMember)value);
 			instance = tInst;
-		}
-
-		private static bool IsNotNullableValueType(Type type)
-		{
-			if (type.IsGenericType && typeof(Nullable<>) == type.GetGenericTypeDefinition())
-				return false;
-
-			return type.IsValueType;
 		}
 
 		/// <summary>
@@ -108,6 +100,6 @@ namespace System.Data.Linq.Mapping
 			return false;
 		}
 
-		public abstract MemberInfo Target { get; }
+		internal abstract MemberInfo Target { get; }
 	}
 }

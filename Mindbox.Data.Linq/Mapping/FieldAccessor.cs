@@ -71,7 +71,7 @@ namespace System.Data.Linq.Mapping
 					this.fi.SetValue(instance, value);
 			}
 
-			public override MemberInfo Target => fi;
+			internal override MemberInfo Target => fi;
 		}
 	}
 }

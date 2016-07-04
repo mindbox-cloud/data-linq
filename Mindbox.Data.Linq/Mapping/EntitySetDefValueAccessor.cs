@@ -21,6 +21,6 @@ namespace System.Data.Linq.Mapping
 			eset.Assign(value);
 		}
 
-		public override MemberInfo Target => acc.Target;
+		internal override MemberInfo Target => acc.Target;
 	}
 }

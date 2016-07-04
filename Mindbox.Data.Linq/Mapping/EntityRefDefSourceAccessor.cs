@@ -29,6 +29,6 @@ namespace System.Data.Linq.Mapping
 			acc.SetValue(ref instance, new EntityRef<V>(value));
 		}
 
-		public override MemberInfo Target => acc.Target;
+		internal override MemberInfo Target => acc.Target;
 	}
 }

@@ -31,6 +31,6 @@ namespace System.Data.Linq.Mapping
 			return es != null && es.HasLoadedValues;
 		}
 
-		public override MemberInfo Target => acc.Target;
+		internal override MemberInfo Target => acc.Target;
 	}
 }

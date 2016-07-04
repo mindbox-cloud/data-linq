@@ -29,6 +29,6 @@ namespace System.Data.Linq.Mapping
 			this.acc.SetValue(ref instance, new Link<V>(value));
 		}
 
-		public override MemberInfo Target => acc.Target;
+		internal override MemberInfo Target => acc.Target;
 	}
 }

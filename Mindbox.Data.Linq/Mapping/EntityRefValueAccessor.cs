@@ -43,6 +43,6 @@ namespace System.Data.Linq.Mapping
 			return er.HasLoadedValue;
 		}
 
-		public override MemberInfo Target => acc.Target;
+		internal override MemberInfo Target => acc.Target;
 	}
 }

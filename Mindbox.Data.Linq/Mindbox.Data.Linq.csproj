@@ -137,6 +137,7 @@
     <Compile Include="Mindbox.Data.Linq\Mapping\ColumnAttributeByMember.cs" />
     <Compile Include="Mindbox.Data.Linq\Mapping\TableAttributeByRootType.cs" />
     <Compile Include="misc\SecurityUtils.cs" />
+    <Compile Include="misc\TypeExtensions.cs" />
     <Compile Include="ModifiedMemberInfo.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="Provider\IDataServices.cs" />

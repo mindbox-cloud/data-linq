@@ -140,7 +140,13 @@ namespace System.Data.Linq {
 			return new InvalidOperationException("CannotAssignNull: " + type + ".");
 	    }
 
-	    public static Exception UnsafeStringConversion(string toQueryString, string p1)
+		public static Exception CannotAssignNull(MemberInfo target)
+		{
+			return new InvalidOperationException(
+					string.Format("CannotAssignNull: {0}.{1}.", target.DeclaringType.Name, target.Name));
+		}
+
+		public static Exception UnsafeStringConversion(string toQueryString, string p1)
 	    {
 			return new InvalidOperationException("UnsafeStringConversion: " + toQueryString + ", " + p1 + ".");
 	    }
