@@ -1,3 +1,5 @@
+using System.Reflection;
+
 namespace System.Data.Linq.Mapping
 {
 	internal class EntityRefValueAccessor<T, V> : MetaAccessor<T, V> 
@@ -40,5 +42,7 @@ namespace System.Data.Linq.Mapping
 			var er = acc.GetValue((T)instance);
 			return er.HasLoadedValue;
 		}
+
+		internal override MemberInfo Target => acc.Target;
 	}
 }

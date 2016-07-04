@@ -100,6 +100,8 @@ namespace System.Data.Linq.Mapping
 				else
 					throw Error.UnableToAssignValueToReadonlyProperty(pi);
 			}
+
+			internal override MemberInfo Target => pi;
 		}
 	}
 }

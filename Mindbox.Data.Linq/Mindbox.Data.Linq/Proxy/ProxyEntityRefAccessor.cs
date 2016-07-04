@@ -31,8 +31,8 @@ namespace Mindbox.Data.Linq.Proxy
 				throw new ArgumentNullException("instance");
 
 			var proxy = instance as IEntityProxy;
-			return proxy == null ? 
-				new EntityRef<TMember>((TMember)property.GetValue(instance)) : 
+			return proxy == null ?
+				new EntityRef<TMember>((TMember)property.GetValue(instance)) :
 				((IEntityProxy)instance).GetEntityRef<TMember>(property.GetGetMethod());
 		}
 
@@ -43,5 +43,7 @@ namespace Mindbox.Data.Linq.Proxy
 
 			((IEntityProxy)instance).SetEntityRef(property.GetGetMethod(), value);
 		}
+
+		internal override MemberInfo Target => property;
 	}
 }

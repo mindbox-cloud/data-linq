@@ -1,3 +1,5 @@
+using System.Reflection;
+
 namespace System.Data.Linq.Mapping
 {
 	/// <summary>
@@ -6,12 +8,12 @@ namespace System.Data.Linq.Mapping
 	/// </summary>
 	/// <typeparam name="T">The type of the object</typeparam>
 	/// <typeparam name="V">The type of the accessed member</typeparam>
-	public abstract class MetaAccessor<TEntity, TMember> : MetaAccessor 
+	public abstract class MetaAccessor<TEntity, TMember> : MetaAccessor
 	{
 		/// <summary>
 		/// The underlying CLR type.
 		/// </summary>
-		public override Type Type 
+		public override Type Type
 		{
 			get { return typeof(TMember); }
 		}
@@ -20,8 +22,11 @@ namespace System.Data.Linq.Mapping
 		/// <summary>
 		/// Set the boxed value on an instance.
 		/// </summary>
-		public override void SetBoxedValue(ref object instance, object value) 
+		public override void SetBoxedValue(ref object instance, object value)
 		{
+			if (value == null && !typeof(TMember).IsNullable())
+				throw Error.CannotAssignNull(Target);
+
 			var tInst = (TEntity)instance;
 			SetValue(ref tInst, (TMember)value);
 			instance = tInst;
@@ -30,7 +35,7 @@ namespace System.Data.Linq.Mapping
 		/// <summary>
 		/// Retrieve the boxed value.
 		/// </summary>
-		public override object GetBoxedValue(object instance) 
+		public override object GetBoxedValue(object instance)
 		{
 			return GetValue((TEntity)instance);
 		}
@@ -49,7 +54,7 @@ namespace System.Data.Linq.Mapping
 	/// <summary>
 	/// A MetaAccessor
 	/// </summary>
-	public abstract class MetaAccessor 
+	public abstract class MetaAccessor
 	{
 		/// <summary>
 		/// The type of the member accessed by this accessor.
@@ -74,7 +79,7 @@ namespace System.Data.Linq.Mapping
 		/// <summary>
 		/// True if the instance has a loaded or assigned value.
 		/// </summary>
-		public virtual bool HasValue(object instance) 
+		public virtual bool HasValue(object instance)
 		{
 			return true;
 		}
@@ -82,7 +87,7 @@ namespace System.Data.Linq.Mapping
 		/// <summary>
 		/// True if the instance has an assigned value.
 		/// </summary>
-		public virtual bool HasAssignedValue(object instance) 
+		public virtual bool HasAssignedValue(object instance)
 		{
 			return true;
 		}
@@ -90,9 +95,11 @@ namespace System.Data.Linq.Mapping
 		/// <summary>
 		/// True if the instance has a value loaded from a deferred source.
 		/// </summary>
-		public virtual bool HasLoadedValue(object instance) 
+		public virtual bool HasLoadedValue(object instance)
 		{
 			return false;
 		}
+
+		internal abstract MemberInfo Target { get; }
 	}
 }

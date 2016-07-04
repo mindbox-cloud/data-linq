@@ -70,6 +70,8 @@ namespace System.Data.Linq.Mapping
 				else
 					this.fi.SetValue(instance, value);
 			}
+
+			internal override MemberInfo Target => fi;
 		}
 	}
 }
