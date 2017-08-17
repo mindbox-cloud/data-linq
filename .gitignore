@@ -5,3 +5,4 @@ obj
 *.user
 packages
 _ReSharper.Caches/*
+.vs/*
