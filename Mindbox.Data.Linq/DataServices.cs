@@ -1,5 +1,6 @@
 using System;
 using System.Collections;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq.Expressions;
@@ -299,6 +300,12 @@ namespace System.Data.Linq {
         }
 
         class DeferredSourceFactory<T> : IDeferredSourceFactory {
+
+            // Added by Mindbox:
+            // query cache designed to reuse compiled queries for EntityRefs and EntitySets 
+            static ConcurrentDictionary<MetaDataMember, ICompiledQuery> queryCache = 
+                new ConcurrentDictionary<MetaDataMember, ICompiledQuery>();
+
             MetaDataMember member;
             CommonDataServices services;
             ICompiledQuery query;
@@ -410,24 +417,34 @@ namespace System.Data.Linq {
             }
 
             private IEnumerator<T> ExecuteKeyQuery(object[] keyValues) {
-                if (this.query == null) {
-                    ParameterExpression p = Expression.Parameter(typeof(object[]), "keys");
-                    Expression[] keyExprs = new Expression[keyValues.Length];
-                    ReadOnlyCollection<MetaDataMember> members = this.member.IsAssociation ? this.member.Association.OtherKey : this.member.DeclaringType.IdentityMembers;
-                    for (int i = 0, n = keyValues.Length; i < n; i++) {
-                        MetaDataMember mm = members[i];
-                        keyExprs[i] = Expression.Convert(
-#pragma warning disable 618 // Disable the 'obsolete' warning
-                                          Expression.ArrayIndex(p, Expression.Constant(i)),
-#pragma warning restore 618
-                                          mm.Type
-                                      );
-                    }
-                    Expression q = this.services.GetDataMemberQuery(this.member, keyExprs);
-                    LambdaExpression lambda = Expression.Lambda(q, p);
-                    this.query = this.services.Context.Provider.Compile(lambda);
+                if (this.query == null)
+                {
+                    var compiledQuery = queryCache.GetOrAdd(member, metaDataMember => PrepareKeyQuery(keyValues));
+                    this.query = compiledQuery;
                 }
                 return ((IEnumerable<T>)this.query.Execute(this.services.Context.Provider, new object[] { keyValues }).ReturnValue).GetEnumerator();
+            }
+
+            private ICompiledQuery PrepareKeyQuery(object[] keyValues) {
+                ParameterExpression p = Expression.Parameter(typeof(object[]), "keys");
+                Expression[] keyExprs = new Expression[keyValues.Length];
+                ReadOnlyCollection<MetaDataMember> members = this.member.IsAssociation
+                    ? this.member.Association.OtherKey
+                    : this.member.DeclaringType.IdentityMembers;
+                for (int i = 0, n = keyValues.Length; i < n; i++)
+                {
+                    MetaDataMember mm = members[i];
+                    keyExprs[i] = Expression.Convert(
+#pragma warning disable 618 // Disable the 'obsolete' warning
+                        Expression.ArrayIndex(p, Expression.Constant(i)),
+#pragma warning restore 618
+                        mm.Type
+                    );
+                }
+                Expression q = this.services.GetDataMemberQuery(this.member, keyExprs);
+                LambdaExpression lambda = Expression.Lambda(q, p);
+                var compiledQuery = this.services.Context.Provider.Compile(lambda);
+                return compiledQuery;
             }
 
             class DeferredSource : IEnumerable<T>, IEnumerable {

@@ -1,0 +1,63 @@
+*    binary
+
+*.[sS][lL][nN]                                           text=auto diff merge
+*.[cC][sS][pP][rR][oO][jJ]                               text=auto diff merge
+*.[vV][bB][pP][rR][oO][jJ]                               text=auto diff merge
+*.[vV][cC][xX][pP][rR][oO][jJ]                           text=auto diff merge
+*.[vV][cC][pP][rR][oO][jJ]                               text=auto diff merge
+*.[dD][bB][pP][rR][oO][jJ]                               text=auto diff merge
+*.[fF][sS][pP][rR][oO][jJ]                               text=auto diff merge
+*.[lL][sS][pP][rR][oO][jJ]                               text=auto diff merge
+*.[wW][iI][xX][pP][rR][oO][jJ]                           text=auto diff merge
+*.[mM][oO][dD][eE][lL][pP][rR][oO][jJ]                   text=auto diff merge
+*.[sS][qQ][lL][pP][rR][oO][jJ]                           text=auto diff merge
+*.[wW][mM][aA][pP][rR][oO][jJ]                           text=auto diff merge
+*.[xX][pP][rR][oO][jJ]                                   text=auto diff merge
+*.[pP][rR][oO][pP][sS]                                   text=auto diff merge
+*.[fF][iI][lL][tT][eE][rR][sS]                           text=auto diff merge
+*.[vV][cC][xX][iI][tT][eE][mM][sS]                       text=auto diff merge
+
+*.[bB][aA][tT]                                           text=auto diff merge
+*.[pP][sS][11]                                           text=auto diff merge
+*.[cC][oO][nN][fF][iI][gG]                               text=auto diff merge
+*.[tT][xX][tT]                                           text=auto diff merge
+*.[tT][sS]                                               text=auto diff merge
+*.[tT][sS][xX]                                           text=auto diff merge
+*.[jJ][sS]                                               text=auto diff merge
+*.[jJ][sS][xX]                                           text=auto diff merge
+*.[cC][sS][sS]                                           text=auto diff merge
+*.[hH][tT][mM][lL]                                       text=auto diff merge
+*.[cC][sS]                                               text=auto diff=csharp merge
+*.[fF][sS]                                               text=auto diff merge
+*.[cC]                                                   text=auto diff merge
+*.[cC][pP][pP]                                           text=auto diff merge
+*.[jJ][sS][oO][nN]                                       text=auto diff merge
+*.[xX][mM][lL]                                           text=auto diff merge
+*.[cC][sS][hH][tT][mM][lL]                               text=auto diff merge
+*.[sS][qQ][lL]                                           text=auto diff merge
+*.[cC][sS][vV]                                           text=auto diff merge
+*.[xX][sS][dD]                                           text=auto diff merge
+*.[sS][cC][sS][sS]                                       text=auto diff merge
+*.[cC][mM][dD]                                           text=auto diff merge
+*.[yY][mM][lL]                                           text=auto diff merge
+*.[sS][hH]                                               text=auto diff merge
+*.[cC][oO][fF][fF][eE][eE]                               text=auto diff merge
+*.[aA][sS][aA][xX]                                       text=auto diff merge
+*.[xX][sS][lL][tT]                                       text=auto diff merge
+*.[cC][fF][gG]                                           text=auto diff merge
+
+*.[cC][oO][nN][fF][iI][gG].[dD][eE][bB][uU][gG]          text=auto diff merge
+*.[cC][oO][nN][fF][iI][gG].[rR][eE][lL][eE][aA][sS][eE]  text=auto diff merge
+*.[cC][oO][nN][fF][iI][gG].[sS][tT][aA][gG][iI][nN][gG]  text=auto diff merge
+# OCD! \/
+*.[cC][oO][nN][fF][iI][gG].[sS][tT][aA][nN][dD][aA][rR][dD]  text=auto diff merge	
+*.[cC][oO][nN][fF][iI][gG].[dD][oO][cC][kK][eE][rR]      text=auto diff merge	
+
+*.[dD][oO][tT][sS][eE][tT][tT][iI][nN][gG][sS]           text=auto diff merge
+
+*.testrunconfig          text=auto diff merge
+
+nLog.config.template                                     text=auto diff merge
+
+.gitattributes                                           text=auto diff merge
+.gitignore                                               text=auto diff merge
