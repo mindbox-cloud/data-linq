@@ -303,8 +303,8 @@ namespace System.Data.Linq {
 
             // Added by Mindbox:
             // query cache designed to reuse compiled queries for EntityRefs and EntitySets 
-            static ConcurrentDictionary<MetaDataMember, ICompiledQuery> queryCache = 
-                new ConcurrentDictionary<MetaDataMember, ICompiledQuery>();
+            static ConcurrentDictionary<Tuple<MetaDataMember, DataLoadOptions>, ICompiledQuery> queryCache = 
+                new ConcurrentDictionary<Tuple<MetaDataMember, DataLoadOptions>, ICompiledQuery>();
 
             MetaDataMember member;
             CommonDataServices services;
@@ -419,7 +419,9 @@ namespace System.Data.Linq {
             private IEnumerator<T> ExecuteKeyQuery(object[] keyValues) {
                 if (this.query == null)
                 {
-                    var compiledQuery = queryCache.GetOrAdd(member, metaDataMember => PrepareKeyQuery(keyValues));
+					var compiledQuery = queryCache.GetOrAdd(
+						new Tuple<MetaDataMember, DataLoadOptions>(member, services.context.LoadOptions),
+						metaDataMember => PrepareKeyQuery(keyValues));
                     this.query = compiledQuery;
                 }
                 return ((IEnumerable<T>)this.query.Execute(this.services.Context.Provider, new object[] { keyValues }).ReturnValue).GetEnumerator();
