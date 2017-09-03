@@ -57,6 +57,12 @@
     <Compile Include="InheritanceConfigurationTests.cs" />
     <Compile Include="IValueStorage.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="SqlGeneration\SomeDataContext.cs" />
+    <Compile Include="SqlGeneration\UserDefinedFunctions.cs" />
+    <Compile Include="SqlGeneration\UserDefinedFunctionTranslationTests.cs" />
+    <Compile Include="Stubs\DbCommandStub.cs" />
+    <Compile Include="Stubs\DbConnectionStub.cs" />
+    <Compile Include="Stubs\DbParameterStub.cs" />
     <Compile Include="TestEntity24.cs" />
     <Compile Include="TestEntity23.cs" />
     <Compile Include="TestEntity19.cs" />

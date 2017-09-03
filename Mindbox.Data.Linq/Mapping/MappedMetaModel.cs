@@ -215,10 +215,6 @@ namespace System.Data.Linq.Mapping {
             return func;
         }
 
-        public override IEnumerable<MetaFunction> GetFunctions() {
-            return this.metaFunctions.Values;
-        }
-
         private Type GetRootType(Type type, TypeMapping rootMapping) {
             if (string.Compare(rootMapping.Name, type.Name, StringComparison.Ordinal) == 0
                 || string.Compare(rootMapping.Name, type.FullName, StringComparison.Ordinal) == 0

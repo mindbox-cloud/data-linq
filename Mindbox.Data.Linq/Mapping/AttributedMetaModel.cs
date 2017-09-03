@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Reflection;
@@ -37,22 +38,20 @@ namespace System.Data.Linq.Mapping
 		private readonly MappingSource mappingSource;
 		private readonly Type contextType;
 		private readonly Type providerType;
-		private readonly Dictionary<Type, MetaType> metaTypes;
+		private readonly ConcurrentDictionary<Type, MetaType> metaTypes;
 		private readonly Dictionary<Type, MetaTable> metaTables;
 		private ReadOnlyCollection<MetaTable> staticTables;
-		private readonly Dictionary<MetaPosition, MetaFunction> metaFunctions;
+		private readonly ConcurrentDictionary<MetaPosition, MetaFunction> metaFunctions;
 		private readonly string dbName;
 		private bool areStaticTablesInitialized;
-		private bool areFunctionsInitialized;
-
 
         internal AttributedMetaModel(MappingSource mappingSource, Type contextType) 
 		{
             this.mappingSource = mappingSource;
             this.contextType = contextType;
-            metaTypes = new Dictionary<Type, MetaType>();
+            metaTypes = new ConcurrentDictionary<Type, MetaType>();
             metaTables = new Dictionary<Type, MetaTable>();
-            metaFunctions = new Dictionary<MetaPosition, MetaFunction>();
+            metaFunctions = new ConcurrentDictionary<MetaPosition, MetaFunction>();
 
             // Provider type
             var attrs = (ProviderAttribute[])this.contextType.GetCustomAttributes(typeof(ProviderAttribute), true);
@@ -159,14 +158,13 @@ namespace System.Data.Linq.Mapping
 	        if (tab != null)
 		        return tab.RowType.GetInheritanceType(nonProxyType);
 
-	        InitFunctions();
             metaModelLock.AcquireWriterLock(Timeout.Infinite);
             try 
 			{
                 if (!metaTypes.TryGetValue(nonProxyType, out mtype)) 
 				{
                     mtype = new UnmappedType(this, nonProxyType);
-                    metaTypes.Add(nonProxyType, mtype);
+                    metaTypes.TryAdd(nonProxyType, mtype);
                 }
             }
             finally 
@@ -181,18 +179,34 @@ namespace System.Data.Linq.Mapping
 	        if (method == null)
 		        throw Error.ArgumentNull("method");
 
-	        InitFunctions();
-            MetaFunction function;
-            metaFunctions.TryGetValue(new MetaPosition(method), out function);
+			var key = new MetaPosition(method);
+
+			var function = metaFunctions.GetOrAdd(key, mp =>
+			{
+				if (IsUserFunction(method))
+				{
+					// Added this constraint because XML mapping model didn't support 
+					// mapping sprocs to generic method.
+					// The attribute mapping model was, however, able to support it. This check is for parity between 
+					// the two models.
+					if (method.IsGenericMethodDefinition)
+						throw Error.InvalidUseOfGenericMethodAsMappedFunction(method.Name);
+
+					var metaFunction = new AttributedMetaFunction(this, method);
+
+					// pre-set all known function result types into metaType map
+					foreach (var resultRowType in metaFunction.ResultRowTypes)
+					foreach (var inheritanceType in resultRowType.InheritanceTypes)
+						metaTypes.TryAdd(inheritanceType.Type, inheritanceType);
+
+					return metaFunction;
+				}
+
+				return null;
+			});
+
             return function;
         }
-
-        public override IEnumerable<MetaFunction> GetFunctions() 
-		{
-            InitFunctions();
-            return metaFunctions.Values.ToList().AsReadOnly();
-        }
-
 
 		internal MetaTable GetTableNoLocks(Type rowType)
 		{
@@ -317,57 +331,6 @@ namespace System.Data.Linq.Mapping
 				}
 				staticTables = new List<MetaTable>(tables).AsReadOnly();
 				areStaticTablesInitialized = true;
-			}
-			finally
-			{
-				metaModelLock.ReleaseWriterLock();
-			}
-		}
-
-		private void InitFunctions()
-		{
-			if (areFunctionsInitialized)
-				return;
-
-			metaModelLock.AcquireWriterLock(Timeout.Infinite);
-			try
-			{
-				if (areFunctionsInitialized)
-					return;
-
-				if (contextType != typeof(DataContext))
-				{
-					for (var type = contextType; type != typeof(DataContext); type = type.BaseType)
-					{
-						foreach (var method in type.GetMethods(
-							BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.DeclaredOnly))
-						{
-							if (IsUserFunction(method))
-							{
-								// Added this constraint because XML mapping model didn't support 
-								// mapping sprocs to generic method.
-								// The attribute mapping model was, however, able to support it. This check is for parity between 
-								// the two models.
-								if (method.IsGenericMethodDefinition)
-									throw Error.InvalidUseOfGenericMethodAsMappedFunction(method.Name);
-
-								var metaPosition = new MetaPosition(method);
-								if (!metaFunctions.ContainsKey(metaPosition))
-								{
-									var metaFunction = new AttributedMetaFunction(this, method);
-									metaFunctions.Add(metaPosition, metaFunction);
-
-									// pre-set all known function result types into metaType map
-									foreach (var resultRowType in metaFunction.ResultRowTypes)
-										foreach (var inheritanceType in resultRowType.InheritanceTypes)
-											if (!metaTypes.ContainsKey(inheritanceType.Type))
-												metaTypes.Add(inheritanceType.Type, inheritanceType);
-								}
-							}
-						}
-					}
-				}
-				areFunctionsInitialized = true;
 			}
 			finally
 			{
