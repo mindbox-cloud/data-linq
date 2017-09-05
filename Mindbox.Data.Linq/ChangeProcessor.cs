@@ -642,15 +642,64 @@ namespace System.Data.Linq {
         }
 
         private void BuildDependencyOrderedList(TrackedObject item, List<TrackedObject> list, Dictionary<TrackedObject, VisitState> visited) {
-            VisitState state;
-            if (visited.TryGetValue(item, out state)) {
-                if (state == VisitState.Before) {
-                    throw Error.CycleDetected();
-                }
-                return;
-            }
+			if (visited.TryGetValue(item, out VisitState state))
+			{
+				if (state == VisitState.Before)
+				{
+					var stringBuilder = new StringBuilder();
+					var cycleException = Error.CycleDetected();
 
-            visited[item] = VisitState.Before;
+					LogTrackedObject(item, "CurrentTrackedObject");
+					LogTrackedList(list, "TrackedList");
+					LogTrackedObjectVisitState(visited, "VisitedObjectAndStates");
+
+					throw cycleException;
+
+					void LogTrackedObject(TrackedObject trackedObject, string trackedObjectPrefix, VisitState? visitState = null)
+					{
+						var trackedObjectType = trackedObject.GetType();
+						var trackedObjectProperties = trackedObjectType.GetProperties();
+
+						if(visitState.HasValue)
+						{
+							stringBuilder.AppendLine($"Has state: {visitState}");
+						}
+
+						foreach (var property in trackedObjectProperties)
+						{
+							var propertyName = property.Name;
+							var propertyValue = trackedObjectType
+								.GetProperty(property.Name, BindingFlags.Public | BindingFlags.Instance)
+								.GetValue(item);
+
+							stringBuilder.AppendLine($"TrackedObject.{propertyName} = {propertyValue}");
+						}
+
+						cycleException.Data[trackedObjectPrefix] = stringBuilder.ToString();
+						stringBuilder.Clear();
+					}
+
+					void LogTrackedList(List<TrackedObject> trackedList, string trackedListPrefix)
+					{
+						for (int index = 0; index < trackedList.Count; index++)
+						{
+							LogTrackedObject(trackedList[index], $"{index} element in {trackedListPrefix}");
+						}
+					}
+
+					void LogTrackedObjectVisitState(Dictionary<TrackedObject, VisitState> visitedTrackedObjectsWithStates, string visitedTrackedObjectsPrefix)
+					{
+						int index = 0;
+						foreach (var trackedObjectWithState in visitedTrackedObjectsWithStates)
+						{
+							LogTrackedObject(trackedObjectWithState.Key, $"{index++} element in {visitedTrackedObjectsPrefix}", trackedObjectWithState.Value);
+						}
+					}
+				}
+				return;
+			}
+
+			visited[item] = VisitState.Before;
 
             if (item.IsInteresting) {
                 if (item.IsDeleted) {
