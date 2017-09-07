@@ -712,10 +712,9 @@ namespace System.Data.Linq {
 				stringBuilder.AppendLine($"Has state: {visitState}");
 			}
 
-			stringBuilder.AppendLine($"TrackedObject.{LogFullObject("RealType", trackedObject.GetType())}")
-				.AppendLine($"TrackedObject.{LogFullObject(nameof(trackedObject.Type), trackedObject.Type)}")
-				.AppendLine($"TrackedObject.{LogFullObject(nameof(trackedObject.Current), trackedObject.Current)}")
-				.AppendLine($"TrackedObject.{LogFullObject(nameof(trackedObject.Original), trackedObject.Original)}")
+			stringBuilder
+				.AppendLine($"TrackedObject.{LogFullType(trackedObject.Type)}")
+				.AppendLine($"TrackedObject.{LogCurrentProperty(trackedObject.Current)}")
 				.AppendLine($"TrackedObject.{nameof(trackedObject.IsInteresting)} = {trackedObject.IsInteresting}")
 				.AppendLine($"TrackedObject.{nameof(trackedObject.IsDeleted)} = {trackedObject.IsDeleted}")
 				.AppendLine($"TrackedObject.{nameof(trackedObject.IsModified)} = {trackedObject.IsModified}")
@@ -725,18 +724,27 @@ namespace System.Data.Linq {
 			cycleException.Data[trackedObjectPrefix] = stringBuilder.ToString();
 		}
 
-		private string LogFullObject(string fieldName, object field)
+		private string LogCurrentProperty(object current)
+		{
+			var currentType = current.GetType();
+			var fieldPropertyDataList = currentType.GetProperties()
+				.Where(p => p.GetCustomAttribute<ColumnAttribute>()?.IsPrimaryKey ?? false)
+				.Select(p => $"{p.Name} = {p.GetValue(current)}");
+
+			return string.Join(Environment.NewLine, fieldPropertyDataList);
+		}
+
+		private string LogFullType(MetaType type)
 		{
 			var stringBuilder = new StringBuilder();
-			var fieldType = field.GetType();
-			var fieldProperties = fieldType.GetProperties();
+			var fieldProperties = type.GetType().GetProperties();
 
 			foreach (var property in fieldProperties)
 			{
 				var propertyName = property.Name;
-				var propertyValue = property.GetValue(field);
+				var propertyValue = property.GetValue(type);
 
-				stringBuilder.AppendLine($"{fieldName}.{propertyName} = {propertyValue}");
+				stringBuilder.AppendLine($"Type.{propertyName} = {propertyValue}");
 			}
 
 			return stringBuilder.ToString();
