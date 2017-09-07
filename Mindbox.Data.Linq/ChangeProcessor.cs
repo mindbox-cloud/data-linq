@@ -715,7 +715,7 @@ namespace System.Data.Linq {
 			stringBuilder.AppendLine($"TrackedObject.{LogFullObject("RealType", trackedObject.GetType())}")
 				.AppendLine($"TrackedObject.{LogFullObject(nameof(trackedObject.Type), trackedObject.Type)}")
 				.AppendLine($"TrackedObject.{LogFullObject(nameof(trackedObject.Current), trackedObject.Current)}")
-				.AppendLine($"TrackedObject.{LogFullObject(nameof(trackedObject.Current), trackedObject.Original)}")
+				.AppendLine($"TrackedObject.{LogFullObject(nameof(trackedObject.Original), trackedObject.Original)}")
 				.AppendLine($"TrackedObject.{nameof(trackedObject.IsInteresting)} = {trackedObject.IsInteresting}")
 				.AppendLine($"TrackedObject.{nameof(trackedObject.IsDeleted)} = {trackedObject.IsDeleted}")
 				.AppendLine($"TrackedObject.{nameof(trackedObject.IsModified)} = {trackedObject.IsModified}")
