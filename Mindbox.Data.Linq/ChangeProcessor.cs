@@ -706,23 +706,40 @@ namespace System.Data.Linq {
 			VisitState? visitState = null)
 		{
 			var stringBuilder = new StringBuilder();
-			var trackedObjectType = trackedObject.GetType();
-			var trackedObjectProperties = trackedObjectType.GetProperties();
 
 			if (visitState.HasValue)
 			{
 				stringBuilder.AppendLine($"Has state: {visitState}");
 			}
 
-			foreach (var property in trackedObjectProperties)
-			{
-				var propertyName = property.Name;
-				var propertyValue = property.GetValue(trackedObject);
-
-				stringBuilder.AppendLine($"TrackedObject.{propertyName} = {propertyValue}");
-			}
+			stringBuilder.AppendLine($"TrackedObject.{LogFullObject(trackedObject.Type)}")
+				.AppendLine($"TrackedObject.{LogFullObject(trackedObject.Current)}")
+				.AppendLine($"TrackedObject.{LogFullObject(trackedObject.Original)}")
+				.AppendLine($"TrackedObject.{nameof(trackedObject.IsInteresting)} = {trackedObject.IsInteresting}")
+				.AppendLine($"TrackedObject.{nameof(trackedObject.IsDeleted)} = {trackedObject.IsDeleted}")
+				.AppendLine($"TrackedObject.{nameof(trackedObject.IsModified)} = {trackedObject.IsModified}")
+				.AppendLine($"TrackedObject.{nameof(trackedObject.IsDead)} = {trackedObject.IsDead}")
+				.AppendLine($"TrackedObject.{nameof(trackedObject.IsWeaklyTracked)} = {trackedObject.IsWeaklyTracked}");
+				
 
 			cycleException.Data[trackedObjectPrefix] = stringBuilder.ToString();
+		}
+
+		private string LogFullObject(object field)
+		{
+			var stringBuilder = new StringBuilder();
+			var fieldType = field.GetType();
+			var fieldProperties = fieldType.GetProperties();
+
+			foreach (var property in fieldProperties)
+			{
+				var propertyName = property.Name;
+				var propertyValue = property.GetValue(field);
+
+				stringBuilder.AppendLine($"{fieldType.Name}.{propertyName} = {propertyValue}");
+			}
+
+			return stringBuilder.ToString();
 		}
 
 		private void LogTrackedList(List<TrackedObject> trackedList, string trackedListPrefix, Exception cycleException)
