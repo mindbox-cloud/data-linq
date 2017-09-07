@@ -646,55 +646,13 @@ namespace System.Data.Linq {
 			{
 				if (state == VisitState.Before)
 				{
-					var stringBuilder = new StringBuilder();
 					var cycleException = Error.CycleDetected();
 
-					LogTrackedObject(item, "CurrentTrackedObject");
-					LogTrackedList(list, "TrackedList");
-					LogTrackedObjectVisitState(visited, "VisitedObjectAndStates");
+					LogTrackedObject(item, "CurrentTrackedObject", cycleException);
+					LogTrackedList(list, "TrackedList", cycleException);
+					LogTrackedObjectVisitState(visited, "VisitedObjectAndStates", cycleException);
 
 					throw cycleException;
-
-					void LogTrackedObject(TrackedObject trackedObject, string trackedObjectPrefix, VisitState? visitState = null)
-					{
-						var trackedObjectType = trackedObject.GetType();
-						var trackedObjectProperties = trackedObjectType.GetProperties();
-
-						if(visitState.HasValue)
-						{
-							stringBuilder.AppendLine($"Has state: {visitState}");
-						}
-
-						foreach (var property in trackedObjectProperties)
-						{
-							var propertyName = property.Name;
-							var propertyValue = trackedObjectType
-								.GetProperty(property.Name, BindingFlags.Public | BindingFlags.Instance)
-								.GetValue(item);
-
-							stringBuilder.AppendLine($"TrackedObject.{propertyName} = {propertyValue}");
-						}
-
-						cycleException.Data[trackedObjectPrefix] = stringBuilder.ToString();
-						stringBuilder.Clear();
-					}
-
-					void LogTrackedList(List<TrackedObject> trackedList, string trackedListPrefix)
-					{
-						for (int index = 0; index < trackedList.Count; index++)
-						{
-							LogTrackedObject(trackedList[index], $"{index} element in {trackedListPrefix}");
-						}
-					}
-
-					void LogTrackedObjectVisitState(Dictionary<TrackedObject, VisitState> visitedTrackedObjectsWithStates, string visitedTrackedObjectsPrefix)
-					{
-						int index = 0;
-						foreach (var trackedObjectWithState in visitedTrackedObjectsWithStates)
-						{
-							LogTrackedObject(trackedObjectWithState.Key, $"{index++} element in {visitedTrackedObjectsPrefix}", trackedObjectWithState.Value);
-						}
-					}
 				}
 				return;
 			}
@@ -744,7 +702,49 @@ namespace System.Data.Linq {
             visited[item] = VisitState.After;
         }
 
-        class EdgeMap {
+		private void LogTrackedObject(TrackedObject trackedObject, string trackedObjectPrefix, Exception cycleException, 
+			VisitState? visitState = null)
+		{
+			var stringBuilder = new StringBuilder();
+			var trackedObjectType = trackedObject.GetType();
+			var trackedObjectProperties = trackedObjectType.GetProperties();
+
+			if (visitState.HasValue)
+			{
+				stringBuilder.AppendLine($"Has state: {visitState}");
+			}
+
+			foreach (var property in trackedObjectProperties)
+			{
+				var propertyName = property.Name;
+				var propertyValue = property.GetValue(trackedObject);
+
+				stringBuilder.AppendLine($"TrackedObject.{propertyName} = {propertyValue}");
+			}
+
+			cycleException.Data[trackedObjectPrefix] = stringBuilder.ToString();
+		}
+
+		private void LogTrackedList(List<TrackedObject> trackedList, string trackedListPrefix, Exception cycleException)
+		{
+			for (int index = 0; index < trackedList.Count; index++)
+			{
+				LogTrackedObject(trackedList[index], $"{index} element in {trackedListPrefix}", cycleException);
+			}
+		}
+
+		private void LogTrackedObjectVisitState(Dictionary<TrackedObject, VisitState> visitedTrackedObjectsWithStates, 
+			string visitedTrackedObjectsPrefix, Exception cycleException)
+		{
+			for (int index = 0; index < visitedTrackedObjectsWithStates.Count; index++)
+			{
+				var trackedObjectWithState = visitedTrackedObjectsWithStates.ElementAt(index);
+				LogTrackedObject(trackedObjectWithState.Key, $"{index++} element in {visitedTrackedObjectsPrefix}",
+					cycleException, trackedObjectWithState.Value);
+			}
+		}
+
+		class EdgeMap {
             Dictionary<MetaAssociation, Dictionary<TrackedObject, TrackedObject>> associations;
 
             internal EdgeMap() {
