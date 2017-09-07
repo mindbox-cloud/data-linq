@@ -739,7 +739,7 @@ namespace System.Data.Linq {
 			for (int index = 0; index < visitedTrackedObjectsWithStates.Count; index++)
 			{
 				var trackedObjectWithState = visitedTrackedObjectsWithStates.ElementAt(index);
-				LogTrackedObject(trackedObjectWithState.Key, $"{index++} element in {visitedTrackedObjectsPrefix}",
+				LogTrackedObject(trackedObjectWithState.Key, $"{index} element in {visitedTrackedObjectsPrefix}",
 					cycleException, trackedObjectWithState.Value);
 			}
 		}
