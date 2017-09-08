@@ -731,7 +731,7 @@ namespace System.Data.Linq {
 				.Where(p => p.GetCustomAttribute<ColumnAttribute>()?.IsPrimaryKey ?? false)
 				.Select(p => $"{p.Name} = {p.GetValue(current)}");
 
-			return string.Join(Environment.NewLine, fieldPropertyDataList);
+			return "Current: " + string.Join(Environment.NewLine, fieldPropertyDataList);
 		}
 
 		private string LogFullType(MetaType type)
