@@ -85,6 +85,7 @@
       <SubType>Code</SubType>
     </Compile>
     <Compile Include="TestEntity5.cs" />
+    <Compile Include="TrackedObjectLofFormatterTests.cs" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Mindbox.Data.Linq\Mindbox.Data.Linq.csproj">
