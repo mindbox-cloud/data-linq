@@ -34,6 +34,8 @@ namespace Mindbox.Data.Linq.Tests
 			var exception = new InvalidOperationException("CycleDetected");
 
 			trackedObjectLogFormatter.LogTrackedObject(trackedObject, "TrackedObject", exception);
+
+			// TODO:
 		}
 	}
 }
