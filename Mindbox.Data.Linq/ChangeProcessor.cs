@@ -713,8 +713,8 @@ namespace System.Data.Linq {
 			}
 
 			stringBuilder
-				.AppendLine($"TrackedObject.Type = {LogFullType(trackedObject.Type)}")
-				.AppendLine($"TrackedObject.Current = {LogCurrentProperty(trackedObject.Current)}")
+				.AppendLine($"TrackedObject.Type = {FormatTypeProperties(trackedObject.Type)}")
+				.AppendLine($"TrackedObject.Current = {FormatCurrentPropertiesWithColumnAttribute(trackedObject.Current)}")
 				.AppendLine($"TrackedObject.{nameof(trackedObject.IsInteresting)} = {trackedObject.IsInteresting}")
 				.AppendLine($"TrackedObject.{nameof(trackedObject.IsDeleted)} = {trackedObject.IsDeleted}")
 				.AppendLine($"TrackedObject.{nameof(trackedObject.IsModified)} = {trackedObject.IsModified}")
@@ -724,7 +724,7 @@ namespace System.Data.Linq {
 			cycleException.Data[trackedObjectPrefix] = stringBuilder.ToString();
 		}
 
-		private string LogCurrentProperty(object current)
+		private string FormatCurrentPropertiesWithColumnAttribute(object current)
 		{
 			var currentType = current.GetType();
 			var fieldPropertyDataList = currentType.GetProperties()
@@ -734,7 +734,7 @@ namespace System.Data.Linq {
 			return string.Join(Environment.NewLine, fieldPropertyDataList);
 		}
 
-		private string LogFullType(MetaType type)
+		private string FormatTypeProperties(MetaType type)
 		{
 			var stringBuilder = new StringBuilder();
 			var fieldProperties = type.GetType().GetProperties();
