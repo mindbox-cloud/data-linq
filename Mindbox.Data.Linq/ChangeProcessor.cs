@@ -713,8 +713,8 @@ namespace System.Data.Linq {
 			}
 
 			stringBuilder
-				.AppendLine($"TrackedObject.{LogFullType(trackedObject.Type)}")
-				.AppendLine($"TrackedObject.{LogCurrentProperty(trackedObject.Current)}")
+				.AppendLine($"TrackedObject.Type = {LogFullType(trackedObject.Type)}")
+				.AppendLine($"TrackedObject.Current = {LogCurrentProperty(trackedObject.Current)}")
 				.AppendLine($"TrackedObject.{nameof(trackedObject.IsInteresting)} = {trackedObject.IsInteresting}")
 				.AppendLine($"TrackedObject.{nameof(trackedObject.IsDeleted)} = {trackedObject.IsDeleted}")
 				.AppendLine($"TrackedObject.{nameof(trackedObject.IsModified)} = {trackedObject.IsModified}")
@@ -731,7 +731,7 @@ namespace System.Data.Linq {
 				.Where(p => p.GetCustomAttribute<ColumnAttribute>()?.IsPrimaryKey ?? false)
 				.Select(p => $"{p.Name} = {p.GetValue(current)}");
 
-			return "Current: " + string.Join(Environment.NewLine, fieldPropertyDataList);
+			return string.Join(Environment.NewLine, fieldPropertyDataList);
 		}
 
 		private string LogFullType(MetaType type)
