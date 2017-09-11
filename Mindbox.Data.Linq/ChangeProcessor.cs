@@ -6,7 +6,8 @@ using System.Text;
 using System.Diagnostics;
 
 namespace System.Data.Linq {
-    using System.Data.Linq.Mapping;
+	using System.Data.Linq.Logging;
+	using System.Data.Linq.Mapping;
     using System.Data.Linq.Provider;
 
     /// <summary>
@@ -566,7 +567,7 @@ namespace System.Data.Linq {
             }
         }
 
-        enum VisitState {
+        internal enum VisitState {
             Before,
             After
         }
@@ -648,9 +649,11 @@ namespace System.Data.Linq {
 				{
 					var cycleException = Error.CycleDetected();
 
-					LogTrackedObject(item, "CurrentTrackedObject", cycleException);
-					LogTrackedList(list, "TrackedList", cycleException);
-					LogTrackedObjectVisitState(visited, "VisitedObjectAndStates", cycleException);
+					var logFormatter = new TrackedObjectLogFormatter();
+
+					logFormatter.LogTrackedObject(item, "CurrentTrackedObject", cycleException);
+					logFormatter.LogTrackedList(list, "TrackedList", cycleException);
+					logFormatter.LogTrackedObjectVisitState(visited, "VisitedObjectAndStates", cycleException);
 
 					throw cycleException;
 				}
@@ -701,73 +704,6 @@ namespace System.Data.Linq {
 
             visited[item] = VisitState.After;
         }
-
-		private void LogTrackedObject(TrackedObject trackedObject, string trackedObjectPrefix, Exception cycleException, 
-			VisitState? visitState = null)
-		{
-			var stringBuilder = new StringBuilder();
-
-			if (visitState.HasValue)
-			{
-				stringBuilder.AppendLine($"Has state: {visitState}");
-			}
-
-			stringBuilder
-				.AppendLine($"TrackedObject.Type = {FormatTypeProperties(trackedObject.Type)}")
-				.AppendLine($"TrackedObject.Current = {FormatCurrentPropertiesWithColumnAttribute(trackedObject.Current)}")
-				.AppendLine($"TrackedObject.{nameof(trackedObject.IsInteresting)} = {trackedObject.IsInteresting}")
-				.AppendLine($"TrackedObject.{nameof(trackedObject.IsDeleted)} = {trackedObject.IsDeleted}")
-				.AppendLine($"TrackedObject.{nameof(trackedObject.IsModified)} = {trackedObject.IsModified}")
-				.AppendLine($"TrackedObject.{nameof(trackedObject.IsDead)} = {trackedObject.IsDead}")
-				.AppendLine($"TrackedObject.{nameof(trackedObject.IsWeaklyTracked)} = {trackedObject.IsWeaklyTracked}");
-
-			cycleException.Data[trackedObjectPrefix] = stringBuilder.ToString();
-		}
-
-		private string FormatCurrentPropertiesWithColumnAttribute(object current)
-		{
-			var currentType = current.GetType();
-			var fieldPropertyDataList = currentType.GetProperties()
-				.Where(p => p.GetCustomAttribute<ColumnAttribute>()?.IsPrimaryKey ?? false)
-				.Select(p => $"{p.Name} = {p.GetValue(current)}");
-
-			return string.Join(Environment.NewLine, fieldPropertyDataList);
-		}
-
-		private string FormatTypeProperties(MetaType type)
-		{
-			var stringBuilder = new StringBuilder();
-			var fieldProperties = type.GetType().GetProperties();
-
-			foreach (var property in fieldProperties)
-			{
-				var propertyName = property.Name;
-				var propertyValue = property.GetValue(type);
-
-				stringBuilder.AppendLine($"Type.{propertyName} = {propertyValue}");
-			}
-
-			return stringBuilder.ToString();
-		}
-
-		private void LogTrackedList(List<TrackedObject> trackedList, string trackedListPrefix, Exception cycleException)
-		{
-			for (int index = 0; index < trackedList.Count; index++)
-			{
-				LogTrackedObject(trackedList[index], $"{index} element in {trackedListPrefix}", cycleException);
-			}
-		}
-
-		private void LogTrackedObjectVisitState(Dictionary<TrackedObject, VisitState> visitedTrackedObjectsWithStates, 
-			string visitedTrackedObjectsPrefix, Exception cycleException)
-		{
-			for (int index = 0; index < visitedTrackedObjectsWithStates.Count; index++)
-			{
-				var trackedObjectWithState = visitedTrackedObjectsWithStates.ElementAt(index);
-				LogTrackedObject(trackedObjectWithState.Key, $"{index} element in {visitedTrackedObjectsPrefix}",
-					cycleException, trackedObjectWithState.Value);
-			}
-		}
 
 		class EdgeMap {
             Dictionary<MetaAssociation, Dictionary<TrackedObject, TrackedObject>> associations;
