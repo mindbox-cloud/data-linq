@@ -161,10 +161,6 @@ namespace System.Data.Linq.Mapping
 		{
 			get
 			{
-				if (inheritanceRoot == this)
-				{
-					return this;
-				}
 				return inheritanceRoot;
 			}
 		}
