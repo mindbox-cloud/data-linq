@@ -138,13 +138,7 @@ namespace System.Data.Linq.Mapping
 
 		public override bool HasInheritance 
 		{
-			get
-			{
-				if (inheritanceRoot == this)
-					return false;
-
-				return inheritanceRoot.HasInheritance;
-			}
+			get { return inheritanceRoot.HasInheritance; }
 		}
 
 		public override bool HasInheritanceCode 
@@ -187,14 +181,7 @@ namespace System.Data.Linq.Mapping
 
 		public override MetaType InheritanceDefault 
 		{
-			get
-			{
-				if(InheritanceRoot == this)
-				{
-					return this;
-				}
-				return InheritanceRoot.InheritanceDefault;
-			}
+			get { return InheritanceRoot.InheritanceDefault; }
 		}
 
 		public override bool IsInheritanceDefault 
@@ -204,14 +191,7 @@ namespace System.Data.Linq.Mapping
 
 		public override ReadOnlyCollection<MetaType> InheritanceTypes 
 		{
-			get
-			{
-				if (inheritanceRoot == this)
-				{
-					return new ReadOnlyCollection<MetaType>(new List<MetaType>());
-				}
-				return inheritanceRoot.InheritanceTypes;
-			}
+			get { return inheritanceRoot.InheritanceTypes; }
 		}
 
 		public override ReadOnlyCollection<MetaType> DerivedTypes 
