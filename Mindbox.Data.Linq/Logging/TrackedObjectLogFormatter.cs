@@ -21,7 +21,7 @@ namespace System.Data.Linq.Logging
 			}
 
 			stringBuilder
-				.AppendLine($"TrackedObject.Type:{Environment.NewLine}{FormatTypeProperties(trackedObject.Type)}")
+				.AppendLine($"TrackedObject.MetaType.Name = {trackedObject.Type.Name}")
 				.AppendLine($"TrackedObject.Current:{Environment.NewLine}{FormatCurrentPropertiesWithColumnAttribute(trackedObject.Current)}")
 				.AppendLine($"TrackedObject.{nameof(trackedObject.IsInteresting)} = {trackedObject.IsInteresting}")
 				.AppendLine($"TrackedObject.{nameof(trackedObject.IsDeleted)} = {trackedObject.IsDeleted}")
@@ -40,22 +40,6 @@ namespace System.Data.Linq.Logging
 				.Select(p => $"{p.Name} = {p.GetValue(current)}");
 
 			return string.Join(Environment.NewLine, fieldPropertyDataList);
-		}
-
-		public string FormatTypeProperties(MetaType type)
-		{
-			var stringBuilder = new StringBuilder();
-			var fieldProperties = type.GetType().GetProperties();
-
-			foreach (var property in fieldProperties)
-			{
-				var propertyName = property.Name;
-				var propertyValue = property.GetValue(type);
-
-				stringBuilder.AppendLine($"Type.{propertyName} = {propertyValue}");
-			}
-
-			return stringBuilder.ToString();
 		}
 
 		public void LogTrackedList(List<TrackedObject> trackedList, string trackedListPrefix, Exception cycleException)
