@@ -21,7 +21,7 @@ namespace System.Data.Linq.Logging
 			}
 
 			stringBuilder
-				.AppendLine($"TrackedObject.MetaType.Name = {trackedObject.Type.Name}")
+				.AppendLine($"TrackedObject.Current.Name = {trackedObject.Current.GetType().Name}")
 				.AppendLine($"TrackedObject.Current:{Environment.NewLine}{FormatCurrentPropertiesWithColumnAttribute(trackedObject.Current)}")
 				.AppendLine($"TrackedObject.{nameof(trackedObject.IsInteresting)} = {trackedObject.IsInteresting}")
 				.AppendLine($"TrackedObject.{nameof(trackedObject.IsDeleted)} = {trackedObject.IsDeleted}")
