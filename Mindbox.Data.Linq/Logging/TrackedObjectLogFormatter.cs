@@ -30,16 +30,16 @@ namespace System.Data.Linq.Logging
 				.AppendLine($"TrackedObject.{nameof(trackedObject.IsWeaklyTracked)} = {trackedObject.IsWeaklyTracked}");
 
 			cycleException.Data[trackedObjectPrefix] = stringBuilder.ToString();
-		}
 
-		public string FormatCurrentPropertiesWithColumnAttribute(object current)
-		{
-			var currentType = current.GetType();
-			var fieldPropertyDataList = currentType.GetProperties()
-				.Where(p => p.GetCustomAttribute<ColumnAttribute>()?.IsPrimaryKey ?? false)
-				.Select(p => $"{p.Name} = {p.GetValue(current)}");
+			string FormatCurrentPropertiesWithColumnAttribute(object current)
+			{
+				var currentType = current.GetType();
+				var fieldPropertyDataList = currentType.GetProperties()
+					.Where(p => p.GetCustomAttribute<ColumnAttribute>()?.IsPrimaryKey ?? false)
+					.Select(p => $"{p.Name} = {p.GetValue(current)}");
 
-			return string.Join(Environment.NewLine, fieldPropertyDataList);
+				return string.Join(Environment.NewLine, fieldPropertyDataList);
+			}
 		}
 
 		public void LogTrackedList(List<TrackedObject> trackedList, string trackedListPrefix, Exception cycleException)
