@@ -6,7 +6,8 @@ using System.Text;
 using System.Diagnostics;
 
 namespace System.Data.Linq {
-    using System.Data.Linq.Mapping;
+	using System.Data.Linq.Logging;
+	using System.Data.Linq.Mapping;
     using System.Data.Linq.Provider;
 
     /// <summary>
@@ -566,7 +567,7 @@ namespace System.Data.Linq {
             }
         }
 
-        enum VisitState {
+        internal enum VisitState {
             Before,
             After
         }
@@ -642,15 +643,24 @@ namespace System.Data.Linq {
         }
 
         private void BuildDependencyOrderedList(TrackedObject item, List<TrackedObject> list, Dictionary<TrackedObject, VisitState> visited) {
-            VisitState state;
-            if (visited.TryGetValue(item, out state)) {
-                if (state == VisitState.Before) {
-                    throw Error.CycleDetected();
-                }
-                return;
-            }
+			if (visited.TryGetValue(item, out VisitState state))
+			{
+				if (state == VisitState.Before)
+				{
+					var cycleException = Error.CycleDetected();
 
-            visited[item] = VisitState.Before;
+					var logFormatter = new TrackedObjectLogFormatter();
+
+					logFormatter.LogTrackedObject(item, "CurrentTrackedObject", cycleException);
+					logFormatter.LogTrackedList(list, "List<TrackedObject>", cycleException);
+					logFormatter.LogTrackedObjectVisitState(visited, "Dictionary<TrackedObject, VisitState> visited", cycleException);
+
+					throw cycleException;
+				}
+				return;
+			}
+
+			visited[item] = VisitState.Before;
 
             if (item.IsInteresting) {
                 if (item.IsDeleted) {
@@ -695,7 +705,7 @@ namespace System.Data.Linq {
             visited[item] = VisitState.After;
         }
 
-        class EdgeMap {
+		class EdgeMap {
             Dictionary<MetaAssociation, Dictionary<TrackedObject, TrackedObject>> associations;
 
             internal EdgeMap() {

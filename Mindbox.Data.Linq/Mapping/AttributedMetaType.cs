@@ -153,7 +153,10 @@ namespace System.Data.Linq.Mapping
 
 		public override MetaType InheritanceRoot 
 		{
-			get { return inheritanceRoot; }
+			get
+			{
+				return inheritanceRoot;
+			}
 		}
 
 		public override MetaType InheritanceBase 

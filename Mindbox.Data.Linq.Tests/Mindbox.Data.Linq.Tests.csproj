@@ -35,6 +35,12 @@
     <WarningLevel>4</WarningLevel>
   </PropertyGroup>
   <ItemGroup>
+    <Reference Include="Castle.Core, Version=4.1.1.0, Culture=neutral, PublicKeyToken=407dd0808d44fbdc, processorArchitecture=MSIL">
+      <HintPath>..\packages\Castle.Core.4.1.1\lib\net45\Castle.Core.dll</HintPath>
+    </Reference>
+    <Reference Include="Moq, Version=4.7.99.0, Culture=neutral, PublicKeyToken=69f491c39445e920, processorArchitecture=MSIL">
+      <HintPath>..\packages\Moq.4.7.99\lib\net45\Moq.dll</HintPath>
+    </Reference>
     <Reference Include="System" />
     <Reference Include="System.ComponentModel.DataAnnotations" />
     <Reference Include="System.Data" />
@@ -85,12 +91,16 @@
       <SubType>Code</SubType>
     </Compile>
     <Compile Include="TestEntity5.cs" />
+    <Compile Include="TrackedObjectLofFormatterTests.cs" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Mindbox.Data.Linq\Mindbox.Data.Linq.csproj">
       <Project>{47ee70c4-ff67-4810-9ac6-d72a61aba852}</Project>
       <Name>Mindbox.Data.Linq</Name>
     </ProjectReference>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="packages.config" />
   </ItemGroup>
   <Choose>
     <When Condition="'$(VisualStudioVersion)' == '10.0' And '$(IsCodedUITest)' == 'True'">

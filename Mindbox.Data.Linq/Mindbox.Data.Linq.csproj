@@ -72,6 +72,7 @@
     <Compile Include="ITable`1.cs" />
     <Compile Include="ItemList.cs" />
     <Compile Include="Link.cs" />
+    <Compile Include="Logging\TrackedObjectLogFormatter.cs" />
     <Compile Include="Mapping\EntitySetDefSourceAccessor.cs" />
     <Compile Include="Mapping\AssociationAttribute.cs" />
     <Compile Include="Mapping\AttributedMetaAssociation.cs" />

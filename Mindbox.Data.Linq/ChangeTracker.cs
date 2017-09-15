@@ -47,7 +47,7 @@ namespace System.Data.Linq
             }
         }
 
-        class StandardChangeTracker : ChangeTracker {
+        internal class StandardChangeTracker : ChangeTracker {
             Dictionary<object, StandardTrackedObject> items;
             PropertyChangingEventHandler onPropertyChanging;
             CommonDataServices services;
@@ -206,7 +206,7 @@ namespace System.Data.Linq
                 }
             }
 
-            class StandardTrackedObject : TrackedObject {
+            internal class StandardTrackedObject : TrackedObject {
                 private StandardChangeTracker tracker;
                 private MetaType type;
                 private object current;
