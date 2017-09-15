@@ -13,7 +13,7 @@ namespace System.Data.Linq.Logging
 		public void LogTrackedObject(TrackedObject trackedObject, string trackedObjectPrefix, Exception cycleException,
 			VisitState? visitState = null)
 		{
-			var stringBuilder = new StringBuilder();
+			var stringBuilder = new StringBuilder().AppendLine("");
 
 			if (visitState.HasValue)
 			{
@@ -21,7 +21,7 @@ namespace System.Data.Linq.Logging
 			}
 
 			stringBuilder
-				.AppendLine($"TrackedObject.Current.Name = {trackedObject.Current.GetType().Name}")
+				.AppendLine($"TrackedObject.Current.TypeName = {trackedObject.Current.GetType().Name}")
 				.AppendLine($"TrackedObject.Current:{Environment.NewLine}{FormatCurrentPropertiesWithColumnAttribute(trackedObject.Current)}")
 				.AppendLine($"TrackedObject.{nameof(trackedObject.IsInteresting)} = {trackedObject.IsInteresting}")
 				.AppendLine($"TrackedObject.{nameof(trackedObject.IsDeleted)} = {trackedObject.IsDeleted}")
@@ -36,9 +36,9 @@ namespace System.Data.Linq.Logging
 				var currentType = current.GetType();
 				var fieldPropertyDataList = currentType.GetProperties()
 					.Where(p => p.GetCustomAttribute<ColumnAttribute>()?.IsPrimaryKey ?? false)
-					.Select(p => $"{p.Name} = {p.GetValue(current)}");
+					.Select(p => $"Current.{p.Name} = {p.GetValue(current)}");
 
-				return string.Join(Environment.NewLine, fieldPropertyDataList);
+				return string.Join($"{Environment.NewLine}", fieldPropertyDataList);
 			}
 		}
 

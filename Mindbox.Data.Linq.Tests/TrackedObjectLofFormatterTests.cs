@@ -22,7 +22,7 @@ namespace Mindbox.Data.Linq.Tests
 		public void TrackedObject_ЛоггируетсяСНеобходимымиСвойствами()
 		{
 			var exception = new InvalidOperationException("CycleDetected");
-			var expected = "TrackedObject.Current.Name = TestEntity1\r\nTrackedObject.Current:\r\nId = 0\r\nTrackedObject.IsInteresting = False\r\nTrackedObject.IsDeleted = False\r\nTrackedObject.IsModified = False\r\nTrackedObject.IsDead = False\r\nTrackedObject.IsWeaklyTracked = False\r\n";
+			var expected = "\r\nTrackedObject.Current.TypeName = TestEntity1\r\nTrackedObject.Current:\r\nCurrent.Id = 0\r\nTrackedObject.IsInteresting = False\r\nTrackedObject.IsDeleted = False\r\nTrackedObject.IsModified = False\r\nTrackedObject.IsDead = False\r\nTrackedObject.IsWeaklyTracked = False\r\n";
 
 			var trackedObjectMock = new Mock<TrackedObject>(MockBehavior.Strict);
 			trackedObjectMock.Setup(tom => tom.Current).Returns(new TestEntity1());
@@ -45,7 +45,7 @@ namespace Mindbox.Data.Linq.Tests
 		public void ListTrackedObject_Логгируется()
 		{
 			var cycleException = new InvalidOperationException("CycleDetected");
-			var expected = "TrackedObject.MetaType.Name = MetaTypeName\r\nTrackedObject.Current:\r\nId = 0\r\nTrackedObject.IsInteresting = False\r\nTrackedObject.IsDeleted = False\r\nTrackedObject.IsModified = False\r\nTrackedObject.IsDead = False\r\nTrackedObject.IsWeaklyTracked = False\r\n";
+			var expected = "\r\nTrackedObject.Current.TypeName = TestEntity1\r\nTrackedObject.Current:\r\nCurrent.Id = 0\r\nTrackedObject.IsInteresting = False\r\nTrackedObject.IsDeleted = False\r\nTrackedObject.IsModified = False\r\nTrackedObject.IsDead = False\r\nTrackedObject.IsWeaklyTracked = False\r\n";
 
 			var trackedList = new List<TrackedObject>();
 			for (int i = 0; i < 10; i++)
@@ -77,7 +77,7 @@ namespace Mindbox.Data.Linq.Tests
 		public void DisctionaryTrackedObjectState_Логгируется()
 		{
 			var cycleException = new InvalidOperationException("CycleDetected");
-			var expected = "Has state: After\r\nTrackedObject.MetaType.Name = MetaTypeName\r\nTrackedObject.Current:\r\nId = 0\r\nTrackedObject.IsInteresting = False\r\nTrackedObject.IsDeleted = False\r\nTrackedObject.IsModified = False\r\nTrackedObject.IsDead = False\r\nTrackedObject.IsWeaklyTracked = False\r\n";
+			var expected = "\r\nHas state: After\r\nTrackedObject.Current.TypeName = TestEntity1\r\nTrackedObject.Current:\r\nCurrent.Id = 0\r\nTrackedObject.IsInteresting = False\r\nTrackedObject.IsDeleted = False\r\nTrackedObject.IsModified = False\r\nTrackedObject.IsDead = False\r\nTrackedObject.IsWeaklyTracked = False\r\n";
 
 			var trackedList = new Dictionary<TrackedObject, VisitState>();
 			for (int i = 0; i < 10; i++)

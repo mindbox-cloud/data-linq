@@ -652,8 +652,8 @@ namespace System.Data.Linq {
 					var logFormatter = new TrackedObjectLogFormatter();
 
 					logFormatter.LogTrackedObject(item, "CurrentTrackedObject", cycleException);
-					logFormatter.LogTrackedList(list, "TrackedList", cycleException);
-					logFormatter.LogTrackedObjectVisitState(visited, "VisitedObjectAndStates", cycleException);
+					logFormatter.LogTrackedList(list, "List<TrackedObject>", cycleException);
+					logFormatter.LogTrackedObjectVisitState(visited, "Dictionary<TrackedObject, VisitState> visited", cycleException);
 
 					throw cycleException;
 				}
