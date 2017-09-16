@@ -1873,10 +1873,7 @@ namespace System.Data.Linq.SqlClient {
 
         [SuppressMessage("Microsoft.Maintainability", "CA1502:AvoidExcessiveComplexity", Justification = "These issues are related to our use of if-then and case statements for node types, which adds to the complexity count however when reviewed they are easy to navigate and understand.")]
         private SqlNode VisitMethodCall(MethodCallExpression mc) {
-	        if (this.IsMappedFunctionCall(mc))
-		        return this.VisitMappedFunctionCall(mc);
-
-			Type declType = mc.Method.DeclaringType;
+	        Type declType = mc.Method.DeclaringType;
             if (mc.Method.IsStatic) {
                 if (this.IsSequenceOperatorCall(mc)) {
                     return this.VisitSequenceOperatorCall(mc);
@@ -1934,8 +1931,11 @@ namespace System.Data.Linq.SqlClient {
                 return this.VisitContains(mc.Object, mc.Arguments[0]);
             }
 
-            // default: create sql method call node instead
-            SqlExpression obj = VisitExpression(mc.Object);
+	        if (this.IsMappedFunctionCall(mc))
+		        return this.VisitMappedFunctionCall(mc);
+
+			// default: create sql method call node instead
+			SqlExpression obj = VisitExpression(mc.Object);
             SqlExpression[] args = new SqlExpression[mc.Arguments.Count];
             for (int i = 0, n = args.Length; i < n; i++) {
                 args[i] = VisitExpression(mc.Arguments[i]);
