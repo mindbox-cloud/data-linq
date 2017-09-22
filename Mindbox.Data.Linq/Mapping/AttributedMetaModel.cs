@@ -162,14 +162,10 @@ namespace System.Data.Linq.Mapping
 				return null;
 			}
 
-			table = metaTables.GetOrAdd(root, type =>
-			{
-				var aTable = new AttributedMetaTable(this, attrs.First(), root);
-				foreach (var inheritanceType in aTable.RowType.InheritanceTypes)
-					metaTables.TryAdd(inheritanceType.Type, aTable);
+			table = metaTables.GetOrAdd(root, type => new AttributedMetaTable(this, attrs.First(), root));
 
-				return aTable;
-			});
+			foreach (var inheritanceType in table.RowType.InheritanceTypes)
+				metaTables.TryAdd(inheritanceType.Type, table);
 
 			// catch case of derived type that is not part of inheritance
 			if (table.RowType.GetInheritanceType(rowType) == null)
