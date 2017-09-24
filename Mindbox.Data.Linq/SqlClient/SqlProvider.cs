@@ -1079,7 +1079,7 @@ namespace System.Data.Linq.SqlClient {
                 query = lambda.Body;
             }
             MethodCallExpression mc = query as MethodCallExpression;
-            if (mc != null && typeof(DataContext).IsAssignableFrom(mc.Method.DeclaringType)) {
+            if (mc != null) {
                 return this.services.Model.GetFunction(mc.Method);
             }
             return null;

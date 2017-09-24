@@ -6,3 +6,4 @@ obj
 packages
 _ReSharper.Caches/*
 .vs/*
+TestResults

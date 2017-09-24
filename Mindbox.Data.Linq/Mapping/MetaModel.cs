@@ -68,12 +68,6 @@ namespace System.Data.Linq.Mapping
         public abstract IEnumerable<MetaTable> GetTables();
 
         /// <summary>
-        /// Get an enumeration of all functions.
-        /// </summary>
-        /// <returns>An enumeration of all the MetaFunctions</returns>
-        public abstract IEnumerable<MetaFunction> GetFunctions();
-
-        /// <summary>
         /// This method discovers the MetaType for the given Type.
         /// </summary>
         public abstract MetaType GetMetaType(Type type);

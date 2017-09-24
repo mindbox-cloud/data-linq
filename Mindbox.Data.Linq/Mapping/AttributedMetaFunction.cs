@@ -80,9 +80,7 @@ namespace System.Data.Linq.Mapping
 		/// otherwise create a new meta type.
 		/// </summary>
 		private MetaType GetMetaType(Type type) {
-			// call no-lock version of GetTable since this function is called only in constructor
-			// and constructor is only called by function that already has a lock.
-			MetaTable tbl = model.GetTableNoLocks(type);
+			MetaTable tbl = model.GetTable(type);
 			if (tbl != null) {
 				return tbl.RowType.GetInheritanceType(type);
 			} 

@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Reflection;
@@ -32,27 +33,24 @@ namespace System.Data.Linq.Mapping
 			return Attribute.GetCustomAttribute(method, typeof(FunctionAttribute), false) != null;
 		}
 
-
-		private readonly ReaderWriterLock metaModelLock = new ReaderWriterLock();
+		private readonly object initializeStaticTablesLock = new object();
 		private readonly MappingSource mappingSource;
 		private readonly Type contextType;
 		private readonly Type providerType;
-		private readonly Dictionary<Type, MetaType> metaTypes;
-		private readonly Dictionary<Type, MetaTable> metaTables;
+		private readonly ConcurrentDictionary<Type, MetaType> metaTypes;
+		private readonly ConcurrentDictionary<Type, MetaTable> metaTables;
 		private ReadOnlyCollection<MetaTable> staticTables;
-		private readonly Dictionary<MetaPosition, MetaFunction> metaFunctions;
+		private readonly ConcurrentDictionary<MetaPosition, MetaFunction> metaFunctions;
 		private readonly string dbName;
 		private bool areStaticTablesInitialized;
-		private bool areFunctionsInitialized;
-
 
         internal AttributedMetaModel(MappingSource mappingSource, Type contextType) 
 		{
             this.mappingSource = mappingSource;
             this.contextType = contextType;
-            metaTypes = new Dictionary<Type, MetaType>();
-            metaTables = new Dictionary<Type, MetaTable>();
-            metaFunctions = new Dictionary<MetaPosition, MetaFunction>();
+            metaTypes = new ConcurrentDictionary<Type, MetaType>();
+            metaTables = new ConcurrentDictionary<Type, MetaTable>();
+            metaFunctions = new ConcurrentDictionary<MetaPosition, MetaFunction>();
 
             // Provider type
             var attrs = (ProviderAttribute[])this.contextType.GetCustomAttributes(typeof(ProviderAttribute), true);
@@ -92,15 +90,7 @@ namespace System.Data.Linq.Mapping
 	        if (staticTables.Count > 0)
 		        return staticTables;
 
-	        metaModelLock.AcquireReaderLock(Timeout.Infinite);
-	        try 
-			{
-		        return metaTables.Values.Where(metaTable => metaTable != null).Distinct();
-	        }
-	        finally 
-			{
-		        metaModelLock.ReleaseReaderLock();
-	        }
+			return metaTables.Values.Where(metaTable => metaTable != null).Distinct();
 		}
 
         public override MetaTable GetTable(Type rowType) 
@@ -108,30 +98,7 @@ namespace System.Data.Linq.Mapping
 	        if (rowType == null)
 		        throw Error.ArgumentNull("rowType");
 
-	        var nonProxyRowType = UnproxyType(rowType);
-
-	        MetaTable table;
-            metaModelLock.AcquireReaderLock(Timeout.Infinite);
-            try 
-			{
-				if (metaTables.TryGetValue(nonProxyRowType, out table))
-					return table;
-			}
-            finally 
-			{
-                metaModelLock.ReleaseReaderLock();
-            }
-
-            metaModelLock.AcquireWriterLock(Timeout.Infinite);
-            try 
-			{
-                table = GetTableNoLocks(nonProxyRowType);
-            }
-            finally 
-			{
-                metaModelLock.ReleaseWriterLock();
-            }
-            return table;
+	       return GetTableCore(UnproxyType(rowType));
         }
 
         public override MetaType GetMetaType(Type type) 
@@ -142,59 +109,46 @@ namespace System.Data.Linq.Mapping
 	        var nonProxyType = UnproxyType(type);
 
 	        MetaType mtype;
-            metaModelLock.AcquireReaderLock(Timeout.Infinite);
-            try 
-			{
-				if (metaTypes.TryGetValue(nonProxyType, out mtype))
-					return mtype;
-			}
-            finally 
-			{
-                metaModelLock.ReleaseReaderLock();
-            }
+			if (metaTypes.TryGetValue(nonProxyType, out mtype))
+				return mtype;
 
-            // Attributed meta model allows us to learn about tables we did not
-            // statically know about
-            var tab = GetTable(nonProxyType);
+			// Attributed meta model allows us to learn about tables we did not
+			// statically know about
+			var tab = GetTable(nonProxyType);
 	        if (tab != null)
 		        return tab.RowType.GetInheritanceType(nonProxyType);
 
-	        InitFunctions();
-            metaModelLock.AcquireWriterLock(Timeout.Infinite);
-            try 
-			{
-                if (!metaTypes.TryGetValue(nonProxyType, out mtype)) 
-				{
-                    mtype = new UnmappedType(this, nonProxyType);
-                    metaTypes.Add(nonProxyType, mtype);
-                }
-            }
-            finally 
-			{
-                metaModelLock.ReleaseWriterLock();
-            }
-            return mtype;
+			return metaTypes.GetOrAdd(nonProxyType, innerType => new UnmappedType(this, nonProxyType));
         }
 
-        public override MetaFunction GetFunction(MethodInfo method) 
+		public override MetaFunction GetFunction(MethodInfo method) 
 		{
 	        if (method == null)
 		        throw Error.ArgumentNull("method");
 
-	        InitFunctions();
-            MetaFunction function;
-            metaFunctions.TryGetValue(new MetaPosition(method), out function);
+			var key = new MetaPosition(method);
+
+			var function = metaFunctions.GetOrAdd(key, mp =>
+			{
+				if (IsUserFunction(method))
+				{
+					// Added this constraint because XML mapping model didn't support 
+					// mapping sprocs to generic method.
+					// The attribute mapping model was, however, able to support it. This check is for parity between 
+					// the two models.
+					if (method.IsGenericMethodDefinition)
+						throw Error.InvalidUseOfGenericMethodAsMappedFunction(method.Name);
+
+					return new AttributedMetaFunction(this, method);
+				}
+
+				return null;
+			});
+
             return function;
         }
 
-        public override IEnumerable<MetaFunction> GetFunctions() 
-		{
-            InitFunctions();
-            return metaFunctions.Values.ToList().AsReadOnly();
-        }
-
-
-		internal MetaTable GetTableNoLocks(Type rowType)
+		private MetaTable GetTableCore(Type rowType)
 		{
 			MetaTable table;
 			if (metaTables.TryGetValue(rowType, out table))
@@ -204,21 +158,19 @@ namespace System.Data.Linq.Mapping
 			var attrs = GetTableAttributes(root, true);
 			if (!attrs.Any())
 			{
-				metaTables.Add(rowType, null);
+				metaTables.TryAdd(rowType, null);
 				return null;
 			}
 
-			if (!metaTables.TryGetValue(root, out table))
-			{
-				table = new AttributedMetaTable(this, attrs.First(), root);
-				foreach (var inheritanceType in table.RowType.InheritanceTypes)
-					metaTables.Add(inheritanceType.Type, table);
-			}
+			table = metaTables.GetOrAdd(root, type => new AttributedMetaTable(this, attrs.First(), root));
+
+			foreach (var inheritanceType in table.RowType.InheritanceTypes)
+				metaTables.TryAdd(inheritanceType.Type, table);
 
 			// catch case of derived type that is not part of inheritance
 			if (table.RowType.GetInheritanceType(rowType) == null)
 			{
-				metaTables.Add(rowType, null);
+				metaTables.TryAdd(rowType, null);
 				return null;
 			}
 
@@ -277,102 +229,51 @@ namespace System.Data.Linq.Mapping
 			return false;
 		}
 
-
 		private void InitStaticTables()
 		{
 			if (areStaticTablesInitialized)
 				return;
 
-			metaModelLock.AcquireWriterLock(Timeout.Infinite);
-			try
+			lock (initializeStaticTablesLock)
 			{
-				if (areStaticTablesInitialized)
-					return;
-
-				var tables = new HashSet<MetaTable>();
-				for (var type = contextType; type != typeof(DataContext); type = type.BaseType)
-				{
-					var fields = type.GetFields(
-						BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.DeclaredOnly);
-					foreach (var field in fields)
-					{
-						var fieldType = field.FieldType;
-						if (fieldType.IsGenericType && fieldType.GetGenericTypeDefinition() == typeof(Table<>))
-						{
-							var rowType = fieldType.GetGenericArguments()[0];
-							tables.Add(GetTableNoLocks(rowType));
-						}
-					}
-					var properties = type.GetProperties(
-						BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.DeclaredOnly);
-					foreach (var property in properties)
-					{
-						var propertyType = property.PropertyType;
-						if (propertyType.IsGenericType && propertyType.GetGenericTypeDefinition() == typeof(Table<>))
-						{
-							var rowType = propertyType.GetGenericArguments()[0];
-							tables.Add(GetTableNoLocks(rowType));
-						}
-					}
-				}
-				staticTables = new List<MetaTable>(tables).AsReadOnly();
-				areStaticTablesInitialized = true;
-			}
-			finally
-			{
-				metaModelLock.ReleaseWriterLock();
+				InitializeStaticTablesCore();
 			}
 		}
 
-		private void InitFunctions()
+		private void InitializeStaticTablesCore()
 		{
-			if (areFunctionsInitialized)
+			if (areStaticTablesInitialized)
 				return;
 
-			metaModelLock.AcquireWriterLock(Timeout.Infinite);
-			try
+			var tables = new HashSet<MetaTable>();
+			for (var type = contextType; type != typeof(DataContext); type = type.BaseType)
 			{
-				if (areFunctionsInitialized)
-					return;
-
-				if (contextType != typeof(DataContext))
+				var fields = type.GetFields(
+					BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.DeclaredOnly);
+				foreach (var field in fields)
 				{
-					for (var type = contextType; type != typeof(DataContext); type = type.BaseType)
+					var fieldType = field.FieldType;
+					if (fieldType.IsGenericType && fieldType.GetGenericTypeDefinition() == typeof(Table<>))
 					{
-						foreach (var method in type.GetMethods(
-							BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.DeclaredOnly))
-						{
-							if (IsUserFunction(method))
-							{
-								// Added this constraint because XML mapping model didn't support 
-								// mapping sprocs to generic method.
-								// The attribute mapping model was, however, able to support it. This check is for parity between 
-								// the two models.
-								if (method.IsGenericMethodDefinition)
-									throw Error.InvalidUseOfGenericMethodAsMappedFunction(method.Name);
-
-								var metaPosition = new MetaPosition(method);
-								if (!metaFunctions.ContainsKey(metaPosition))
-								{
-									var metaFunction = new AttributedMetaFunction(this, method);
-									metaFunctions.Add(metaPosition, metaFunction);
-
-									// pre-set all known function result types into metaType map
-									foreach (var resultRowType in metaFunction.ResultRowTypes)
-										foreach (var inheritanceType in resultRowType.InheritanceTypes)
-											if (!metaTypes.ContainsKey(inheritanceType.Type))
-												metaTypes.Add(inheritanceType.Type, inheritanceType);
-								}
-							}
-						}
+						var rowType = fieldType.GetGenericArguments()[0];
+						tables.Add(GetTable(rowType));
 					}
 				}
-				areFunctionsInitialized = true;
+				var properties = type.GetProperties(
+					BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.DeclaredOnly);
+				foreach (var property in properties)
+				{
+					var propertyType = property.PropertyType;
+					if (propertyType.IsGenericType && propertyType.GetGenericTypeDefinition() == typeof(Table<>))
+					{
+						var rowType = propertyType.GetGenericArguments()[0];
+						tables.Add(GetTable(rowType));
+					}
+				}
 			}
-			finally
-			{
-				metaModelLock.ReleaseWriterLock();
-			}
+
+			staticTables = new List<MetaTable>(tables).AsReadOnly();
+			areStaticTablesInitialized = true;
 		}
 
 		private Type GetRoot(Type derivedType)
