@@ -1,4 +1,5 @@
-﻿using System.Data.Linq;
+﻿using System;
+using System.Data.Linq;
 using System.Linq;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
@@ -18,9 +19,9 @@ namespace Mindbox.Data.Linq.Tests.SqlGeneration
 					using (var command = context.GetCommand(query))
 					{
 						Assert.AreEqual(
-@"SELECT [t0].[Discriminator], [t0].[Id], [t0].[X]
-FROM [TestEntity1] AS [t0]
-WHERE [t0].[Id] > @p0", 
+"SELECT [t0].[Discriminator], [t0].[Id], [t0].[X]" + Environment.NewLine +
+"FROM [TestEntity1] AS [t0]" + Environment.NewLine +
+"WHERE [t0].[Id] > @p0", 
 							command.CommandText);
 					}
 				}
@@ -38,9 +39,9 @@ WHERE [t0].[Id] > @p0",
 					using (var command = context.GetCommand(query))
 					{
 						Assert.AreEqual(
-@"SELECT [t0].[Discriminator], [t0].[Id], [t0].[X]
-FROM [TestEntity1] AS [t0]
-ORDER BY NEWID()",
+"SELECT [t0].[Discriminator], [t0].[Id], [t0].[X]" + Environment.NewLine +
+"FROM [TestEntity1] AS [t0]" + Environment.NewLine +
+"ORDER BY NEWID()",
 							command.CommandText);
 					}
 				}
@@ -58,9 +59,9 @@ ORDER BY NEWID()",
 					using (var command = context.GetCommand(query))
 					{
 						Assert.AreEqual(
-							@"SELECT [t0].[Discriminator], [t0].[Id], [t0].[X]
-FROM [TestEntity1] AS [t0]
-ORDER BY NEWID()",
+"SELECT [t0].[Discriminator], [t0].[Id], [t0].[X]" + Environment.NewLine +
+"FROM [TestEntity1] AS [t0]" + Environment.NewLine +
+"ORDER BY NEWID()",
 							command.CommandText);
 					}
 				}
