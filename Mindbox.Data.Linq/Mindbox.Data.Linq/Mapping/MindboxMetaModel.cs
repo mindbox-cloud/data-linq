@@ -160,5 +160,7 @@ namespace Mindbox.Data.Linq.Mapping
 			var property = member as PropertyInfo;
 			return (property != null) && property.GetMethod.IsVirtual && !property.GetMethod.IsFinal;
 		}
+
+		public static bool DatabaseIsMigrated = false;
 	}
 }
