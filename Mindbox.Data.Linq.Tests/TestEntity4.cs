@@ -18,14 +18,14 @@ namespace Mindbox.Data.Linq.Tests
 			new PropertyChangingEventArgs(string.Empty);
 
 	
-		private int id;
+		private long id;
 		private string userName;
 		private string passwordHash;
 		private string email;
 		private string staffTypeSystemName;
 		private bool isBlocked;
 
-		private int creatorId;
+		private long creatorId;
 		private DateTime creationDateTimeUtc;
 		private string firstName;
 		private string lastName;
@@ -50,8 +50,9 @@ namespace Mindbox.Data.Linq.Tests
 			AutoSync = AutoSync.OnInsert, 
 			IsPrimaryKey = true, 
 			IsDbGenerated = true,
-			DbType = "int identity not null")]
-		public int Id
+			DbType = "int identity not null",
+			DbTypeAfterDatabaseMigration = "bigint identity not null")]
+		public long Id
 		{
 			get
 			{
@@ -194,8 +195,12 @@ namespace Mindbox.Data.Linq.Tests
 			}
 		}
 
-		[Column(Storage = "creatorId", CanBeNull = false, DbType = "int not null")]
-		public int CreatorId
+		[Column(
+			Storage = "creatorId", 
+			CanBeNull = false, 
+			DbType = "int not null",
+			DbTypeAfterDatabaseMigration = "bigint not null")]
+		public long CreatorId
 		{
 			get
 			{

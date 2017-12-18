@@ -1,6 +1,7 @@
 using System.Data.Linq.SqlClient;
 using System.Reflection;
 using System.Runtime.CompilerServices;
+using Mindbox.Data.Linq.Mapping;
 using Mindbox.Data.Linq.Proxy;
 
 namespace System.Data.Linq.Mapping
@@ -270,7 +271,13 @@ namespace System.Data.Linq.Mapping
 
 		public override string DbType
 		{
-			get { return columnAttribute == null ? null : columnAttribute.DbType; }
+			get
+			{
+				return columnAttribute == null ? null :
+					MindboxMetaModel.DatabaseIsMigrated 
+					? columnAttribute.DbTypeAfterDatabaseMigration
+					: columnAttribute.DbType;
+			}
 		}
 
 		public override string Expression

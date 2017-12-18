@@ -18,13 +18,17 @@ namespace Mindbox.Data.Linq.Tests
 			new PropertyChangingEventArgs(string.Empty);
 
 
-		private int staffId;
+		private long staffId;
 		private EntityRef<TestEntity4> staff;
 		private string permissionSystemName;
 
 
-		[Column(Storage = "staffId", IsPrimaryKey = true)]
-		public int StaffId
+		[Column(
+			Storage = "staffId", 
+			IsPrimaryKey = true,
+			DbType = "int not null",
+			DbTypeAfterDatabaseMigration = "bigint not null")]
+		public long StaffId
 		{
 			get
 			{
@@ -75,7 +79,7 @@ namespace Mindbox.Data.Linq.Tests
 					}
 					else
 					{
-						staffId = default(int);
+						staffId = default(long);
 					}
 
 					SendPropertyChanged();

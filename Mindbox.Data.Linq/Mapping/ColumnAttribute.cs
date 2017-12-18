@@ -14,6 +14,7 @@
 
 
 		public string DbType { get; set; }
+		public string DbTypeAfterDatabaseMigration { get; set; }
 		public string Expression { get; set; }
 		public bool IsPrimaryKey { get; set; }
 		public bool IsDbGenerated { get; set; }
