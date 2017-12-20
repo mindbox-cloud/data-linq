@@ -14,6 +14,7 @@ using System.Runtime.CompilerServices;
 using System.Runtime.Versioning;
 using System.Threading;
 using System.Data.Linq.SqlClient.Implementation;
+using System.Data.SqlClient;
 using System.Diagnostics.CodeAnalysis;
 using Mindbox.Data.Linq.Proxy;
 using Mindbox.Expressions;
@@ -2921,22 +2922,6 @@ namespace System.Data.Linq.SqlClient
 			{
 				try
 				{
-					LogObjectReaderCompilerReaderCore(dataContext);
-				}
-				catch (ThreadAbortException)
-				{
-					throw;
-				}
-				catch (Exception)
-				{
-					// This means that it's temporary code, and we don't want it to affect production at all
-				}
-			}
-
-			private void LogObjectReaderCompilerReaderCore(DataContext dataContext)
-			{
-				try
-				{
 					LogForBufferReader(dataContext);
 					LogForDataReader(dataContext);
 					LogForContext(dataContext);
@@ -2982,10 +2967,14 @@ namespace System.Data.Linq.SqlClient
 			private void LogForReader(DataContext dataContext, DbDataReader reader)
 			{
 				dataContext.LogObjectReaderCompilerEntry($"Reader type: {reader.GetType().FullName}");
+				dataContext.LogObjectReaderCompilerEntry($"IsClosed: {reader.IsClosed}");
+
+				if (reader.IsClosed)
+					return;
+
 				dataContext.LogObjectReaderCompilerEntry($"Depth: {reader.Depth}");
 				dataContext.LogObjectReaderCompilerEntry($"FieldCount: {reader.FieldCount}");
 				dataContext.LogObjectReaderCompilerEntry($"HasRows: {reader.HasRows}");
-				dataContext.LogObjectReaderCompilerEntry($"IsClosed: {reader.IsClosed}");
 			}
 
 			private void LogForContext(DataContext dataContext)
