@@ -2993,24 +2993,24 @@ namespace System.Data.Linq.SqlClient
 
 			// This method is called from within this class's constructor (through a call to Buffer()) so it is sealed to prevent
 			// derived classes from overriding it. See FxCop rule CA2214 for more information on why this is necessary.
-			public override sealed bool Read() 
+			public override sealed bool Read()
 			{
-	            if (isFinished)
-		            return false;
+				if (isFinished)
+					return false;
 
 				var dataContext = services.Context;
 				if (dataContext.IsObjectReaderCompilerLoggingEnabled)
 					LogObjectReaderCompilerReader(dataContext);
 
 				hasCurrentRow = BufferReader == null ? DataReader.Read() : BufferReader.Read();
-	            if (!hasCurrentRow) 
+				if (!hasCurrentRow)
 				{
-                    isFinished = true;
-                    session.Finish(this);
-                }
-                hasRead = true;
-                return hasCurrentRow;
-            }
+					isFinished = true;
+					session.Finish(this);
+				}
+				hasRead = true;
+				return hasCurrentRow;
+			}
 
 			public override object InsertLookup(int iMetaType, object instance)
 			{
