@@ -14,6 +14,7 @@ using System.Runtime.CompilerServices;
 using System.Runtime.Versioning;
 using System.Threading;
 using System.Data.Linq.SqlClient.Implementation;
+using System.Data.SqlClient;
 using System.Diagnostics.CodeAnalysis;
 using Mindbox.Data.Linq.Proxy;
 using Mindbox.Expressions;
@@ -2917,22 +2918,99 @@ namespace System.Data.Linq.SqlClient
 				get { return BufferReader != null; }
 			}
 
-
-            // This method is called from within this class's constructor (through a call to Buffer()) so it is sealed to prevent
-            // derived classes from overriding it. See FxCop rule CA2214 for more information on why this is necessary.
-            public override sealed bool Read() 
+			private void LogObjectReaderCompilerReader(DataContext dataContext)
 			{
-	            if (isFinished)
-		            return false;
-	            hasCurrentRow = BufferReader == null ? DataReader.Read() : BufferReader.Read();
-	            if (!hasCurrentRow) 
+				try
 				{
-                    isFinished = true;
-                    session.Finish(this);
-                }
-                hasRead = true;
-                return hasCurrentRow;
-            }
+					LogForBufferReader(dataContext);
+					LogForDataReader(dataContext);
+					LogForContext(dataContext);
+				}
+				catch (ThreadAbortException)
+				{
+					throw;
+				}
+				catch (Exception e)
+				{
+					dataContext.LogObjectReaderCompilerEntry(
+						$"Unhandeled exception during logging: {e.Message}\r\n{e.StackTrace}");
+				}
+				
+			}
+
+			private void LogForBufferReader(DataContext dataContext)
+			{
+				dataContext.LogObjectReaderCompilerEntry($"Log for BufferReader");
+
+				if (BufferReader == null)
+				{
+					dataContext.LogObjectReaderCompilerEntry($"BufferReader is null, nothing to log");
+					return;
+				}
+
+				LogForReader(dataContext, BufferReader);
+			}
+
+			private void LogForDataReader(DataContext dataContext)
+			{
+				dataContext.LogObjectReaderCompilerEntry($"Log for DataReader");
+
+				if (DataReader == null)
+				{
+					dataContext.LogObjectReaderCompilerEntry($"DataReader is null, nothing to log");
+					return;
+				}
+
+				LogForReader(dataContext, DataReader);
+			}
+
+			private void LogForReader(DataContext dataContext, DbDataReader reader)
+			{
+				dataContext.LogObjectReaderCompilerEntry($"Reader type: {reader.GetType().FullName}");
+				dataContext.LogObjectReaderCompilerEntry($"IsClosed: {reader.IsClosed}");
+
+				if (reader.IsClosed)
+					return;
+
+				dataContext.LogObjectReaderCompilerEntry($"Depth: {reader.Depth}");
+				dataContext.LogObjectReaderCompilerEntry($"FieldCount: {reader.FieldCount}");
+				dataContext.LogObjectReaderCompilerEntry($"HasRows: {reader.HasRows}");
+			}
+
+			private void LogForContext(DataContext dataContext)
+			{
+				dataContext.LogObjectReaderCompilerEntry($"Log for Context");
+
+				if (dataContext.Connection == null)
+				{
+					dataContext.LogObjectReaderCompilerEntry($"No connection available");
+					return;
+				}
+
+				dataContext.LogObjectReaderCompilerEntry($"Connection string: {dataContext.Connection.ConnectionString}");
+				dataContext.LogObjectReaderCompilerEntry($"State: {dataContext.Connection.State.ToString("G")}");
+			}
+
+			// This method is called from within this class's constructor (through a call to Buffer()) so it is sealed to prevent
+			// derived classes from overriding it. See FxCop rule CA2214 for more information on why this is necessary.
+			public override sealed bool Read()
+			{
+				if (isFinished)
+					return false;
+
+				var dataContext = services.Context;
+				if (dataContext.IsObjectReaderCompilerLoggingEnabled)
+					LogObjectReaderCompilerReader(dataContext);
+
+				hasCurrentRow = BufferReader == null ? DataReader.Read() : BufferReader.Read();
+				if (!hasCurrentRow)
+				{
+					isFinished = true;
+					session.Finish(this);
+				}
+				hasRead = true;
+				return hasCurrentRow;
+			}
 
 			public override object InsertLookup(int iMetaType, object instance)
 			{
