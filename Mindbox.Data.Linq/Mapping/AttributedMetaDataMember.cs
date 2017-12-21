@@ -113,7 +113,8 @@ namespace System.Data.Linq.Mapping
 		private readonly object metaDataMemberLock = new object(); // Hold locks on private object rather than public MetaType.
 		private bool hasLoadMethod;
 		private MethodInfo loadMethod;
-        
+		private bool databaseIsMigrated;
+
 
 		internal AttributedMetaDataMember(AttributedMetaType metaType, MemberInfo member, int ordinal) 
 		{
@@ -125,6 +126,7 @@ namespace System.Data.Linq.Mapping
 			isNullableType = TypeSystem.IsNullableType(type);
 			columnAttribute = ((AttributedMetaModel)metaType.Model).TryGetColumnAttribute(member);
 			associationAttribute = ((AttributedMetaModel)metaType.Model).TryGetAssociationAttribute(member);
+			databaseIsMigrated = (metaType.Model as MindboxMetaModel)?.DatabaseIsMigrated ?? false;
 			var attr = (columnAttribute == null) ? associationAttribute : (DataAttribute)columnAttribute;
 			if (attr != null && attr.Storage != null) 
 			{
@@ -269,21 +271,13 @@ namespace System.Data.Linq.Mapping
 			}
 		}
 
-		public override string DbType
-		{
-			get
-			{
-				return columnAttribute == null ? null :
-					MindboxMetaModel.DatabaseIsMigrated 
-					? columnAttribute.DbTypeAfterDatabaseMigration
-					: columnAttribute.DbType;
-			}
-		}
+		public override string DbType => columnAttribute == null 
+			? null 
+			: databaseIsMigrated 
+				? columnAttribute.DbTypeAfterDatabaseMigration ?? columnAttribute.DbType
+				: columnAttribute.DbType;
 
-		public override string Expression
-		{
-			get { return columnAttribute == null ? null : columnAttribute.Expression; }
-		}
+		public override string Expression => columnAttribute?.Expression;
 
 		public override string MappedName
 		{

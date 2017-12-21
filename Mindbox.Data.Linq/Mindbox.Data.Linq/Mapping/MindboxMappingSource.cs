@@ -8,7 +8,7 @@ namespace Mindbox.Data.Linq.Mapping
 	/// </summary>
 	public class MindboxMappingSource : AttributeMappingSource 
 	{
-		public MindboxMappingSource(MindboxMappingConfiguration configuration)
+		public MindboxMappingSource(MindboxMappingConfiguration configuration, bool isDatabaseMigrated)
 		{
 			if (configuration == null)
 				throw new ArgumentNullException("configuration");
@@ -16,10 +16,12 @@ namespace Mindbox.Data.Linq.Mapping
 			if (!configuration.IsFrozen)
 				configuration.Freeze();
 			Configuration = configuration;
+			IsDatabaseMigrated = isDatabaseMigrated;
 		}
 
 
 		internal MindboxMappingConfiguration Configuration { get; private set; }
+		public bool IsDatabaseMigrated { get; }
 
 
 		protected override MetaModel CreateModel(Type dataContextType)
