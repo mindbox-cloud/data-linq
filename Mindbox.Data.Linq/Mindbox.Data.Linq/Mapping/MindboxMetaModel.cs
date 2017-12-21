@@ -15,9 +15,10 @@ namespace Mindbox.Data.Linq.Mapping
 		private static readonly ProxyGenerator proxyGenerator = new ProxyGenerator();
 
 
-        internal MindboxMetaModel(MappingSource mappingSource, Type contextType) 
+        internal MindboxMetaModel(MindboxMappingSource mappingSource, Type contextType) 
 			: base(mappingSource, contextType)
-		{
+        {
+	        DatabaseIsMigrated = mappingSource.IsDatabaseMigrated;
         }
 
 
@@ -54,7 +55,7 @@ namespace Mindbox.Data.Linq.Mapping
 		internal override ColumnAttribute TryGetColumnAttribute(MemberInfo member)
 		{
 			if (member == null)
-				throw new ArgumentNullException("member");
+				throw new ArgumentNullException(nameof(member));
 
 			var baseAttribute = base.TryGetColumnAttribute(member);
 
@@ -72,7 +73,7 @@ namespace Mindbox.Data.Linq.Mapping
 		internal override AssociationAttribute TryGetAssociationAttribute(MemberInfo member)
 		{
 			if (member == null)
-				throw new ArgumentNullException("member");
+				throw new ArgumentNullException(nameof(member));
 
 			var baseAttribute = base.TryGetAssociationAttribute(member);
 
@@ -96,7 +97,7 @@ namespace Mindbox.Data.Linq.Mapping
 		internal override bool ShouldEntityProxyBeCreated(Type entityType)
 		{
 			if (entityType == null)
-				throw new ArgumentNullException("entityType");
+				throw new ArgumentNullException(nameof(entityType));
 
 			var entityMetaType = GetMetaType(entityType) as AttributedMetaType;
 			return (entityMetaType != null) && entityMetaType.DoesRequireProxy;
@@ -108,9 +109,9 @@ namespace Mindbox.Data.Linq.Mapping
 			AssociationAttribute associationAttribute)
 		{
 			if (member == null)
-				throw new ArgumentNullException("member");
+				throw new ArgumentNullException(nameof(member));
 			if (storageType == null)
-				throw new ArgumentNullException("storageType");
+				throw new ArgumentNullException(nameof(storageType));
 
 			return !base.IsDeferredMember(member, storageType, associationAttribute) && 
 				IsProxyDeferredMember(member, associationAttribute);
@@ -119,7 +120,7 @@ namespace Mindbox.Data.Linq.Mapping
 		internal override object CreateEntityProxy(Type entityType)
 		{
 			if (entityType == null)
-				throw new ArgumentNullException("entityType");
+				throw new ArgumentNullException(nameof(entityType));
 
 			var proxy = proxyGenerator.CreateClassProxy(
 				entityType,
@@ -140,7 +141,7 @@ namespace Mindbox.Data.Linq.Mapping
 		internal override Type UnproxyType(Type type)
 		{
 			if (type == null)
-				throw new ArgumentNullException("type");
+				throw new ArgumentNullException(nameof(type));
 
 			var currentType = type;
 			while (typeof(IEntityProxy).IsAssignableFrom(currentType) && (currentType.BaseType != null))
@@ -152,7 +153,7 @@ namespace Mindbox.Data.Linq.Mapping
 		private bool IsProxyDeferredMember(MemberInfo member, AssociationAttribute associationAttribute)
 		{
 			if (member == null)
-				throw new ArgumentNullException("member");
+				throw new ArgumentNullException(nameof(member));
 
 			if ((associationAttribute == null) || !associationAttribute.IsForeignKey)
 				return false;
@@ -161,6 +162,6 @@ namespace Mindbox.Data.Linq.Mapping
 			return (property != null) && property.GetMethod.IsVirtual && !property.GetMethod.IsFinal;
 		}
 
-		public static bool DatabaseIsMigrated = false;
+		public bool DatabaseIsMigrated { get; }
 	}
 }

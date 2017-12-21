@@ -15,7 +15,7 @@ namespace Mindbox.Data.Linq.Tests
 		[TestMethod]
 		public void AttributeInheritanceWorks()
 		{
-			var mappingSource = new MindboxMappingSource(new MindboxMappingConfiguration());
+			var mappingSource = new MindboxMappingSource(new MindboxMappingConfiguration(), false);
 			var metaTable = mappingSource.GetModel(typeof(DataContext)).GetTable(typeof(TestEntity1));
 
 			Assert.IsTrue(metaTable.RowType.IsInheritanceDefault);
@@ -27,7 +27,7 @@ namespace Mindbox.Data.Linq.Tests
 		{
 			var configuration = new MindboxMappingConfiguration();
 			configuration.AddInheritance<TestEntity1, TestEntity3>("3");
-			var mappingSource = new MindboxMappingSource(configuration);
+			var mappingSource = new MindboxMappingSource(configuration, false);
 			var metaTable = mappingSource.GetModel(typeof(DataContext)).GetTable(typeof(TestEntity1));
 
 			Assert.IsTrue(metaTable.RowType.IsInheritanceDefault);

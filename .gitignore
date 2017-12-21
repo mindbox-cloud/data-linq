@@ -7,3 +7,4 @@ packages
 _ReSharper.Caches/*
 .vs/*
 TestResults
+.idea/*
