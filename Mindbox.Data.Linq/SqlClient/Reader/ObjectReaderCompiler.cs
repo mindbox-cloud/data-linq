@@ -2937,7 +2937,7 @@ namespace System.Data.Linq.SqlClient
 				}
 				
 			}
-
+			
 			private void LogForBufferReader(DataContext dataContext)
 			{
 				dataContext.LogObjectReaderCompilerEntry($"Log for BufferReader");
@@ -3003,6 +3003,7 @@ namespace System.Data.Linq.SqlClient
 					LogObjectReaderCompilerReader(dataContext);
 
 				hasCurrentRow = BufferReader == null ? DataReader.Read() : BufferReader.Read();
+				dataContext.LogObjectReaderCompilerEntry($"hasCurrentRow: {hasCurrentRow}");
 				if (!hasCurrentRow)
 				{
 					isFinished = true;
@@ -3157,19 +3158,33 @@ namespace System.Data.Linq.SqlClient
                 }
             }
 
-            public bool MoveNext() {
-                if (this.Read()) {
-                    this.current = this.fnMaterialize(this);
-                    return true;
-                }
-                else {
-                    this.current = default(TObject);
-                    this.Dispose();
-                    return false;
-                }
-            }
+	        public bool MoveNext()
+	        {
+		        var dataContext = session.Provider.Services.Context;
 
-            public TObject Current {
+		        var readResult = this.Read();
+
+				if (dataContext.IsObjectReaderCompilerLoggingEnabled)
+				  dataContext.LogObjectReaderCompilerEntry($"readResult: {readResult}");
+
+		        if (readResult)
+		        {
+			        this.current = this.fnMaterialize(this);
+
+					if (dataContext.IsObjectReaderCompilerLoggingEnabled)
+						dataContext.LogObjectReaderCompilerEntry($"Successfull read. Current: {this.current}");
+
+					return true;
+		        }
+		        else
+		        {
+			        this.current = default(TObject);
+			        this.Dispose();
+			        return false;
+		        }
+	        }
+
+	        public TObject Current {
                 get { return this.current; }
             }
 
