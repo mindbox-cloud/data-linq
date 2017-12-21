@@ -2880,7 +2880,7 @@ namespace System.Data.Linq.SqlClient
 		{
             protected readonly ObjectReaderSession<TDataReader> session;
 
-
+			private bool hasReadAtLeastOneTime;
             private bool hasRead;
 			private bool hasCurrentRow;
 			private bool isFinished;
@@ -3002,13 +3002,23 @@ namespace System.Data.Linq.SqlClient
 				if (dataContext.IsObjectReaderCompilerLoggingEnabled)
 					LogObjectReaderCompilerReader(dataContext);
 
+				var hasRows = !DataReader.IsClosed && DataReader.HasRows;
+
 				hasCurrentRow = BufferReader == null ? DataReader.Read() : BufferReader.Read();
-				dataContext.LogObjectReaderCompilerEntry($"hasCurrentRow: {hasCurrentRow}");
+				if (dataContext.IsObjectReaderCompilerLoggingEnabled)
+					dataContext.LogObjectReaderCompilerEntry($"hasCurrentRow: {hasCurrentRow}");
+
 				if (!hasCurrentRow)
 				{
+					if (BufferReader == null && !hasReadAtLeastOneTime && hasRows)
+						throw new ReaderRowsPresenceMismatchException(
+							"Reader told that it has rows, but it didn't read anything");
+
 					isFinished = true;
 					session.Finish(this);
 				}
+
+				hasReadAtLeastOneTime = true;
 				hasRead = true;
 				return hasCurrentRow;
 			}
