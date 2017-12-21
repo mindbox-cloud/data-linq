@@ -328,8 +328,9 @@ namespace System.Data.Linq
 			}
 		}
 
+		public bool ShouldThrowReaderRowsPresenceMismatchException { get; set; }
 
-        public void Dispose() 
+		public void Dispose() 
 		{            
             this.disposed = true;
             Dispose(true);
