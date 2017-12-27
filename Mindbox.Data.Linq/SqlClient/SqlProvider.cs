@@ -1064,8 +1064,18 @@ namespace System.Data.Linq.SqlClient {
             catch (Exception ex)
             {
                 ex.Data[CommandTextKey] = queryInfo.CommandText;
-                ex.Data[CommandParametersKey]
-                    = string.Join(", ", queryInfo.Parameters.Select(p => $"{p.Parameter.Name}={p.Value}"));
+	            ex.Data[CommandParametersKey]
+		            = string.Join(
+			            ", ",
+			            queryInfo.Parameters
+				            .Select(p =>
+				            {
+					            var parameterValue = p.Value == null ? "NULL" : p.Value.ToString();
+					            var netTypeString = p.Value == null ? "NULL" : p.Value.GetType().FullName;
+
+					            return $"{p.Parameter.Name}=\"{parameterValue}\" (SqlType: {p.Type}, NetType: {netTypeString})";
+				            }));
+								
                 throw;
             }
             finally {
