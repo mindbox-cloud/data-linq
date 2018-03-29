@@ -25,7 +25,7 @@ namespace Mindbox.Data.Linq.Tests
 			var expected = "\r\nTrackedObject.Current.TypeName = TestEntity1\r\nTrackedObject.Current:\r\nCurrent.Id = 0\r\nTrackedObject.IsInteresting = False\r\nTrackedObject.IsDeleted = False\r\nTrackedObject.IsModified = False\r\nTrackedObject.IsDead = False\r\nTrackedObject.IsWeaklyTracked = False\r\n";
 
 			var trackedObjectMock = new Mock<TrackedObject>(MockBehavior.Strict);
-			trackedObjectMock.Setup(tom => tom.Current).Returns(new TestEntity1());
+			trackedObjectMock.Setup(tom => tom.Current).Returns(new RootEntityWithInheritanceMapping());
 			trackedObjectMock.Setup(tom => tom.IsInteresting).Returns(false);
 			trackedObjectMock.Setup(tom => tom.IsDeleted).Returns(false);
 			trackedObjectMock.Setup(tom => tom.IsModified).Returns(false);
@@ -51,7 +51,7 @@ namespace Mindbox.Data.Linq.Tests
 			for (int i = 0; i < 10; i++)
 			{
 				var trackedObjectMock = new Mock<TrackedObject>(MockBehavior.Strict);
-				trackedObjectMock.Setup(tom => tom.Current).Returns(new TestEntity1());
+				trackedObjectMock.Setup(tom => tom.Current).Returns(new RootEntityWithInheritanceMapping());
 				trackedObjectMock.Setup(tom => tom.IsInteresting).Returns(false);
 				trackedObjectMock.Setup(tom => tom.IsDeleted).Returns(false);
 				trackedObjectMock.Setup(tom => tom.IsModified).Returns(false);
@@ -87,7 +87,7 @@ namespace Mindbox.Data.Linq.Tests
 
 				var trackedObjectMock = new Mock<TrackedObject>();
 				trackedObjectMock.Setup(tom => tom.Type).Returns(metaTypeMock.Object);
-				trackedObjectMock.Setup(tom => tom.Current).Returns(new TestEntity1());
+				trackedObjectMock.Setup(tom => tom.Current).Returns(new RootEntityWithInheritanceMapping());
 				trackedObjectMock.Setup(tom => tom.IsInteresting).Returns(false);
 				trackedObjectMock.Setup(tom => tom.IsDeleted).Returns(false);
 				trackedObjectMock.Setup(tom => tom.IsModified).Returns(false);

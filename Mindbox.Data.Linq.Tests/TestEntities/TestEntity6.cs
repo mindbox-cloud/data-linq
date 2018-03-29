@@ -14,13 +14,13 @@ namespace Mindbox.Data.Linq.Tests
 {
 	public class TestEntity6
 	{
-		private readonly EntitySet<TestEntity7> personalPermissions;
+		private readonly EntitySet<EntityWithoutInheritanceMapping> personalPermissions;
 		private TestEntity6 creator;
 
 
 		public TestEntity6()
 		{
-			personalPermissions = new EntitySet<TestEntity7>(AttachPersonalPermission, DetachPersonalPermission);
+			personalPermissions = new EntitySet<EntityWithoutInheritanceMapping>(AttachPersonalPermission, DetachPersonalPermission);
 		}
 
 
@@ -43,7 +43,7 @@ namespace Mindbox.Data.Linq.Tests
 			Storage = "personalPermissions",
 			ThisKey = "Id",
 			OtherKey = "StaffId")]
-		public virtual EntitySet<TestEntity7> PersonalPermissions
+		public virtual EntitySet<EntityWithoutInheritanceMapping> PersonalPermissions
 		{
 			get { return personalPermissions; }
 			set { personalPermissions.Assign(value); }
@@ -60,12 +60,12 @@ namespace Mindbox.Data.Linq.Tests
 		}
 
 
-		private void AttachPersonalPermission(TestEntity7 permission)
+		private void AttachPersonalPermission(EntityWithoutInheritanceMapping permission)
 		{
 			permission.Staff = this;
 		}
 
-		private void DetachPersonalPermission(TestEntity7 permission)
+		private void DetachPersonalPermission(EntityWithoutInheritanceMapping permission)
 		{
 			permission.Staff = null;
 		}

@@ -15,7 +15,7 @@ namespace Mindbox.Data.Linq.Tests.SqlGeneration
 			{
 				using (var context = new DataContext(connection))
 				{
-					var query = context.GetTable<TestEntity1>().Where(t => t.Id > 1);
+					var query = context.GetTable<RootEntityWithInheritanceMapping>().Where(t => t.Id > 1);
 					using (var command = context.GetCommand(query))
 					{
 						Assert.AreEqual(
@@ -35,7 +35,7 @@ namespace Mindbox.Data.Linq.Tests.SqlGeneration
 			{
 				using (var context = new SomeDataContext(connection))
 				{
-					var query = context.GetTable<TestEntity1>().OrderBy(t => context.Random());
+					var query = context.GetTable<RootEntityWithInheritanceMapping>().OrderBy(t => context.Random());
 					using (var command = context.GetCommand(query))
 					{
 						Assert.AreEqual(
@@ -55,7 +55,7 @@ namespace Mindbox.Data.Linq.Tests.SqlGeneration
 			{
 				using (var context = new DataContext(connection))
 				{
-					var query = context.GetTable<TestEntity1>().OrderBy(t => UserDefinedFunctions.Random());
+					var query = context.GetTable<RootEntityWithInheritanceMapping>().OrderBy(t => UserDefinedFunctions.Random());
 					using (var command = context.GetCommand(query))
 					{
 						Assert.AreEqual(

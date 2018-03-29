@@ -5,12 +5,20 @@ using System.Reflection;
 using System.Linq;
 using System.Linq.Expressions;
 using System.Collections;
+using System.Data.Linq.Mapping;
 using System.Data.Linq.SqlClient;
 using System.Diagnostics.CodeAnalysis;
 
 namespace System.Data.Linq {
     sealed public class DataLoadOptions : IEquatable<DataLoadOptions>
     {
+	    private readonly MetaModel _metaModel;
+
+	    public DataLoadOptions(MetaModel metaModel)
+	    {
+		    _metaModel = metaModel;
+	    }
+
         bool frozen;
         Dictionary<MetaPosition, MemberInfo> includes = new Dictionary<MetaPosition, MemberInfo>();
         Dictionary<MetaPosition, LambdaExpression> subqueries = new Dictionary<MetaPosition, LambdaExpression>();
@@ -24,6 +32,12 @@ namespace System.Data.Linq {
             if (expression == null) {
                 throw Error.ArgumentNull("expression");
             }
+
+	        var metaType = _metaModel.GetMetaType(typeof(T));
+			if (metaType.HasInheritance && metaType.InheritanceRoot != metaType)
+				throw new InvalidOperationException($"Type {metaType.Type} is not the root type of the inheritance mapping hierarchy," +
+					$" so it can't be used for automatic loading.");
+
             MemberInfo mi = GetLoadWithMemberInfo(expression);
             this.Preload(mi);
         }
@@ -138,6 +152,7 @@ namespace System.Data.Linq {
             if (this.frozen) {
                 throw Error.IncludeNotAllowedAfterFreeze();
             }
+
             this.includes.Add(new MetaPosition(association), association);
             ValidateTypeGraphAcyclic();
         }

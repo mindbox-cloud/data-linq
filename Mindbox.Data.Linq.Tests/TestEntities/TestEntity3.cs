@@ -7,7 +7,7 @@ using System.Threading.Tasks;
 
 namespace Mindbox.Data.Linq.Tests
 {
-	public class TestEntity3 : TestEntity1
+	public class TestEntity3 : RootEntityWithInheritanceMapping
 	{
 		[Column]
 		public int Y { get; set; }

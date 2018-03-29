@@ -11,7 +11,7 @@ using System.Threading.Tasks;
 namespace Mindbox.Data.Linq.Tests
 {
 	[Table(Name = "administration.StaffPermissions")]
-	public sealed class TestEntity7 : INotifyPropertyChanging, INotifyPropertyChanged
+	public sealed class EntityWithoutInheritanceMapping : INotifyPropertyChanging, INotifyPropertyChanged
 	{
 
 		private static readonly PropertyChangingEventArgs EmptyChangingEventArgs =
