@@ -10,20 +10,15 @@ using System.Data.Linq.SqlClient;
 using System.Diagnostics.CodeAnalysis;
 
 namespace System.Data.Linq {
-    sealed public class DataLoadOptions : IEquatable<DataLoadOptions>
+    public sealed class DataLoadOptions : IEquatable<DataLoadOptions>
     {
-	    private readonly MetaModel _metaModel;
-
-	    public DataLoadOptions(MetaModel metaModel)
-	    {
-		    _metaModel = metaModel;
-	    }
+	    private HashSet<Type> loadWithTypes = new HashSet<Type>();
 
         bool frozen;
         Dictionary<MetaPosition, MemberInfo> includes = new Dictionary<MetaPosition, MemberInfo>();
         Dictionary<MetaPosition, LambdaExpression> subqueries = new Dictionary<MetaPosition, LambdaExpression>();
 
-        /// <summary>
+	    /// <summary>
         /// Describe a property that is automatically loaded when the containing instance is loaded
         /// </summary>
         [SuppressMessage("Microsoft.Design", "CA1006:DoNotNestGenericTypesInMemberSignatures", Justification = "[....]: Generic types are an important part of Linq APIs and they could not exist without nested generic support.")]
@@ -33,16 +28,13 @@ namespace System.Data.Linq {
                 throw Error.ArgumentNull("expression");
             }
 
-	        var metaType = _metaModel.GetMetaType(typeof(T));
-			if (metaType.HasInheritance && metaType.InheritanceRoot != metaType)
-				throw new InvalidOperationException($"Type {metaType.Type} is not the root type of the inheritance mapping hierarchy," +
-					$" so it can't be used for automatic loading.");
+	        loadWithTypes.Add(typeof(T));
 
             MemberInfo mi = GetLoadWithMemberInfo(expression);
             this.Preload(mi);
         }
 
-        /// <summary>
+	    /// <summary>
         /// Describe a property that is automatically loaded when the containing instance is loaded
         /// </summary>
         public void LoadWith(LambdaExpression expression) {
@@ -138,9 +130,26 @@ namespace System.Data.Linq {
         /// Freeze the shape. Any further attempts to modify the shape will result in 
         /// an exception.
         /// </summary>
-        internal void Freeze() {
+        internal void Freeze(MetaModel metaModel)
+        {
+	        if (frozen)
+		        return;
+
             this.frozen = true;
+
+	        ValidateLoadWithTypes(metaModel);
         }
+
+	    private void ValidateLoadWithTypes(MetaModel metaModel)
+	    {
+		    foreach (var loadWithType in loadWithTypes)
+		    {
+			    var metaType = metaModel.GetMetaType(loadWithType);
+			    if (metaType.HasInheritance && metaType.InheritanceRoot != metaType)
+				    throw new InvalidOperationException($"Type {metaType.Type} is not the root type of the inheritance mapping hierarchy," +
+						$" so it can't be used for automatic loading.");
+		    }
+	    }
 
         /// <summary>
         /// Describe a property that is automatically loaded when the containing instance is loaded

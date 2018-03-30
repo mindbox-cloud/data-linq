@@ -25,34 +25,36 @@ namespace Mindbox.Data.Linq.Tests
 		[TestMethod]
 		public void TypeWithoutInheritanceMapping_Success()
 		{
-			var loadOptions = new DataLoadOptions(dataContext.Mapping);
+			var loadOptions = new DataLoadOptions();
 
 			loadOptions.LoadWith<EntityWithoutInheritanceMapping>(e => e.Staff);
 
-			Assert.IsTrue(loadOptions.IsPreloaded(
-				typeof(EntityWithoutInheritanceMapping)
-					.GetProperty(nameof(EntityWithoutInheritanceMapping.Staff))));
+			dataContext.LoadOptions = loadOptions;
+
+			Assert.AreEqual(loadOptions, dataContext.LoadOptions);
 		}
 
 		[TestMethod]
 		public void RootTypeWithInheritanceMapping_Success()
 		{
-			var loadOptions = new DataLoadOptions(dataContext.Mapping);
+			var loadOptions = new DataLoadOptions();
 
 			loadOptions.LoadWith<RootEntityWithInheritanceMapping>(e => e.Creator1);
 
-			Assert.IsTrue(loadOptions.IsPreloaded(
-				typeof(RootEntityWithInheritanceMapping)
-					.GetProperty(nameof(RootEntityWithInheritanceMapping.Creator1))));
+			dataContext.LoadOptions = loadOptions;
+
+			Assert.AreEqual(loadOptions, dataContext.LoadOptions);
 		}
 
 		[TestMethod]
 		public void DescendantEntityWithInheritanceMapping_BaseClassProperty_Exception()
 		{
-			var loadOptions = new DataLoadOptions(dataContext.Mapping);
+			var loadOptions = new DataLoadOptions();
+
+			loadOptions.LoadWith<DescendantEntityWithInheritanceMapping>(e => e.Creator1);
 
 			AssertException.Throws<InvalidOperationException>(
-				() => loadOptions.LoadWith<DescendantEntityWithInheritanceMapping>(e => e.Creator1),
+				() => dataContext.LoadOptions = loadOptions,
 				$"Type {typeof(DescendantEntityWithInheritanceMapping)} is not the root type of the inheritance mapping hierarchy," +
 				$" so it can't be used for automatic loading.");
 		}
@@ -60,12 +62,14 @@ namespace Mindbox.Data.Linq.Tests
 		[TestMethod]
 		public void DescendantEntityWithInheritanceMapping_DescendantClassProperty_Exception()
 		{
-			var loadOptions = new DataLoadOptions(dataContext.Mapping);
+			var loadOptions = new DataLoadOptions();
+
+			loadOptions.LoadWith<DescendantEntityWithInheritanceMapping>(e => e.Creator2);
 
 			AssertException.Throws<InvalidOperationException>(
-				() => loadOptions.LoadWith<DescendantEntityWithInheritanceMapping>(e => e.Creator2),
-				$"Type {typeof(DescendantEntityWithInheritanceMapping)} is not root type in the inheritance mapping hierarchy," +
-				$" so it can't be used for automatic loading.");
+				() => dataContext.LoadOptions = loadOptions,
+				$"Type {typeof(DescendantEntityWithInheritanceMapping)} is not the root type of the inheritance mapping hierarchy," +
+					$" so it can't be used for automatic loading.");
 		}
 	}
 }

@@ -15,12 +15,12 @@ namespace Mindbox.Data.Linq.Tests.SqlGeneration
 			{
 				using (var context = new DataContext(connection))
 				{
-					var query = context.GetTable<RootEntityWithInheritanceMapping>().Where(t => t.Id > 1);
+					var query = context.GetTable<SimpleEntity>().Where(t => t.Id > 1);
 					using (var command = context.GetCommand(query))
 					{
 						Assert.AreEqual(
-"SELECT [t0].[Discriminator], [t0].[Id], [t0].[X]" + Environment.NewLine +
-"FROM [TestEntity1] AS [t0]" + Environment.NewLine +
+"SELECT [t0].[Id], [t0].[Discriminator], [t0].[X]" + Environment.NewLine +
+"FROM [SimpleTable] AS [t0]" + Environment.NewLine +
 "WHERE [t0].[Id] > @p0", 
 							command.CommandText);
 					}
@@ -35,12 +35,12 @@ namespace Mindbox.Data.Linq.Tests.SqlGeneration
 			{
 				using (var context = new SomeDataContext(connection))
 				{
-					var query = context.GetTable<RootEntityWithInheritanceMapping>().OrderBy(t => context.Random());
+					var query = context.GetTable<SimpleEntity>().OrderBy(t => context.Random());
 					using (var command = context.GetCommand(query))
 					{
 						Assert.AreEqual(
-"SELECT [t0].[Discriminator], [t0].[Id], [t0].[X]" + Environment.NewLine +
-"FROM [TestEntity1] AS [t0]" + Environment.NewLine +
+"SELECT [t0].[Id], [t0].[Discriminator], [t0].[X]" + Environment.NewLine +
+"FROM [SimpleTable] AS [t0]" + Environment.NewLine +
 "ORDER BY NEWID()",
 							command.CommandText);
 					}
@@ -55,12 +55,12 @@ namespace Mindbox.Data.Linq.Tests.SqlGeneration
 			{
 				using (var context = new DataContext(connection))
 				{
-					var query = context.GetTable<RootEntityWithInheritanceMapping>().OrderBy(t => UserDefinedFunctions.Random());
+					var query = context.GetTable<SimpleEntity>().OrderBy(t => UserDefinedFunctions.Random());
 					using (var command = context.GetCommand(query))
 					{
 						Assert.AreEqual(
-"SELECT [t0].[Discriminator], [t0].[Id], [t0].[X]" + Environment.NewLine +
-"FROM [TestEntity1] AS [t0]" + Environment.NewLine +
+"SELECT [t0].[Id], [t0].[Discriminator], [t0].[X]" + Environment.NewLine +
+"FROM [SimpleTable] AS [t0]" + Environment.NewLine +
 "ORDER BY NEWID()",
 							command.CommandText);
 					}

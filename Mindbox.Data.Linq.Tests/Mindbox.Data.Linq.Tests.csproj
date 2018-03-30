@@ -76,6 +76,7 @@
       <SubType>Component</SubType>
     </Compile>
     <Compile Include="Stubs\DbParameterStub.cs" />
+    <Compile Include="TestEntities\SimpleEntity.cs" />
     <Compile Include="TestEntities\TestEntity24.cs" />
     <Compile Include="TestEntities\TestEntity23.cs" />
     <Compile Include="TestEntities\TestEntity19.cs" />

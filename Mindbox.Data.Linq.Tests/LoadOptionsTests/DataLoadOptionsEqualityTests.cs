@@ -25,8 +25,8 @@ namespace Mindbox.Data.Linq.Tests
 		[TestMethod]
 		public void DataLoadOptions_EmptyInstances_AreEqual()
 		{
-			var dlo1 = new DataLoadOptions(dataContext.Mapping);
-			var dlo2 = new DataLoadOptions(dataContext.Mapping);
+			var dlo1 = new DataLoadOptions();
+			var dlo2 = new DataLoadOptions();
 
 			Assert.AreEqual(dlo1, dlo2);
 			Assert.AreEqual(dlo1.GetHashCode(), dlo2.GetHashCode());
@@ -35,12 +35,12 @@ namespace Mindbox.Data.Linq.Tests
 		[TestMethod]
 		public void DataLoadOptions_SameLoadWithFields_AreEqual()
 		{
-			var dlo1 = new DataLoadOptions(dataContext.Mapping);
+			var dlo1 = new DataLoadOptions();
 			dlo1.LoadWith<TestEntity25>(e => e.Other1);
 			dlo1.LoadWith<TestEntity25>(e => e.Other2);
 			dlo1.LoadWith<TestEntity26>(e => e.Other1);
 			
-			var dlo2 = new DataLoadOptions(dataContext.Mapping);
+			var dlo2 = new DataLoadOptions();
 			dlo2.LoadWith<TestEntity25>(e => e.Other2);
 			dlo2.LoadWith<TestEntity25>(e => e.Other1);
 			dlo2.LoadWith<TestEntity26>(e => e.Other1);
@@ -52,10 +52,10 @@ namespace Mindbox.Data.Linq.Tests
 		[TestMethod]
 		public void DataLoadOptions_SameAssociateWithFields_AreEqual()
 		{
-			var dlo1 = new DataLoadOptions(dataContext.Mapping);
+			var dlo1 = new DataLoadOptions();
 			dlo1.AssociateWith<TestEntity25>(e => e.Values);
 
-			var dlo2 = new DataLoadOptions(dataContext.Mapping);
+			var dlo2 = new DataLoadOptions();
 			dlo2.AssociateWith<TestEntity25>(e => e.Values);
 
 			Assert.AreEqual(dlo1, dlo2);
@@ -65,10 +65,10 @@ namespace Mindbox.Data.Linq.Tests
 		[TestMethod]
 		public void DataLoadOptions_DifferentLoadWithFields_AreNotEqual()
 		{
-			var dlo1 = new DataLoadOptions(dataContext.Mapping);
+			var dlo1 = new DataLoadOptions();
 			dlo1.LoadWith<TestEntity25>(e => e.Other2);
 
-			var dlo2 = new DataLoadOptions(dataContext.Mapping);
+			var dlo2 = new DataLoadOptions();
 			dlo2.LoadWith<TestEntity25>(e => e.Other1);
 
 			Assert.AreNotEqual(dlo1, dlo2);
@@ -77,10 +77,10 @@ namespace Mindbox.Data.Linq.Tests
 		[TestMethod]
 		public void DataLoadOptions_DifferentAssociateWithFields_AreNotEqual()
 		{
-			var dlo1 = new DataLoadOptions(dataContext.Mapping);
+			var dlo1 = new DataLoadOptions();
 			dlo1.AssociateWith<TestEntity25>(e => e.Values);
 
-			var dlo2 = new DataLoadOptions(dataContext.Mapping);
+			var dlo2 = new DataLoadOptions();
 
 			Assert.AreNotEqual(dlo1, dlo2);
 		}
