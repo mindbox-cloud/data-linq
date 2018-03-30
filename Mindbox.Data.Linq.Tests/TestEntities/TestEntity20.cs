@@ -25,6 +25,8 @@ namespace Mindbox.Data.Linq.Tests
 		private bool isBlocked;
 
 		private int? creatorId;
+		private EntityRef<TestEntity20> creator;
+
 		private DateTime creationDateTimeUtc;
 		private string firstName;
 		private string lastName;
@@ -32,9 +34,6 @@ namespace Mindbox.Data.Linq.Tests
 
 		private Binary rowVersion;
 		private DateTime? accountExpirationDateTimeUtc;
-
-		private EntityRef<TestEntity20> creator;
-
 
 		[Column(
 			Storage = "id", 

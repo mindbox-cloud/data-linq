@@ -5,17 +5,20 @@ using System.Reflection;
 using System.Linq;
 using System.Linq.Expressions;
 using System.Collections;
+using System.Data.Linq.Mapping;
 using System.Data.Linq.SqlClient;
 using System.Diagnostics.CodeAnalysis;
 
 namespace System.Data.Linq {
-    sealed public class DataLoadOptions : IEquatable<DataLoadOptions>
+    public sealed class DataLoadOptions : IEquatable<DataLoadOptions>
     {
+	    private HashSet<Type> typesToLoadWith = new HashSet<Type>();
+
         bool frozen;
         Dictionary<MetaPosition, MemberInfo> includes = new Dictionary<MetaPosition, MemberInfo>();
         Dictionary<MetaPosition, LambdaExpression> subqueries = new Dictionary<MetaPosition, LambdaExpression>();
 
-        /// <summary>
+	    /// <summary>
         /// Describe a property that is automatically loaded when the containing instance is loaded
         /// </summary>
         [SuppressMessage("Microsoft.Design", "CA1006:DoNotNestGenericTypesInMemberSignatures", Justification = "[....]: Generic types are an important part of Linq APIs and they could not exist without nested generic support.")]
@@ -24,11 +27,14 @@ namespace System.Data.Linq {
             if (expression == null) {
                 throw Error.ArgumentNull("expression");
             }
+
+	        typesToLoadWith.Add(typeof(T));
+
             MemberInfo mi = GetLoadWithMemberInfo(expression);
             this.Preload(mi);
         }
 
-        /// <summary>
+	    /// <summary>
         /// Describe a property that is automatically loaded when the containing instance is loaded
         /// </summary>
         public void LoadWith(LambdaExpression expression) {
@@ -124,9 +130,26 @@ namespace System.Data.Linq {
         /// Freeze the shape. Any further attempts to modify the shape will result in 
         /// an exception.
         /// </summary>
-        internal void Freeze() {
+        internal void Freeze(MetaModel metaModel)
+        {
+	        if (frozen)
+		        return;
+
             this.frozen = true;
+
+	        ValidateTypesToLoadWith(metaModel);
         }
+
+	    private void ValidateTypesToLoadWith(MetaModel metaModel)
+	    {
+		    foreach (var typeToLoadWith in typesToLoadWith)
+		    {
+			    var metaType = metaModel.GetMetaType(typeToLoadWith);
+			    if (metaType.HasInheritance && metaType.InheritanceRoot != metaType)
+				    throw new InvalidOperationException($"Type {metaType.Type} is not the root type of the inheritance mapping hierarchy," +
+						$" so it can't be used for automatic loading.");
+		    }
+	    }
 
         /// <summary>
         /// Describe a property that is automatically loaded when the containing instance is loaded
@@ -138,6 +161,7 @@ namespace System.Data.Linq {
             if (this.frozen) {
                 throw Error.IncludeNotAllowedAfterFreeze();
             }
+
             this.includes.Add(new MetaPosition(association), association);
             ValidateTypeGraphAcyclic();
         }

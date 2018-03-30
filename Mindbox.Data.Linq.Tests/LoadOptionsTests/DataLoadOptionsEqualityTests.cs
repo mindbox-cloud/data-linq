@@ -1,12 +1,27 @@
 ﻿using System.Data.Linq;
 using 
 	Microsoft.VisualStudio.TestTools.UnitTesting;
+using Mindbox.Data.Linq.Tests.SqlGeneration;
 
 namespace Mindbox.Data.Linq.Tests
 {
 	[TestClass]
 	public class DataLoadOptionsEqualityTests
 	{
+		private DataContext dataContext;
+
+		[TestInitialize]
+		public void TestInitialize()
+		{
+			dataContext = new SomeDataContext(new DbConnectionStub());
+		}
+
+		[TestCleanup]
+		public void TestCleanup()
+		{
+			dataContext.Dispose();
+		}
+
 		[TestMethod]
 		public void DataLoadOptions_EmptyInstances_AreEqual()
 		{

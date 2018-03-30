@@ -286,7 +286,7 @@ namespace System.Data.Linq
 				if (services.HasCachedObjects && value != loadOptions)
 					throw Error.LoadOptionsChangeNotAllowedAfterQuery();
 				if (value != null)
-					value.Freeze();
+					value.Freeze(Mapping);
 				loadOptions = value;
 			}
 		}

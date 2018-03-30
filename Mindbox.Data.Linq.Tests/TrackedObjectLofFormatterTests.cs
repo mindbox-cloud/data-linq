@@ -22,10 +22,10 @@ namespace Mindbox.Data.Linq.Tests
 		public void TrackedObject_ЛоггируетсяСНеобходимымиСвойствами()
 		{
 			var exception = new InvalidOperationException("CycleDetected");
-			var expected = "\r\nTrackedObject.Current.TypeName = TestEntity1\r\nTrackedObject.Current:\r\nCurrent.Id = 0\r\nTrackedObject.IsInteresting = False\r\nTrackedObject.IsDeleted = False\r\nTrackedObject.IsModified = False\r\nTrackedObject.IsDead = False\r\nTrackedObject.IsWeaklyTracked = False\r\n";
+			var expected = "\r\nTrackedObject.Current.TypeName = RootEntityWithInheritanceMapping\r\nTrackedObject.Current:\r\nCurrent.Id = 0\r\nTrackedObject.IsInteresting = False\r\nTrackedObject.IsDeleted = False\r\nTrackedObject.IsModified = False\r\nTrackedObject.IsDead = False\r\nTrackedObject.IsWeaklyTracked = False\r\n";
 
 			var trackedObjectMock = new Mock<TrackedObject>(MockBehavior.Strict);
-			trackedObjectMock.Setup(tom => tom.Current).Returns(new TestEntity1());
+			trackedObjectMock.Setup(tom => tom.Current).Returns(new RootEntityWithInheritanceMapping());
 			trackedObjectMock.Setup(tom => tom.IsInteresting).Returns(false);
 			trackedObjectMock.Setup(tom => tom.IsDeleted).Returns(false);
 			trackedObjectMock.Setup(tom => tom.IsModified).Returns(false);
@@ -45,13 +45,13 @@ namespace Mindbox.Data.Linq.Tests
 		public void ListTrackedObject_Логгируется()
 		{
 			var cycleException = new InvalidOperationException("CycleDetected");
-			var expected = "\r\nTrackedObject.Current.TypeName = TestEntity1\r\nTrackedObject.Current:\r\nCurrent.Id = 0\r\nTrackedObject.IsInteresting = False\r\nTrackedObject.IsDeleted = False\r\nTrackedObject.IsModified = False\r\nTrackedObject.IsDead = False\r\nTrackedObject.IsWeaklyTracked = False\r\n";
+			var expected = "\r\nTrackedObject.Current.TypeName = RootEntityWithInheritanceMapping\r\nTrackedObject.Current:\r\nCurrent.Id = 0\r\nTrackedObject.IsInteresting = False\r\nTrackedObject.IsDeleted = False\r\nTrackedObject.IsModified = False\r\nTrackedObject.IsDead = False\r\nTrackedObject.IsWeaklyTracked = False\r\n";
 
 			var trackedList = new List<TrackedObject>();
 			for (int i = 0; i < 10; i++)
 			{
 				var trackedObjectMock = new Mock<TrackedObject>(MockBehavior.Strict);
-				trackedObjectMock.Setup(tom => tom.Current).Returns(new TestEntity1());
+				trackedObjectMock.Setup(tom => tom.Current).Returns(new RootEntityWithInheritanceMapping());
 				trackedObjectMock.Setup(tom => tom.IsInteresting).Returns(false);
 				trackedObjectMock.Setup(tom => tom.IsDeleted).Returns(false);
 				trackedObjectMock.Setup(tom => tom.IsModified).Returns(false);
@@ -77,7 +77,7 @@ namespace Mindbox.Data.Linq.Tests
 		public void DisctionaryTrackedObjectState_Логгируется()
 		{
 			var cycleException = new InvalidOperationException("CycleDetected");
-			var expected = "\r\nHas state: After\r\nTrackedObject.Current.TypeName = TestEntity1\r\nTrackedObject.Current:\r\nCurrent.Id = 0\r\nTrackedObject.IsInteresting = False\r\nTrackedObject.IsDeleted = False\r\nTrackedObject.IsModified = False\r\nTrackedObject.IsDead = False\r\nTrackedObject.IsWeaklyTracked = False\r\n";
+			var expected = "\r\nHas state: After\r\nTrackedObject.Current.TypeName = RootEntityWithInheritanceMapping\r\nTrackedObject.Current:\r\nCurrent.Id = 0\r\nTrackedObject.IsInteresting = False\r\nTrackedObject.IsDeleted = False\r\nTrackedObject.IsModified = False\r\nTrackedObject.IsDead = False\r\nTrackedObject.IsWeaklyTracked = False\r\n";
 
 			var trackedList = new Dictionary<TrackedObject, VisitState>();
 			for (int i = 0; i < 10; i++)
@@ -87,7 +87,7 @@ namespace Mindbox.Data.Linq.Tests
 
 				var trackedObjectMock = new Mock<TrackedObject>();
 				trackedObjectMock.Setup(tom => tom.Type).Returns(metaTypeMock.Object);
-				trackedObjectMock.Setup(tom => tom.Current).Returns(new TestEntity1());
+				trackedObjectMock.Setup(tom => tom.Current).Returns(new RootEntityWithInheritanceMapping());
 				trackedObjectMock.Setup(tom => tom.IsInteresting).Returns(false);
 				trackedObjectMock.Setup(tom => tom.IsDeleted).Returns(false);
 				trackedObjectMock.Setup(tom => tom.IsModified).Returns(false);
