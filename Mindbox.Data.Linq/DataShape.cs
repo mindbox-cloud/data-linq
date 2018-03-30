@@ -12,7 +12,7 @@ using System.Diagnostics.CodeAnalysis;
 namespace System.Data.Linq {
     public sealed class DataLoadOptions : IEquatable<DataLoadOptions>
     {
-	    private HashSet<Type> loadWithTypes = new HashSet<Type>();
+	    private HashSet<Type> typesToLoadWith = new HashSet<Type>();
 
         bool frozen;
         Dictionary<MetaPosition, MemberInfo> includes = new Dictionary<MetaPosition, MemberInfo>();
@@ -28,7 +28,7 @@ namespace System.Data.Linq {
                 throw Error.ArgumentNull("expression");
             }
 
-	        loadWithTypes.Add(typeof(T));
+	        typesToLoadWith.Add(typeof(T));
 
             MemberInfo mi = GetLoadWithMemberInfo(expression);
             this.Preload(mi);
@@ -137,14 +137,14 @@ namespace System.Data.Linq {
 
             this.frozen = true;
 
-	        ValidateLoadWithTypes(metaModel);
+	        ValidateTypesToLoadWith(metaModel);
         }
 
-	    private void ValidateLoadWithTypes(MetaModel metaModel)
+	    private void ValidateTypesToLoadWith(MetaModel metaModel)
 	    {
-		    foreach (var loadWithType in loadWithTypes)
+		    foreach (var typeToLoadWith in typesToLoadWith)
 		    {
-			    var metaType = metaModel.GetMetaType(loadWithType);
+			    var metaType = metaModel.GetMetaType(typeToLoadWith);
 			    if (metaType.HasInheritance && metaType.InheritanceRoot != metaType)
 				    throw new InvalidOperationException($"Type {metaType.Type} is not the root type of the inheritance mapping hierarchy," +
 						$" so it can't be used for automatic loading.");
