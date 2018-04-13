@@ -2918,79 +2918,6 @@ namespace System.Data.Linq.SqlClient
 				get { return BufferReader != null; }
 			}
 
-			private void LogObjectReaderCompilerReader(DataContext dataContext)
-			{
-				try
-				{
-					LogForBufferReader(dataContext);
-					LogForDataReader(dataContext);
-					LogForContext(dataContext);
-				}
-				catch (ThreadAbortException)
-				{
-					throw;
-				}
-				catch (Exception e)
-				{
-					dataContext.LogObjectReaderCompilerEntry(
-						$"Unhandeled exception during logging: {e.Message}\r\n{e.StackTrace}");
-				}
-				
-			}
-			
-			private void LogForBufferReader(DataContext dataContext)
-			{
-				dataContext.LogObjectReaderCompilerEntry($"Log for BufferReader");
-
-				if (BufferReader == null)
-				{
-					dataContext.LogObjectReaderCompilerEntry($"BufferReader is null, nothing to log");
-					return;
-				}
-
-				LogForReader(dataContext, BufferReader);
-			}
-
-			private void LogForDataReader(DataContext dataContext)
-			{
-				dataContext.LogObjectReaderCompilerEntry($"Log for DataReader");
-
-				if (DataReader == null)
-				{
-					dataContext.LogObjectReaderCompilerEntry($"DataReader is null, nothing to log");
-					return;
-				}
-
-				LogForReader(dataContext, DataReader);
-			}
-
-			private void LogForReader(DataContext dataContext, DbDataReader reader)
-			{
-				dataContext.LogObjectReaderCompilerEntry($"Reader type: {reader.GetType().FullName}");
-				dataContext.LogObjectReaderCompilerEntry($"IsClosed: {reader.IsClosed}");
-
-				if (reader.IsClosed)
-					return;
-
-				dataContext.LogObjectReaderCompilerEntry($"Depth: {reader.Depth}");
-				dataContext.LogObjectReaderCompilerEntry($"FieldCount: {reader.FieldCount}");
-				dataContext.LogObjectReaderCompilerEntry($"HasRows: {reader.HasRows}");
-			}
-
-			private void LogForContext(DataContext dataContext)
-			{
-				dataContext.LogObjectReaderCompilerEntry($"Log for Context");
-
-				if (dataContext.Connection == null)
-				{
-					dataContext.LogObjectReaderCompilerEntry($"No connection available");
-					return;
-				}
-
-				dataContext.LogObjectReaderCompilerEntry($"Connection string: {dataContext.Connection.ConnectionString}");
-				dataContext.LogObjectReaderCompilerEntry($"State: {dataContext.Connection.State.ToString("G")}");
-			}
-
 			// This method is called from within this class's constructor (through a call to Buffer()) so it is sealed to prevent
 			// derived classes from overriding it. See FxCop rule CA2214 for more information on why this is necessary.
 			public override sealed bool Read()
@@ -2999,14 +2926,10 @@ namespace System.Data.Linq.SqlClient
 					return false;
 
 				var dataContext = services.Context;
-				if (dataContext.IsObjectReaderCompilerLoggingEnabled)
-					LogObjectReaderCompilerReader(dataContext);
 
 				var hasRows = !DataReader.IsClosed && DataReader.HasRows;
 
 				hasCurrentRow = BufferReader == null ? DataReader.Read() : BufferReader.Read();
-				if (dataContext.IsObjectReaderCompilerLoggingEnabled)
-					dataContext.LogObjectReaderCompilerEntry($"hasCurrentRow: {hasCurrentRow}");
 
 				if (!hasCurrentRow)
 				{
@@ -3177,15 +3100,9 @@ namespace System.Data.Linq.SqlClient
 
 		        var readResult = this.Read();
 
-				if (dataContext.IsObjectReaderCompilerLoggingEnabled)
-				  dataContext.LogObjectReaderCompilerEntry($"readResult: {readResult}");
-
 		        if (readResult)
 		        {
 			        this.current = this.fnMaterialize(this);
-
-					if (dataContext.IsObjectReaderCompilerLoggingEnabled)
-						dataContext.LogObjectReaderCompilerEntry($"Successfull read. Current: {this.current}");
 
 					return true;
 		        }
