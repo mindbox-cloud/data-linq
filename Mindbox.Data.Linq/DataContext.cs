@@ -54,37 +54,6 @@ namespace System.Data.Linq
 		private DataLoadOptions loadOptions;
 		private ChangeConflictCollection conflicts;
 
-		private StringBuilder objectReaderCompilerLog;
-
-		public bool IsObjectReaderCompilerLoggingEnabled => objectReaderCompilerLog != null;
-
-		public void EnableObjectReaderCompilerLogging()
-		{
-			if (IsObjectReaderCompilerLoggingEnabled)
-				throw new InvalidOperationException("ObjectReaderCompiler logging is already enabled");
-
-			objectReaderCompilerLog = new StringBuilder();
-		}
-
-		public string GetObjectReaderCompilerLogAndStopLogging()
-		{
-			if (!IsObjectReaderCompilerLoggingEnabled)
-				throw new InvalidOperationException("ObjectReaderCompiler logging is not enabled");
-
-			var result = objectReaderCompilerLog.ToString();
-			objectReaderCompilerLog = null;
-
-			return result;
-		}
-
-		internal void LogObjectReaderCompilerEntry(string logEntry)
-		{
-			if (!IsObjectReaderCompilerLoggingEnabled)
-				throw new InvalidOperationException("ObjectReaderCompiler logging is not enabled");
-
-			objectReaderCompilerLog.AppendLine(logEntry);
-		}
-
 		public DataContext(string fileOrServerOrConnection) 
 		{
 			if (fileOrServerOrConnection == null)
