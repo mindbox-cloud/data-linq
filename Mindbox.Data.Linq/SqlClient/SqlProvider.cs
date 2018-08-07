@@ -328,20 +328,10 @@ namespace System.Data.Linq.SqlClient {
             if (fileOrServerOrConnectionString != null) {
                 string connectionString = this.GetConnectionString(fileOrServerOrConnectionString);
                 this.dbName = this.GetDatabaseName(connectionString);
-                if (this.dbName.EndsWith(".sdf", StringComparison.OrdinalIgnoreCase)) {
-                    this.mode = ProviderMode.SqlCE;
-                }
-                if (this.mode == ProviderMode.SqlCE) {
-                    DbProviderFactory factory = SqlProvider.GetProvider(SqlCeProviderInvariantName);
-                    if (factory == null) {
-                        throw Error.ProviderNotInstalled(this.dbName, SqlCeProviderInvariantName);
-                    }
-                    con = factory.CreateConnection();
-                }
-                else {
-                    con = new SqlConnection();
-                }
-                con.ConnectionString = connectionString;
+                if (this.dbName.EndsWith(".sdf", StringComparison.OrdinalIgnoreCase))
+                    throw Error.ProviderNotSupported(this.dbName, SqlCeProviderInvariantName);
+				con = new SqlConnection();
+				con.ConnectionString = connectionString;
             }
             else {
                 // We only support SqlTransaction and SqlCeTransaction
@@ -404,17 +394,6 @@ namespace System.Data.Linq.SqlClient {
                 readerType = typeof(DbDataReader);
             }
             readerCompiler = new ObjectReaderCompiler(readerType, services);
-        }
-
-        private static DbProviderFactory GetProvider(string providerName) {
-            bool hasProvider = 
-                DbProviderFactories.GetFactoryClasses().Rows.OfType<DataRow>()
-                .Select(r => (string)r["InvariantName"])
-                .Contains(providerName, StringComparer.OrdinalIgnoreCase);
-            if (hasProvider) {
-                return DbProviderFactories.GetFactory(providerName);
-            }
-            return null;
         }
 
         #region Dispose\Finalize
