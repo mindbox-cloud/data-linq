@@ -8,3 +8,4 @@ _ReSharper.Caches/*
 .vs/*
 TestResults
 .idea/*
+/Mindbox.Data.Linq/nuget.exe

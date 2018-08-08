@@ -41,20 +41,8 @@ namespace System.Data.Linq
         }
 
         private static void DemandReflectionAccess(Type type) {
-            try {
-                MemberAccessPermission.Demand();
-            }
-            catch (SecurityException) {
-                DemandGrantSet(type.Assembly);
-            }
-        }
-
-        [SecuritySafeCritical]
-        private static void DemandGrantSet(Assembly assembly) {
-            PermissionSet targetGrantSet = assembly.PermissionSet;
-            targetGrantSet.AddPermission(RestrictedMemberAccessPermission);
-            targetGrantSet.Demand();
-        }
+			MemberAccessPermission.Demand();
+		}
 
         private static bool HasReflectionPermission(Type type) {
             try {
@@ -179,9 +167,7 @@ namespace System.Data.Linq
             Type type = field.DeclaringType;
             if (type == null) {
                 // Type is null for Global fields.
-                if (!field.IsPublic) {
-                    DemandGrantSet(field.Module.Assembly);
-                }
+                throw new NotImplementedException("Global fields are not supported.");
             } else if (!(type != null && type.IsVisible && field.IsPublic)) {
                 DemandReflectionAccess(type);
             }
@@ -194,12 +180,10 @@ namespace System.Data.Linq
         internal static object MethodInfoInvoke(MethodInfo method, object target, object[] args) {
             Type type = method.DeclaringType;
             if (type == null) {
-                // Type is null for Global methods. In this case we would need to demand grant set on 
-                // the containing assembly for internal methods.
-                if (!(method.IsPublic && GenericArgumentsAreVisible(method))) {
-                    DemandGrantSet(method.Module.Assembly);
-                }
-            } else if (!(type.IsVisible && method.IsPublic && GenericArgumentsAreVisible(method))) {
+				// Type is null for Global methods. In this case we would need to demand grant set on 
+				// the containing assembly for internal methods.
+				throw new NotImplementedException("Global methods are not supported.");
+			} else if (!(type.IsVisible && method.IsPublic && GenericArgumentsAreVisible(method))) {
                 // this demand is required for internal types in system.dll and its friend assemblies. 
                 DemandReflectionAccess(type);
             }

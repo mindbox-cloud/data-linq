@@ -26,62 +26,6 @@ namespace System.Data.Linq.SqlClient
 		private static readonly LocalDataStoreSlot cacheSlot = Thread.AllocateDataSlot();
 		private static int maxReaderCacheSize = 10;
 
-#if DEBUG
-
-		private static AssemblyBuilder captureAssembly;
-		private static ModuleBuilder captureModule;
-		private static string captureAssemblyFilename;
-		private static int iCaptureId;
-
-
-		internal static ModuleBuilder CaptureModule
-		{
-			get { return captureModule; }
-		}
-
-
-		internal static int GetNextId()
-		{
-			return iCaptureId++;
-		}
-
-		[ResourceExposure(ResourceScope.Machine)] // filename parameter later used by other methods.
-		internal static void StartCaptureToFile(string filename)
-		{
-			if (captureAssembly != null)
-				return;
-
-			var dir = Path.GetDirectoryName(filename);
-			if (dir.Length == 0) 
-				dir = null;
-			var name = Path.GetFileName(filename);
-			var assemblyName = new AssemblyName(Path.GetFileNameWithoutExtension(name));
-			captureAssembly = AppDomain.CurrentDomain.DefineDynamicAssembly(assemblyName, AssemblyBuilderAccess.Save, dir);
-			captureModule = captureAssembly.DefineDynamicModule(name);
-			captureAssemblyFilename = filename;
-		}
-
-		[ResourceExposure(ResourceScope.None)] // Exposure is via StartCaptureToFile method.
-		[ResourceConsumption(ResourceScope.Machine, ResourceScope.Machine)] // Assembly.Save method call.
-		internal static void StopCapture()
-		{
-			if (captureAssembly != null)
-			{
-				captureAssembly.Save(captureAssemblyFilename);
-				captureAssembly = null;
-			}
-		}
-
-		internal static void SetMaxReaderCacheSize(int size)
-		{
-			if (size <= 1)
-				throw Error.ArgumentOutOfRange("size");
-
-			maxReaderCacheSize = size;
-		}
-
-#endif
-
         private readonly Type dataReaderType;
 		private readonly IDataServices services;
 
@@ -150,13 +94,6 @@ namespace System.Data.Linq.SqlClient
 			{
                 var gen = new Generator(this, elementType);
 
-#if DEBUG
-
-				if (CaptureModule != null)
-					CompileCapturedMethod(gen, expression, elementType);
-
-#endif
-
                 var dm = CompileDynamicMethod(gen, expression, elementType);
                 var fnMatType = typeof(Func<,>)
 					.MakeGenericType(
@@ -210,27 +147,6 @@ namespace System.Data.Linq.SqlClient
 				}, 
 				null);
 		}
-
-
-#if DEBUG
-
-		private void CompileCapturedMethod(Generator gen, SqlExpression expression, Type elementType)
-		{
-			var tb = CaptureModule.DefineType("reader_type_" + GetNextId());
-			var mb = tb.DefineMethod(
-				"Read_" + elementType.Name,
-				MethodAttributes.Static | MethodAttributes.Public,
-				CallingConventions.Standard,
-				elementType,
-				new[]
-                {
-	                typeof(ObjectMaterializer<>).MakeGenericType(dataReaderType)
-                });
-			gen.GenerateBody(mb.GetILGenerator(), (SqlExpression)SqlDuplicator.Copy(expression));
-			tb.CreateType();
-		}
-
-#endif
 
 		private DynamicMethod CompileDynamicMethod(Generator gen, SqlExpression expression, Type elementType)
 		{

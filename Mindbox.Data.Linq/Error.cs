@@ -518,7 +518,12 @@ namespace System.Data.Linq {
 			return new InvalidOperationException("ProviderNotInstalled: " + dbName + ", " + sqlCeProviderInvariantName + ".");
 	    }
 
-	    public static Exception ComparisonNotSupportedForType(Type clrType)
+		public static Exception ProviderNotSupported(string dbName, string sqlProviderInvariantName)
+		{
+			return new InvalidOperationException("ProviderNotSupported: " + dbName + ", " + sqlProviderInvariantName + ".");
+		}
+
+		public static Exception ComparisonNotSupportedForType(Type clrType)
 	    {
 			return new InvalidOperationException("ComparisonNotSupportedForType: " + clrType + ".");
 	    }
