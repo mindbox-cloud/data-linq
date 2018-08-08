@@ -8,6 +8,7 @@
 
   <ItemGroup>
     <PackageReference Include="Castle.Core" Version="4.3.1" />
+    <PackageReference Include="Mindbox.Expressions" Version="3.0.1" />
     <PackageReference Include="System.ComponentModel.Annotations" Version="4.5.0" />
     <PackageReference Include="System.Data.SqlClient" Version="4.5.1" />
     <PackageReference Include="System.Reflection.Emit" Version="4.3.0" />
@@ -15,12 +16,6 @@
     <PackageReference Include="System.Runtime" Version="4.3.0" />
     <PackageReference Include="System.Runtime.Extensions" Version="4.3.0" />
     <PackageReference Include="System.Security.Permissions" Version="4.5.0" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <Reference Include="Mindbox.Expressions">
-      <HintPath>Libraries\Mindbox.Expressions.dll</HintPath>
-    </Reference>
   </ItemGroup>
 
 </Project>
