@@ -70,7 +70,7 @@ namespace Mindbox.Data.Linq.Tests.SqlGeneration
                 context.GetTable<SimpleEntity>().InsertOnSubmit(new SimpleEntity());
 
                 var expectedText = "INSERT INTO " + Environment.NewLine +
-                                   "-- someLabel --" + Environment.NewLine +
+                                   $"-- {StatementsLabel} --" + Environment.NewLine +
                                    "[SimpleTable]([Id], [Discriminator], [X])" + Environment.NewLine +
                                    "VALUES (@p0, @p1, @p2)" + Environment.NewLine +
                                    "-- @p0: Input AnsiString (Size = -1; Prec = 0; Scale = 0) [0]" +
@@ -123,7 +123,7 @@ namespace Mindbox.Data.Linq.Tests.SqlGeneration
 
                 var expectedText =
                     "UPDATE " + Environment.NewLine +
-                    "-- someLabel --" + Environment.NewLine +
+                    $"-- {StatementsLabel} --" + Environment.NewLine +
                     "[SimpleTable]" + Environment.NewLine +
                     "SET [X] = @p2" + Environment.NewLine +
                     "WHERE ([Id] = @p0) AND ([Discriminator] IS NULL) AND ([X] = @p1)" + Environment.NewLine +
