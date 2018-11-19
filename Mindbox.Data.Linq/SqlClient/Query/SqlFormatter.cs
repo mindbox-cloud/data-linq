@@ -764,22 +764,6 @@ namespace System.Data.Linq.SqlClient {
                     return ss;
                 }
 
-                var shouldAppendStatementsLabel = !isStatementLabelAdded;
-                isStatementLabelAdded = true;
-                
-                string from = null;
-                if (ss.From != null) {
-                    StringBuilder savesb = this.sb;
-                    this.sb = new StringBuilder();
-                    if (this.IsSimpleCrossJoinList(ss.From)) {
-                        this.VisitCrossJoinList(ss.From);
-                    } else {
-                        this.Visit(ss.From);
-                    }
-                    from = this.sb.ToString();
-                    this.sb = savesb;
-                }
-
                 sb.Append("SELECT ");
 
                 if (ss.IsDistinct) {
@@ -801,6 +785,8 @@ namespace System.Data.Linq.SqlClient {
                     }
                 }
 
+                TryAddStatementsLabel();
+
                 if (ss.Row.Columns.Count > 0) {
                     this.VisitRow(ss.Row);
                 } else if (this.isDebugMode) {
@@ -809,8 +795,19 @@ namespace System.Data.Linq.SqlClient {
                     sb.Append("NULL AS [EMPTY]");
                 }
 
-                if (shouldAppendStatementsLabel)
-                    AddStatementsLabel();
+                string from = null;
+                if (ss.From != null) {
+                    StringBuilder savesb = this.sb;
+                    this.sb = new StringBuilder();
+                    if (this.IsSimpleCrossJoinList(ss.From)) {
+                        this.VisitCrossJoinList(ss.From);
+                    } else {
+                        this.Visit(ss.From);
+                    }
+                    from = this.sb.ToString();
+                    this.sb = savesb;
+                }
+
                 if (from != null) {
                     this.NewLine();
                     sb.Append("FROM ");
@@ -981,11 +978,15 @@ namespace System.Data.Linq.SqlClient {
                 return jc;
             }
 
-            internal override SqlStatement VisitDelete(SqlDelete sd) {
+            internal override SqlStatement VisitDelete(SqlDelete sd)
+            {
                 sb.Append("DELETE FROM ");
+
+                TryAddStatementsLabel();
+
                 this.suppressedAliases.Add(sd.Select.From);
                 this.Visit(sd.Select.From);
-                AddStatementsLabel();
+
                 if (sd.Select.Where != null) {
                     sb.Append(" WHERE ");
                     this.Visit(sd.Select.Where);
@@ -994,8 +995,8 @@ namespace System.Data.Linq.SqlClient {
                 return sd;
             }
 
-            internal override SqlStatement VisitInsert(SqlInsert si) {
-
+            internal override SqlStatement VisitInsert(SqlInsert si)
+            {
                 if (si.OutputKey != null) {
                     sb.Append("DECLARE @output TABLE(");
                     this.WriteName(si.OutputKey.Name);
@@ -1011,6 +1012,9 @@ namespace System.Data.Linq.SqlClient {
                 }
 
                 sb.Append("INSERT INTO ");
+
+                TryAddStatementsLabel();
+
                 this.Visit(si.Table);
 
                 if (si.Row.Columns.Count != 0) {
@@ -1030,7 +1034,6 @@ namespace System.Data.Linq.SqlClient {
                     sb.Append(" INTO @output");
                 }
 
-                AddStatementsLabel();
                 if (si.Row.Columns.Count == 0) {
                     sb.Append(" DEFAULT VALUES");
                 }
@@ -1066,13 +1069,15 @@ namespace System.Data.Linq.SqlClient {
                 return si;
             }
 
-            internal override SqlStatement VisitUpdate(SqlUpdate su) {
+            internal override SqlStatement VisitUpdate(SqlUpdate su)
+            {
                 sb.Append("UPDATE ");
+
+                TryAddStatementsLabel();
+
                 this.suppressedAliases.Add(su.Select.From);
                 this.Visit(su.Select.From);
-                
-                AddStatementsLabel();
-                
+
                 this.NewLine();
                 sb.Append("SET ");
 
@@ -1444,13 +1449,15 @@ namespace System.Data.Linq.SqlClient {
                 return g;
             }
             
-            private void AddStatementsLabel()
+            private void TryAddStatementsLabel()
             {
-                if (statementLabel == null)
+                if (isStatementLabelAdded || statementLabel == null)
                     return;
 
                 NewLine();
-                sb.Append("/* " + statementLabel + " */");
+                sb.Append("-- " + statementLabel + " --");
+                NewLine();
+
                 isStatementLabelAdded = true;
             }
         }
