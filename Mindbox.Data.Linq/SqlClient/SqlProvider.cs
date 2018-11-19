@@ -50,6 +50,7 @@ namespace System.Data.Linq.SqlClient {
         private IObjectReaderCompiler readerCompiler;
         private bool disposed;
         private int commandTimeout;
+        private string statementLabel;
 
         private TextWriter log;
         string dbName = string.Empty;
@@ -231,6 +232,20 @@ namespace System.Data.Linq.SqlClient {
             set {
                 this.CheckDispose();
                 this.commandTimeout = value; 
+            } 
+        }
+
+        string IProvider.StatementLabel
+        {
+            get
+            {
+                CheckDispose();
+                return statementLabel;
+            }
+            set
+            {
+                CheckDispose();
+                statementLabel = value;
             }
         }
 
@@ -377,7 +392,7 @@ namespace System.Data.Linq.SqlClient {
 		        conManager.Transaction = tx;
 
 #if DEBUG
-            SqlNode.Formatter = new SqlFormatter();
+            SqlNode.Formatter = new SqlFormatter(((IProvider)this).StatementLabel);
 #endif
 
             Type readerType;
@@ -1510,7 +1525,7 @@ namespace System.Data.Linq.SqlClient {
             validator.Validate(node);
 
             SqlParameterizer parameterizer = new SqlParameterizer(this.typeProvider, annotations);
-            SqlFormatter formatter = new SqlFormatter();
+            SqlFormatter formatter = new SqlFormatter(((IProvider)this).StatementLabel);
             if (this.mode == ProviderMode.SqlCE ||
                 this.mode == ProviderMode.Sql2005 ||
                 this.mode == ProviderMode.Sql2008) {

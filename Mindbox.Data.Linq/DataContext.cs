@@ -52,6 +52,7 @@ namespace System.Data.Linq
 		private bool disposed;
 		private bool isInSubmitChanges;
 		private DataLoadOptions loadOptions;
+		private string statementsLabel;
 		private ChangeConflictCollection conflicts;
 
 		public DataContext(string fileOrServerOrConnection) 
@@ -130,6 +131,23 @@ namespace System.Data.Linq
 			{
 				CheckDispose();
 				provider.Transaction = value;
+			}
+		}
+		
+		/// <summary>
+		/// Label that is added to sql statement to identify its source
+		/// </summary>
+		public string StatementsLabel
+		{
+			get
+			{
+				CheckDispose();
+				return provider.StatementLabel;
+			}
+			set
+			{
+				CheckDispose();
+				provider.StatementLabel = value;
 			}
 		}
 

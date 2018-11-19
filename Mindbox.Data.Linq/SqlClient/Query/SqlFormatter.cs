@@ -14,8 +14,8 @@ namespace System.Data.Linq.SqlClient {
     internal class SqlFormatter : DbFormatter {
         private Visitor visitor;
 
-        internal SqlFormatter() {
-            this.visitor = new Visitor();
+        internal SqlFormatter(string statementLabel) {
+            this.visitor = new Visitor(statementLabel);
         }
 
         internal override string Format(SqlNode node, bool isDebug) {
@@ -54,8 +54,12 @@ namespace System.Data.Linq.SqlClient {
             internal Dictionary<SqlColumn, SqlAlias> aliasMap = new Dictionary<SqlColumn, SqlAlias>();
             internal int depth;
             internal bool parenthesizeTop;
-
-            internal Visitor() {
+            private string statementLabel;
+            private bool isStatementLabelAdded;
+            
+            internal Visitor(string statementLabel)
+            {
+                this.statementLabel = statementLabel;
             }
 
             internal string Format(SqlNode node, bool isDebug) {
@@ -759,6 +763,10 @@ namespace System.Data.Linq.SqlClient {
                 if (ss.DoNotOutput) {
                     return ss;
                 }
+
+                var shouldAppendStatementsLabel = !isStatementLabelAdded;
+                isStatementLabelAdded = true;
+                
                 string from = null;
                 if (ss.From != null) {
                     StringBuilder savesb = this.sb;
@@ -801,6 +809,8 @@ namespace System.Data.Linq.SqlClient {
                     sb.Append("NULL AS [EMPTY]");
                 }
 
+                if (shouldAppendStatementsLabel)
+                    AddStatementsLabel();
                 if (from != null) {
                     this.NewLine();
                     sb.Append("FROM ");
@@ -975,6 +985,7 @@ namespace System.Data.Linq.SqlClient {
                 sb.Append("DELETE FROM ");
                 this.suppressedAliases.Add(sd.Select.From);
                 this.Visit(sd.Select.From);
+                AddStatementsLabel();
                 if (sd.Select.Where != null) {
                     sb.Append(" WHERE ");
                     this.Visit(sd.Select.Where);
@@ -1019,6 +1030,7 @@ namespace System.Data.Linq.SqlClient {
                     sb.Append(" INTO @output");
                 }
 
+                AddStatementsLabel();
                 if (si.Row.Columns.Count == 0) {
                     sb.Append(" DEFAULT VALUES");
                 }
@@ -1058,6 +1070,9 @@ namespace System.Data.Linq.SqlClient {
                 sb.Append("UPDATE ");
                 this.suppressedAliases.Add(su.Select.From);
                 this.Visit(su.Select.From);
+                
+                AddStatementsLabel();
+                
                 this.NewLine();
                 sb.Append("SET ");
 
@@ -1427,6 +1442,16 @@ namespace System.Data.Linq.SqlClient {
                 this.Visit(g.Group);
                 sb.Append(")");
                 return g;
+            }
+            
+            private void AddStatementsLabel()
+            {
+                if (statementLabel == null)
+                    return;
+
+                NewLine();
+                sb.Append("/* " + statementLabel + " */");
+                isStatementLabelAdded = true;
             }
         }
 
