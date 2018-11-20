@@ -13,13 +13,33 @@ namespace Mindbox.Data.Linq.Tests.SqlGeneration
         private const string LabelWithCommentSymbols = "-- " + Label + " --";
 
         [TestMethod]
-        public void SelectWithSubSelect_LabelIsNotNull_LabelAddedToSqlTextOnce()
+        public void SelectWithSubSelectInWhereClause_LabelIsNotNull_LabelAddedToSqlTextOnce()
         {
             using (var connection = new DbConnectionStub())
             using (var context = new DataContext(connection) {StatementsLabel = Label})
             {
                 var query = context.GetTable<SimpleEntity>()
                     .Where(t1 => context.GetTable<SimpleEntity>().Any(t2 => t2.X == t1.Id));
+                using (var command = context.GetCommand(query))
+                {
+                    var expectedFirstPart = 
+                        "SELECT " + Environment.NewLine + $"{LabelWithCommentSymbols}" + Environment.NewLine;
+                    
+                    Assert.IsTrue(command.CommandText.StartsWith(expectedFirstPart), command.CommandText);
+                    
+                    AssertThatLabelPresentedInCommandTextOnce(command.CommandText);
+                }
+            }
+        }
+
+        [TestMethod]
+        public void SelectWithSubSelectInFromClause_LabelIsNotNull_LabelAddedToSqlTextOnce()
+        {
+            using (var connection = new DbConnectionStub())
+            using (var context = new DataContext(connection) {StatementsLabel = Label})
+            {
+                var query = context.GetTable<SimpleEntity>()
+                    .Select(t1 => context.GetTable<SimpleEntity>().FirstOrDefault(t2 => t2.X == t1.Id));
                 using (var command = context.GetCommand(query))
                 {
                     var expectedFirstPart = 
