@@ -14,8 +14,8 @@ namespace System.Data.Linq.SqlClient {
     internal class SqlFormatter : DbFormatter {
         private Visitor visitor;
 
-        internal SqlFormatter() {
-            this.visitor = new Visitor();
+        internal SqlFormatter(string statementLabel) {
+            this.visitor = new Visitor(statementLabel);
         }
 
         internal override string Format(SqlNode node, bool isDebug) {
@@ -54,8 +54,12 @@ namespace System.Data.Linq.SqlClient {
             internal Dictionary<SqlColumn, SqlAlias> aliasMap = new Dictionary<SqlColumn, SqlAlias>();
             internal int depth;
             internal bool parenthesizeTop;
-
-            internal Visitor() {
+            private string statementLabel;
+            private bool isStatementLabelAdded;
+            
+            internal Visitor(string statementLabel)
+            {
+                this.statementLabel = statementLabel;
             }
 
             internal string Format(SqlNode node, bool isDebug) {
@@ -759,18 +763,6 @@ namespace System.Data.Linq.SqlClient {
                 if (ss.DoNotOutput) {
                     return ss;
                 }
-                string from = null;
-                if (ss.From != null) {
-                    StringBuilder savesb = this.sb;
-                    this.sb = new StringBuilder();
-                    if (this.IsSimpleCrossJoinList(ss.From)) {
-                        this.VisitCrossJoinList(ss.From);
-                    } else {
-                        this.Visit(ss.From);
-                    }
-                    from = this.sb.ToString();
-                    this.sb = savesb;
-                }
 
                 sb.Append("SELECT ");
 
@@ -793,12 +785,27 @@ namespace System.Data.Linq.SqlClient {
                     }
                 }
 
+                TryAddStatementsLabel();
+
                 if (ss.Row.Columns.Count > 0) {
                     this.VisitRow(ss.Row);
                 } else if (this.isDebugMode) {
                     this.Visit(ss.Selection);
                 } else {
                     sb.Append("NULL AS [EMPTY]");
+                }
+
+                string from = null;
+                if (ss.From != null) {
+                    StringBuilder savesb = this.sb;
+                    this.sb = new StringBuilder();
+                    if (this.IsSimpleCrossJoinList(ss.From)) {
+                        this.VisitCrossJoinList(ss.From);
+                    } else {
+                        this.Visit(ss.From);
+                    }
+                    from = this.sb.ToString();
+                    this.sb = savesb;
                 }
 
                 if (from != null) {
@@ -971,11 +978,17 @@ namespace System.Data.Linq.SqlClient {
                 return jc;
             }
 
-            internal override SqlStatement VisitDelete(SqlDelete sd) {
+            internal override SqlStatement VisitDelete(SqlDelete sd)
+            {
                 sb.Append("DELETE FROM ");
+
+                TryAddStatementsLabel();
+
                 this.suppressedAliases.Add(sd.Select.From);
                 this.Visit(sd.Select.From);
+
                 if (sd.Select.Where != null) {
+                    NewLine();
                     sb.Append(" WHERE ");
                     this.Visit(sd.Select.Where);
                 }
@@ -983,8 +996,8 @@ namespace System.Data.Linq.SqlClient {
                 return sd;
             }
 
-            internal override SqlStatement VisitInsert(SqlInsert si) {
-
+            internal override SqlStatement VisitInsert(SqlInsert si)
+            {
                 if (si.OutputKey != null) {
                     sb.Append("DECLARE @output TABLE(");
                     this.WriteName(si.OutputKey.Name);
@@ -1000,6 +1013,9 @@ namespace System.Data.Linq.SqlClient {
                 }
 
                 sb.Append("INSERT INTO ");
+
+                TryAddStatementsLabel();
+
                 this.Visit(si.Table);
 
                 if (si.Row.Columns.Count != 0) {
@@ -1054,10 +1070,15 @@ namespace System.Data.Linq.SqlClient {
                 return si;
             }
 
-            internal override SqlStatement VisitUpdate(SqlUpdate su) {
+            internal override SqlStatement VisitUpdate(SqlUpdate su)
+            {
                 sb.Append("UPDATE ");
+
+                TryAddStatementsLabel();
+
                 this.suppressedAliases.Add(su.Select.From);
                 this.Visit(su.Select.From);
+
                 this.NewLine();
                 sb.Append("SET ");
 
@@ -1427,6 +1448,18 @@ namespace System.Data.Linq.SqlClient {
                 this.Visit(g.Group);
                 sb.Append(")");
                 return g;
+            }
+            
+            private void TryAddStatementsLabel()
+            {
+                if (isStatementLabelAdded || statementLabel == null)
+                    return;
+
+                NewLine();
+                sb.Append("-- " + statementLabel + " --");
+                NewLine();
+
+                isStatementLabelAdded = true;
             }
         }
 

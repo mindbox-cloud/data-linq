@@ -84,6 +84,7 @@
     <Compile Include="LoadOptionsTests\DataLoadOptionsEqualityTests.cs" />
     <Compile Include="LoadOptionsTests\DataLoadOptionsLoadWithTests.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="SqlGeneration\DataContextStatementsLabelTests.cs" />
     <Compile Include="SqlGeneration\SomeDataContext.cs" />
     <Compile Include="SqlGeneration\UserDefinedFunctions.cs" />
     <Compile Include="SqlGeneration\UserDefinedFunctionTranslationTests.cs" />

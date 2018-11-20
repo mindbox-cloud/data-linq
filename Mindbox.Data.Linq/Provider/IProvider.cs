@@ -46,6 +46,8 @@ namespace System.Data.Linq.Provider {
         /// The command timeout setting to use for command execution.
         /// </summary>
         int CommandTimeout { get; set; }
+        
+        string StatementLabel { get; set; }
 
         /// <summary>
         /// Clears the connection of any current activity.
