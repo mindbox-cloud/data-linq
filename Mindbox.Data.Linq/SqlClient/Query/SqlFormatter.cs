@@ -988,6 +988,7 @@ namespace System.Data.Linq.SqlClient {
                 this.Visit(sd.Select.From);
 
                 if (sd.Select.Where != null) {
+                    NewLine();
                     sb.Append(" WHERE ");
                     this.Visit(sd.Select.Where);
                 }
