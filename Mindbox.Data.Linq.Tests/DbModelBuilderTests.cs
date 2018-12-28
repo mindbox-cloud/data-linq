@@ -15,7 +15,6 @@ namespace Mindbox.Data.Linq.Tests
 	[TestClass]
 	public class DbModelBuilderTests
 	{
-		private readonly Action<string, Action> measureEnhancerMock = (s, a) => a();
 		[TestMethod]
 		public void TableAttributeViaAttribute()
 		{
@@ -528,7 +527,7 @@ namespace Mindbox.Data.Linq.Tests
 							4,
 							5
 						};
-						context.SubmitChanges(measureEnhancerMock);
+						context.SubmitChanges();
 					}
 
 					using (var context = dataContextFactory())
@@ -855,7 +854,7 @@ namespace Mindbox.Data.Linq.Tests
 						var newItem10 = context.GetTable<TestEntity10>().OrderByDescending(x => x.Id).First();
 						item9.Other = newItem10;
 
-						context.SubmitChanges(measureEnhancerMock);
+						context.SubmitChanges();
 					}
 
 					using (var context = dataContextFactory())
@@ -1085,7 +1084,7 @@ namespace Mindbox.Data.Linq.Tests
 						var newItem23 = context.GetTable<TestEntity23>().OrderByDescending(x => x.Id).First();
 						item22.Other = newItem23;
 
-						context.SubmitChanges(measureEnhancerMock);
+						context.SubmitChanges();
 					}
 
 					using (var context = dataContextFactory())
@@ -1140,7 +1139,7 @@ namespace Mindbox.Data.Linq.Tests
 						var newItem23 = context.GetTable<TestEntity23>().OrderByDescending(x => x.Id).First();
 						item22.Other = newItem23;
 
-						context.SubmitChanges(measureEnhancerMock);
+						context.SubmitChanges();
 					}
 
 					using (var context = dataContextFactory())
@@ -1199,7 +1198,7 @@ namespace Mindbox.Data.Linq.Tests
 
 						item22.Other = null;
 
-						context.SubmitChanges(measureEnhancerMock);
+						context.SubmitChanges();
 					}
 
 					using (var context = dataContextFactory())
@@ -1300,7 +1299,7 @@ namespace Mindbox.Data.Linq.Tests
 
 						item11.Other = newItem9;
 
-						context.SubmitChanges(measureEnhancerMock);
+						context.SubmitChanges();
 					}
 
 					using (var context = dataContextFactory())
@@ -1365,7 +1364,7 @@ namespace Mindbox.Data.Linq.Tests
 						};
 						context.GetTable<TestEntity9>().InsertOnSubmit(item9);
 
-						context.SubmitChanges(measureEnhancerMock);
+						context.SubmitChanges();
 					}
 
 					using (var context = dataContextFactory())
@@ -1660,7 +1659,7 @@ namespace Mindbox.Data.Linq.Tests
 							Other = item19
 						};
 
-						context.SubmitChanges(measureEnhancerMock);
+						context.SubmitChanges();
 					}
 
 					using (var context = dataContextFactory())
@@ -1773,7 +1772,7 @@ namespace Mindbox.Data.Linq.Tests
 							Value = 18
 						};
 						context.GetTable<TestEntity23>().InsertOnSubmit(item23);
-						context.SubmitChanges(measureEnhancerMock);
+						context.SubmitChanges();
 					}
 
 					using (var context = dataContextFactory())
@@ -1782,7 +1781,7 @@ namespace Mindbox.Data.Linq.Tests
 						item24.Id = 8;
 						item24.OtherId = 14;
 						context.GetTable<TestEntity24>().InsertOnSubmit(item24);
-						context.SubmitChanges(measureEnhancerMock);
+						context.SubmitChanges();
 					}
 
 					using (var context = dataContextFactory())

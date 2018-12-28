@@ -51,7 +51,7 @@ namespace System.Data.Linq {
             this.originalChildReferences = new ReferenceMap();
         }
 
-        internal void SubmitChanges(ConflictMode failureMode, Action<string, Action> measureEnhancer) {
+        internal void SubmitChanges(ConflictMode failureMode, IMeasureProvider measureProvider = null) {
             this.TrackUntrackedObjects();
             // Must apply inferred deletions only after any untracked objects
             // are tracked
@@ -76,7 +76,10 @@ namespace System.Data.Linq {
                         if (item.SynchDependentData()) {
                             syncDependentItems.Add(item);
                         }
-                        measureEnhancer($"Insert {tableName}", () => changeDirector.Insert(item));
+                        using(measureProvider?.Measure($"Insert {tableName}"))
+                        {
+                            changeDirector.Insert(item);
+                        };
                         // store all inserted items for post processing
                         insertedItems.Add(item);
                     }
@@ -85,8 +88,12 @@ namespace System.Data.Linq {
                         // but wasn't deleted due to an OC conflict, or -1 if the row was
                         // deleted by another context (no OC conflict in this case)
                         numUpdatesAttempted++;
-                        int ret = 0;
-                        measureEnhancer($"Delete {tableName}", () => { ret = changeDirector.Delete(item); });
+                        int ret;
+                        using (measureProvider?.Measure($"Delete {tableName}"))
+                        {
+                            ret = changeDirector.Delete(item);
+                        }
+                        
                         if (ret == 0) {
                             conflicts.Add(new ObjectChangeConflict(conflictSession, item, false));
                         }
@@ -102,8 +109,11 @@ namespace System.Data.Linq {
                         if (item.IsModified) {
                             CheckForInvalidChanges(item);
                             numUpdatesAttempted++;
-                            int ret = 0;
-                            measureEnhancer($"Update {tableName}", () => { ret = changeDirector.Update(item); });
+                            int ret;
+                            using (measureProvider?.Measure($"Update {tableName}"))
+                            {
+                                ret = changeDirector.Update(item);
+                            }
                             if (ret <= 0) {
                                 conflicts.Add(new ObjectChangeConflict(conflictSession, item));
                             }
