@@ -401,10 +401,10 @@ namespace System.Data.Linq
 		/// If a transaction is not already specified one will be created for the duration of this operation.
 		/// If a change conflict is encountered a ChangeConflictException will be thrown.
 		/// </summary>
-		public void SubmitChanges()
+		public void SubmitChanges(IMeasureProvider measureProvider = null)
 		{
 			CheckDispose();
-			SubmitChanges(ConflictMode.FailOnFirstConflict);
+			SubmitChanges(ConflictMode.FailOnFirstConflict, measureProvider);
 		}
 
 		/// <summary>
@@ -414,7 +414,7 @@ namespace System.Data.Linq
 		/// You can override this method to implement common conflict resolution behaviors.
 		/// </summary>
 		/// <param name="failureMode">Determines how SubmitChanges handles conflicts.</param>
-		public virtual void SubmitChanges(ConflictMode failureMode)
+		public virtual void SubmitChanges(ConflictMode failureMode, IMeasureProvider measureProvider = null)
 		{
 			CheckDispose();
 			CheckNotInSubmitChanges();
@@ -440,7 +440,7 @@ namespace System.Data.Linq
 						}
 						transaction = provider.Connection.BeginTransaction(IsolationLevel.ReadCommitted);
 						provider.Transaction = transaction;
-						new ChangeProcessor(services, this).SubmitChanges(failureMode);
+						new ChangeProcessor(services, this).SubmitChanges(failureMode, measureProvider);
 						AcceptChanges();
 
 						// to commit a transaction, there can be no open readers
@@ -466,7 +466,7 @@ namespace System.Data.Linq
 				}
 				else
 				{
-					new ChangeProcessor(services, this).SubmitChanges(failureMode);
+					new ChangeProcessor(services, this).SubmitChanges(failureMode, measureProvider);
 					AcceptChanges();
 				}
 			}

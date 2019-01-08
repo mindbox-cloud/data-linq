@@ -11,4 +11,4 @@ using System.Security;
 [assembly: AssemblyTitle("Mindbox.Data.Linq")]
 [assembly: AssemblyCompany("Mindbox")]
 [assembly: AssemblyDescription("A clone of Microsoft System.Data.Linq to allow multi-DLL extensibility and EF compatibility.")]
-[assembly: AssemblyVersion("2.0.2")]
+[assembly: AssemblyVersion("2.0.3")]
