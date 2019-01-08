@@ -3,7 +3,7 @@
   <PropertyGroup>
     <TargetFramework>netstandard2.0</TargetFramework>
     <Company>Mindbox</Company>
-    <Version>2.0.2</Version>
+    <Version>2.0.3</Version>
     <Product>Mindbox.Data.Linq</Product>
     <Description>A clone of Microsoft System.Data.Linq to allow multi-DLL extensibility and EF compatibility.</Description>
     <Copyright>Mindbox 2018</Copyright>
