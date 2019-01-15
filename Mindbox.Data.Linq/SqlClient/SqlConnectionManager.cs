@@ -110,13 +110,46 @@ namespace System.Data.Linq.SqlClient {
             set {
                 if (value != this.transaction) {
                     if (value != null) {
-                        if (this.connection != value.Connection) {
-                            throw Error.TransactionDoesNotMatchConnection();
+                        if (this.connection != value.Connection)
+                        {
+	                        var exception = Error.TransactionDoesNotMatchConnection();
+	                        AddAdditionalExceptionInformation(exception, this, value);
+
+                            throw exception;
                         }
                     }
                     this.transaction = value;
                 }
             }
+        }
+
+        private void AddAdditionalExceptionInformation(
+	        Exception exception, SqlConnectionManager sqlConnectionManager, DbTransaction value)
+        {
+	        exception.Data["TransactionToSetInfo"] = GetTransactionInformation(value);
+	        exception.Data["ConnectionManagerConnectionInfo"] = GetConnectionInfo(sqlConnectionManager.Connection);
+	        exception.Data["ConnectionManagerTransactionInfo"] = GetTransactionInformation(sqlConnectionManager.Transaction);
+        }
+
+        private string GetTransactionInformation(DbTransaction value)
+        {
+	        if (value == null)
+		        return "Transaction is null";
+
+	        return $"TransactionHashCode: {value.GetHashCode()}\r\n" +
+	               $"TransactionIsolationLevel: {value.IsolationLevel}\r\n" +
+	               "Transaction connection details: " + GetConnectionInfo(value.Connection) + "\r\n";
+        }
+
+        private string GetConnectionInfo(DbConnection valueConnection)
+        {
+	        if (valueConnection == null)
+		        return "Connection is null";
+
+	        return $"ConnectionHashCode: {valueConnection.GetHashCode()}\r\n" +
+	               $"DataSource: {valueConnection.DataSource}\r\n" +
+	               $"ConnectionString: {valueConnection.ConnectionString}\r\n" +
+	               $"State: {valueConnection.State}\r\n";
         }
 
         public void ReleaseConnection(IConnectionUser user) {
