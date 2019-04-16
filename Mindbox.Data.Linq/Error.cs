@@ -20,7 +20,7 @@ namespace System.Data.Linq {
         static internal Exception ExpressionNotSupportedForSqlServerVersion(Collection<string> reasons) {
             StringBuilder exceptionMessage = new StringBuilder("CannotTranslateExpressionToSql: ");
             foreach (string reason in reasons) {
-                exceptionMessage.AppendLine(reason);                    
+                exceptionMessage.AppendLine(reason);
             }
             return new NotSupportedException(exceptionMessage.ToString());
         }
@@ -583,6 +583,11 @@ namespace System.Data.Linq {
 			return new InvalidOperationException("InheritanceTypeHasMultipleDiscriminators: " + x + ".");
 	    }
 
+	    public static Exception InheritanceTypeNotRegistered(object x)
+	    {
+		    return new InvalidOperationException("InheritanceTypeNotRegistered: " + x + ".");
+	    }
+
 	    public static Exception InheritanceCodeUsedForMultipleTypes(object codeValue)
 	    {
 			return new InvalidOperationException("InheritanceCodeUsedForMultipleTypes: " + codeValue + ".");
@@ -695,12 +700,12 @@ namespace System.Data.Linq {
 	    }
 
 	    public static Exception CannotChangeInheritanceType(
-			object dbDiscriminator, 
-			object currentDiscriminator, 
-			string name, 
+			object dbDiscriminator,
+			object currentDiscriminator,
+			string name,
 			MetaType currentTypeFromDiscriminator)
 	    {
-			return new InvalidOperationException("CannotChangeInheritanceType: " + dbDiscriminator + ", " + 
+			return new InvalidOperationException("CannotChangeInheritanceType: " + dbDiscriminator + ", " +
 				currentDiscriminator + ", " + name + ", " + currentTypeFromDiscriminator + ".");
 	    }
 

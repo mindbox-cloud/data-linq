@@ -11,12 +11,12 @@ using System.Runtime.CompilerServices;
 namespace System.Data.Linq
 {
 	/// <summary>
-	/// Table is a collection of persistent entities. It always contains the set of entities currently 
+	/// Table is a collection of persistent entities. It always contains the set of entities currently
 	/// persisted in the database. Use it as a source of queries and to add/insert and remove/delete entities.
 	/// </summary>
 	/// <typeparam name="TEntity"></typeparam>
 	[SuppressMessage("Microsoft.Naming", "CA1710:IdentifiersShouldHaveCorrectSuffix", Justification="[....]: Meant to represent a database table which is delayed loaded and doesn't provide collection semantics.")]
-	public sealed class Table<TEntity> : IQueryable<TEntity>, IQueryProvider, IEnumerable<TEntity>, IQueryable, IEnumerable, ITable, IListSource, ITable<TEntity> 
+	public sealed class Table<TEntity> : IQueryable<TEntity>, IQueryProvider, IEnumerable<TEntity>, IQueryable, IEnumerable, ITable, IListSource, ITable<TEntity>
 		where TEntity : class {
 		DataContext context;
 		MetaTable metaTable;
@@ -133,6 +133,8 @@ namespace System.Data.Linq
 			context.CheckNotInSubmitChanges();
 			context.VerifyTrackingEnabled();
 			MetaType type = this.metaTable.RowType.GetInheritanceType(entity.GetType());
+			if (type == null)
+				throw Error.InheritanceTypeNotRegistered(entity.GetType());
 			if (!IsTrackableType(type)) {
 				throw Error.TypeCouldNotBeAdded(type.Type);
 			}
@@ -164,7 +166,7 @@ namespace System.Data.Linq
 
 		/// <summary>
 		/// Adds all entities of a collection to the DataContext in a 'pending insert' state.
-		/// The added entities will not be observed in query results until after SubmitChanges() 
+		/// The added entities will not be observed in query results until after SubmitChanges()
 		/// has been called.
 		/// </summary>
 		/// <param name="entities"></param>
@@ -287,7 +289,7 @@ namespace System.Data.Linq
 		}
 
 		/// <summary>
-		/// Attaches an entity to the DataContext in an unmodified state, similiar to as if it had been 
+		/// Attaches an entity to the DataContext in an unmodified state, similiar to as if it had been
 		/// retrieved via a query. Deferred loading is not enabled. Other entities accessible from this
 		/// entity are not automatically attached.
 		/// </summary>
@@ -325,6 +327,8 @@ namespace System.Data.Linq
 			context.CheckNotInSubmitChanges();
 			context.VerifyTrackingEnabled();
 			MetaType type = this.metaTable.RowType.GetInheritanceType(entity.GetType());
+			if (type == null)
+				throw Error.InheritanceTypeNotRegistered(entity.GetType());
 			if (!IsTrackableType(type)) {
 				throw Error.TypeCouldNotBeTracked(type.Type);
 			}
@@ -386,6 +390,8 @@ namespace System.Data.Linq
 			context.CheckNotInSubmitChanges();
 			context.VerifyTrackingEnabled();
 			MetaType type = this.metaTable.RowType.GetInheritanceType(entity.GetType());
+			if (type == null)
+				throw Error.InheritanceTypeNotRegistered(entity.GetType());
 			if (!IsTrackableType(type)) {
 				throw Error.TypeCouldNotBeTracked(type.Type);
 			}
@@ -426,8 +432,8 @@ namespace System.Data.Linq
 		}
 
 		/// <summary>
-		/// Attaches all entities of a collection to the DataContext in an unmodified state, 
-		/// similiar to as if each had been retrieved via a query. Deferred loading is not enabled. 
+		/// Attaches all entities of a collection to the DataContext in an unmodified state,
+		/// similiar to as if each had been retrieved via a query. Deferred loading is not enabled.
 		/// Other entities accessible from these entities are not automatically attached.
 		/// </summary>
 		/// <param name="entities"></param>
