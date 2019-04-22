@@ -345,8 +345,8 @@ namespace System.Data.Linq.SqlClient {
                 this.dbName = this.GetDatabaseName(connectionString);
                 if (this.dbName.EndsWith(".sdf", StringComparison.OrdinalIgnoreCase))
                     throw Error.ProviderNotSupported(this.dbName, SqlCeProviderInvariantName);
-				con = new SqlConnection();
-				con.ConnectionString = connectionString;
+                con = new SqlConnection();
+                con.ConnectionString = connectionString;
             }
             else {
                 // We only support SqlTransaction and SqlCeTransaction
@@ -388,8 +388,8 @@ namespace System.Data.Linq.SqlClient {
             // the SqlConnectionManager that it should dispose the connection when the context is disposed. Otherwise the user owns
             // the connection and should dispose of it themselves.
             conManager = new SqlConnectionManager(this, con, maxUsersPerConnection, fileOrServerOrConnectionString != null /*disposeConnection*/);
-	        if (tx != null)
-		        conManager.Transaction = tx;
+            if (tx != null)
+                conManager.Transaction = tx;
 
 #if DEBUG
             SqlNode.Formatter = new SqlFormatter(((IProvider)this).StatementLabel);
@@ -397,15 +397,15 @@ namespace System.Data.Linq.SqlClient {
 
             Type readerType;
             if (mode == ProviderMode.SqlCE) 
-			{
+            {
                 readerType = con.GetType().Module.GetType(SqlCeDataReaderTypeName);
             }
             else if (con is SqlConnection) 
-			{
+            {
                 readerType = typeof(SqlDataReader);
             }
             else 
-			{
+            {
                 readerType = typeof(DbDataReader);
             }
             readerCompiler = new ObjectReaderCompiler(readerType, services);
@@ -953,8 +953,9 @@ namespace System.Data.Linq.SqlClient {
             this.InitializeProviderMode();
 
             DbConnection con = this.conManager.UseConnection(this);
+            DbCommand cmd = null;
             try {
-                DbCommand cmd = con.CreateCommand();
+                cmd = con.CreateCommand();
                 cmd.CommandText = queryInfo.CommandText;
                 cmd.Transaction = this.conManager.Transaction;
                 cmd.CommandTimeout = this.commandTimeout;
@@ -1058,22 +1059,42 @@ namespace System.Data.Linq.SqlClient {
             catch (Exception ex)
             {
                 ex.Data[CommandTextKey] = queryInfo.CommandText;
-	            ex.Data[CommandParametersKey]
-		            = string.Join(
-			            ", ",
-			            queryInfo.Parameters
-				            .Select(p =>
-				            {
-					            var parameterValue = p.Value == null ? "NULL" : p.Value.ToString();
-					            var netTypeString = p.Value == null ? "NULL" : p.Value.GetType().FullName;
 
-					            return $"{p.Parameter.Name}=\"{parameterValue}\" (SqlType: {p.Type}, NetType: {netTypeString})";
-				            }));
-								
+                var parameters = cmd?.Parameters != null
+                    ? EnumerateParameters(cmd.Parameters).Select(FormatParameter)
+                    : queryInfo.Parameters.Select(FormatParameter);
+
+                ex.Data[CommandParametersKey] = string.Join(", ", parameters);
+
                 throw;
             }
             finally {
                 this.conManager.ReleaseConnection(this);
+            }
+        }
+
+        private static string FormatParameter(SqlParameterInfo p)
+        {
+            var parameterValue = p.Value?.ToString() ?? "NULL";
+            var netTypeString = p.Value == null ? "NULL" : p.Value.GetType().FullName;
+
+            return $"{p.Parameter.Name}=\"{parameterValue}\" (SqlType: {p.Type}, NetType: {netTypeString})";
+
+        }
+
+        private static string FormatParameter(DbParameter p)
+        {
+            var parameterValue = p.Value?.ToString() ?? "NULL";
+            var netTypeString = p.Value == null ? "NULL" : p.Value.GetType().FullName;
+
+            return $"{p.ParameterName}=\"{parameterValue}\" (SqlType: {p.DbType}, NetType: {netTypeString})";
+        }
+
+        private static IEnumerable<DbParameter> EnumerateParameters(DbParameterCollection parameters)
+        {
+            foreach (DbParameter parameter in parameters)
+            {
+                yield return parameter;
             }
         }
 
