@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Text;
 using System.Data.Linq;
 using System.Diagnostics.CodeAnalysis;
+using System.Linq;
 
 namespace System.Data.Linq.SqlClient {
 
@@ -33,11 +34,28 @@ namespace System.Data.Linq.SqlClient {
                 return "t" + (aliasCount++);
             }
 
+            internal string GetNextAliasForTable(string name)
+            {
+                var sb = new StringBuilder();
+                foreach (var chr in name.Where(char.IsUpper).Select(char.ToLowerInvariant))
+                {
+                    sb.Append(chr);
+                }
+
+                if (sb.Length == 0)
+                    sb.Append('t');
+                sb.Append(aliasCount++);
+                return sb.ToString();
+            }
+
             internal override SqlAlias VisitAlias(SqlAlias sqlAlias) {
                 SqlAlias save = this.alias;
                 this.alias = sqlAlias;
                 sqlAlias.Node = this.Visit(sqlAlias.Node);
-                sqlAlias.Name = this.GetNextAlias();
+                if (sqlAlias.Node is SqlTable sqlAliasedTable)
+                    sqlAlias.Name = this.GetNextAliasForTable(sqlAliasedTable.RowType.Name);
+                else
+                    sqlAlias.Name = this.GetNextAlias();
                 this.alias = save;
                 return sqlAlias;
             }
