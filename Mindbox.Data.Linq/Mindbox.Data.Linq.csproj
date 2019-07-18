@@ -1,14 +1,14 @@
 <Project Sdk="Microsoft.NET.Sdk">
-
   <PropertyGroup>
     <TargetFramework>netstandard2.0</TargetFramework>
+	<PackageId>Mindbox.Data.Linq</PackageId>
     <Company>Mindbox</Company>
-    <Version>2.0.6</Version>
-    <Product>Mindbox.Data.Linq</Product>
+    <Version>2.0.8</Version>
     <Description>A clone of Microsoft System.Data.Linq to allow multi-DLL extensibility and EF compatibility.</Description>
-    <Copyright>Mindbox 2018</Copyright>
+    <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
+    <Copyright>Copyright 2019 (c) Mindbox</Copyright>
     <Authors>Mindbox</Authors>
-	<GenerateAssemblyInfo>false</GenerateAssemblyInfo>
+	<LangVersion>latest</LangVersion>
   </PropertyGroup>
 
   <ItemGroup>
@@ -22,5 +22,4 @@
     <PackageReference Include="System.Runtime.Extensions" Version="4.3.0" />
     <PackageReference Include="System.Security.Permissions" Version="4.5.0" />
   </ItemGroup>
-
 </Project>
