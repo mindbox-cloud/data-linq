@@ -3,13 +3,12 @@
     <TargetFramework>netstandard2.0</TargetFramework>
 	<PackageId>Mindbox.Data.Linq</PackageId>
     <Company>Mindbox</Company>
-    <Version>2.1.3</Version>
+    <Version>2.1.4</Version>
     <Description>A clone of Microsoft System.Data.Linq to allow multi-DLL extensibility and EF compatibility.</Description>
     <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
     <Copyright>Copyright 2019 (c) Mindbox</Copyright>
     <Authors>Mindbox</Authors>
 	<LangVersion>latest</LangVersion>
-    <EmbedUntrackedSources>true</EmbedUntrackedSources>
     <PublishRepositoryUrl>true</PublishRepositoryUrl>
     <IncludeSymbols>true</IncludeSymbols>
     <SymbolPackageFormat>snupkg</SymbolPackageFormat>
