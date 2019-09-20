@@ -3,12 +3,16 @@
     <TargetFramework>netstandard2.0</TargetFramework>
 	<PackageId>Mindbox.Data.Linq</PackageId>
     <Company>Mindbox</Company>
-    <Version>2.0.8</Version>
+    <Version>2.1.0</Version>
     <Description>A clone of Microsoft System.Data.Linq to allow multi-DLL extensibility and EF compatibility.</Description>
     <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
     <Copyright>Copyright 2019 (c) Mindbox</Copyright>
     <Authors>Mindbox</Authors>
 	<LangVersion>latest</LangVersion>
+    <EmbedUntrackedSources>true</EmbedUntrackedSources>
+    <PublishRepositoryUrl>true</PublishRepositoryUrl>
+    <IncludeSymbols>true</IncludeSymbols>
+    <SymbolPackageFormat>snupkg</SymbolPackageFormat>
   </PropertyGroup>
 
   <ItemGroup>
@@ -21,5 +25,6 @@
     <PackageReference Include="System.Runtime" Version="4.3.0" />
     <PackageReference Include="System.Runtime.Extensions" Version="4.3.0" />
     <PackageReference Include="System.Security.Permissions" Version="4.5.0" />
+    <PackageReference Include="Microsoft.SourceLink.GitHub" Version="1.0.0-beta2-19367-01" PrivateAssets="All"/>
   </ItemGroup>
 </Project>
