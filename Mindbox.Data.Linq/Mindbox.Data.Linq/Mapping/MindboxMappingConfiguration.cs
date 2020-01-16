@@ -16,7 +16,7 @@ namespace Mindbox.Data.Linq.Mapping
 
 		private readonly DbModelBuilder modelBuilder = new DbModelBuilder();
 
-		private readonly Dictionary<Type, TableAttribute> additionalTableAttributesByRootType = 
+		private readonly Dictionary<Type, TableAttribute> additionalTableAttributesByRootType =
 			new Dictionary<Type, TableAttribute>();
 
 		private EventHandler<EntityFrameworkIncompatibility> entityFrameworkIncompatibilityHandler;
@@ -54,7 +54,7 @@ namespace Mindbox.Data.Linq.Mapping
 		}
 
 
-		public void AddInheritance<TRoot, T>(object code)
+		public void AddInheritance<TRoot, T>(object code, bool isDefault = false)
 			where TRoot : class
 			where T : TRoot
 		{
@@ -73,7 +73,8 @@ namespace Mindbox.Data.Linq.Mapping
 			additionalInheritanceAttributes.Add(new InheritanceMappingAttribute
 			{
 				Code = code,
-				Type = typeof(T)
+				Type = typeof(T),
+				IsDefault = isDefault
 			});
 		}
 
@@ -91,7 +92,7 @@ namespace Mindbox.Data.Linq.Mapping
 				additionalColumnAttributesByMember.Add(columnAttributeByMember.Member, columnAttributeByMember.Attribute);
 			foreach (var associationAttributeByMember in modelBuilder.GetAssociationAttributesByMember())
 				additionalAssociationAttributesByMember.Add(
-					associationAttributeByMember.Member, 
+					associationAttributeByMember.Member,
 					associationAttributeByMember.Attribute);
 		}
 
@@ -103,8 +104,8 @@ namespace Mindbox.Data.Linq.Mapping
 			CheckFrozen();
 
 			List<InheritanceMappingAttribute> additionalInheritanceAttributes;
-			return additionalInheritanceAttributesByRootType.TryGetValue(rootType, out additionalInheritanceAttributes) ? 
-				additionalInheritanceAttributes.ToList() : 
+			return additionalInheritanceAttributesByRootType.TryGetValue(rootType, out additionalInheritanceAttributes) ?
+				additionalInheritanceAttributes.ToList() :
 				new List<InheritanceMappingAttribute>();
 		}
 
