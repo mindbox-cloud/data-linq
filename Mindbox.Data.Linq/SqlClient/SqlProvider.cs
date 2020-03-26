@@ -380,7 +380,7 @@ namespace System.Data.Linq.SqlClient {
                 DbConnectionStringBuilder builder = new DbConnectionStringBuilder();
                 builder.ConnectionString = con.ConnectionString;
                 if (string.Compare((string)builder["MultipleActiveResultSets"], "true", StringComparison.OrdinalIgnoreCase) == 0) {
-                    maxUsersPerConnection = 10;
+                    maxUsersPerConnection = 50;
                 }
             }
 
