@@ -9,7 +9,7 @@ namespace System.Data.Linq.SqlClient
 	/// like a MemberInfo. MetaDataToken by itself is not sufficient because its only
 	/// unique within a single assembly.
 	/// </summary>
-	internal struct MetaPosition : IEqualityComparer<MetaPosition>, IEqualityComparer {
+	internal struct MetaPosition : IEquatable<MetaPosition>, IEqualityComparer<MetaPosition>, IEqualityComparer {
 		private int metadataToken;
 		private Assembly assembly;
 		internal MetaPosition(MemberInfo mi)
@@ -77,6 +77,11 @@ namespace System.Data.Linq.SqlClient
 				return false;
 			}
 			return true;
+		}
+
+		public bool Equals(MetaPosition other)
+		{
+			return AreEqual(this, other);
 		}
 	}
 }
