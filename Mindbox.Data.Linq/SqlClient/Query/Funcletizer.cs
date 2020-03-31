@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
 using System.Linq.Expressions;
+using Mindbox.Expressions;
 
 namespace System.Data.Linq.SqlClient {
     using System.Data.Linq.Mapping;
@@ -56,9 +57,40 @@ namespace System.Data.Linq.SqlClient {
                         }
                     }
                 }
-                return Expression.Invoke(Expression.Constant(Expression.Lambda(e).Compile()));
+                return Expression.Invoke(Expression.Constant(CreateLocalEvaluator(e)));
             }
         }
+
+        static Delegate CreateLocalEvaluator(Expression expression)
+        {
+            var type = typeof(TypedEvaluator<>).MakeGenericType(expression.Type);
+            return ((IEvaluator)Activator.CreateInstance(type, expression))
+                .Evaluator;
+        }
+
+        interface IEvaluator
+        {
+            Delegate Evaluator { get; }
+        }
+
+        class TypedEvaluator<T> : IEvaluator
+        {
+            private readonly Expression expression;
+
+            public TypedEvaluator(Expression expression)
+            {
+                this.expression = expression;
+            }
+
+            private T Evaluate()
+            {
+                return (T)ExpressionsConfiguration.ExpressionEvaluatorFactory()
+                    .Evaluate(Expression.Convert(expression, typeof(object)));
+            }
+
+            public Delegate Evaluator => (Func<T>)Evaluate;
+        }
+
         class DependenceChecker : ExpressionVisitor {
             HashSet<ParameterExpression> inScope = new HashSet<ParameterExpression>();
             bool isIndependent = true;
