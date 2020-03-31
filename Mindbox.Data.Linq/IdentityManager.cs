@@ -95,12 +95,17 @@ namespace System.Data.Linq {
                 return km;
             }
 
-            #region Nested type definitions
-            // These types are internal rather than private to work around
-            // CLR bug #117419 related to type visibility under partial trust
-            // in nested class scenarios.
+	        public override int CachedObjectsCount => this.caches.Sum(f => f.Value.CachedObjectsCount);
 
-            internal abstract class KeyManager {
+	        public override IEnumerable<KeyValuePair<MetaType, int>> CountsByType =>
+		        caches.Select(f => new KeyValuePair<MetaType, int>(f.Key, f.Value.CachedObjectsCount));
+
+			#region Nested type definitions
+			// These types are internal rather than private to work around
+			// CLR bug #117419 related to type visibility under partial trust
+			// in nested class scenarios.
+
+			internal abstract class KeyManager {
                 internal abstract Type KeyType { get; }
             }
 
@@ -242,6 +247,7 @@ namespace System.Data.Linq {
                 internal abstract object FindLike(object instance);
                 internal abstract object InsertLookup(object instance);
                 internal abstract bool RemoveLike(object instance);
+	            public abstract int CachedObjectsCount { get; }
             }
 
             internal class IdentityCache<T, K> : IdentityCache {
@@ -292,7 +298,9 @@ namespace System.Data.Linq {
                     return false;
                 }
 
-                internal override object Find(object[] keyValues) {
+	            public override int CachedObjectsCount => count;
+
+	            internal override object Find(object[] keyValues) {
                     K key;
                     if (this.keyManager.TryCreateKeyFromValues(keyValues, out key)) {
                         T value = default(T);
@@ -372,6 +380,15 @@ namespace System.Data.Linq {
             internal override bool RemoveLike(MetaType type, object instance) { return false; }
             internal override object Find(MetaType type, object[] keyValues) { return null; }
             internal override object FindLike(MetaType type, object instance) { return null; }
+
+	        public override int CachedObjectsCount => 0;
+
+	        public override IEnumerable<KeyValuePair<MetaType, int>> CountsByType =>
+		        Enumerable.Empty<KeyValuePair<MetaType, int>>();
+
         }
+
+	    public abstract int CachedObjectsCount { get; }
+	    public abstract IEnumerable<KeyValuePair<MetaType, int>> CountsByType { get; }
     }
 }

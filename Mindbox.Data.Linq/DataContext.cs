@@ -54,6 +54,7 @@ namespace System.Data.Linq
 		private DataLoadOptions loadOptions;
 		private string statementsLabel;
 		private ChangeConflictCollection conflicts;
+		private List<Tuple<Type, string>> trackedQueries;
 
 		public DataContext(string fileOrServerOrConnection) 
 		{
@@ -61,6 +62,9 @@ namespace System.Data.Linq
 				throw Error.ArgumentNull("fileOrServerOrConnection");
 			InitWithDefaultMapping(fileOrServerOrConnection);
         }
+
+		public int CachedObjectsCount => services.IdentityManager.CachedObjectsCount;
+		public IEnumerable<KeyValuePair<MetaType, int>> CountsByType => services.IdentityManager.CountsByType;
 
 		public DataContext(string fileOrServerOrConnection, MappingSource mapping) 
 		{
