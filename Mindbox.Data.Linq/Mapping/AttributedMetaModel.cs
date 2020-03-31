@@ -50,7 +50,7 @@ namespace System.Data.Linq.Mapping
             this.contextType = contextType;
             metaTypes = new ConcurrentDictionary<Type, MetaType>();
             metaTables = new ConcurrentDictionary<Type, MetaTable>();
-            metaFunctions = new ConcurrentDictionary<MetaPosition, MetaFunction>();
+            metaFunctions = new ConcurrentDictionary<MetaPosition, MetaFunction>(new MetaPosition());
 
             // Provider type
             var attrs = (ProviderAttribute[])this.contextType.GetCustomAttributes(typeof(ProviderAttribute), true);

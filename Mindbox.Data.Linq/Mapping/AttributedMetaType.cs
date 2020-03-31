@@ -397,7 +397,7 @@ namespace System.Data.Linq.Mapping
 		{
 			if (dataMembers == null)
 			{
-				dataMemberMap = new Dictionary<MetaPosition, MetaDataMember>();
+				dataMemberMap = new Dictionary<MetaPosition, MetaDataMember>(new MetaPosition());
 
 				var ordinal = 0;
 				const BindingFlags flags = 
