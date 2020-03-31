@@ -574,6 +574,7 @@ namespace System.Data.Linq.Mapping {
         internal object inheritanceCode;
         ReadOnlyCollection<MetaType> derivedTypes;
         ReadOnlyCollection<MetaAssociation> associations;
+	    bool? canPossiblyInferDelete;
         bool hasMethods;
         bool hasAnyLoadMethod;
         bool hasAnyValidateMethod;
@@ -868,6 +869,28 @@ namespace System.Data.Linq.Mapping {
         public override ReadOnlyCollection<MetaDataMember> IdentityMembers {
             get { return this.identities; }
         }
+
+	    public override bool CanPossiblyInferDelete
+		{
+		    get
+		    {
+			    if (this.canPossiblyInferDelete != null)
+				    return canPossiblyInferDelete.Value;
+
+			    var preloadedAssociations = this.Associations;
+			    lock (locktarget)
+			    {
+				    canPossiblyInferDelete = preloadedAssociations.Any(f =>
+					    f.DeleteOnNull &&
+					    f.IsForeignKey &&
+					    !f.IsNullable &&
+					    !f.IsMany);
+			    }
+
+			    return canPossiblyInferDelete.Value;
+		    }
+	    }
+
         public override ReadOnlyCollection<MetaAssociation> Associations {
             get {
                 // LOCKING: Associations are late-expanded so that cycles are broken.
@@ -1632,7 +1655,10 @@ namespace System.Data.Linq.Mapping {
         public override ReadOnlyCollection<MetaAssociation> Associations {
             get { return _emptyAssociations; }
         }
-        public override MetaDataMember GetDataMember(MemberInfo mi) {
+
+	    public override bool CanPossiblyInferDelete => false;
+
+	    public override MetaDataMember GetDataMember(MemberInfo mi) {
             if (mi == null)
                 throw Error.ArgumentNull("mi");
             this.InitDataMembers();

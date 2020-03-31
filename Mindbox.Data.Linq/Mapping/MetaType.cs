@@ -136,6 +136,8 @@ namespace System.Data.Linq.Mapping
 		/// </summary>
 		public abstract ReadOnlyCollection<MetaAssociation> Associations { get; }
 
+		public abstract bool CanPossiblyInferDelete { get; }
+
 		/// <summary>
 		/// The method called when the entity is first loaded.
 		/// </summary>

@@ -307,7 +307,11 @@ namespace System.Data.Linq
                     get { return this.state == State.Modified || this.state == State.PossiblyModified; }
                 }
 
-                internal override bool CanInferDelete() {
+                internal override bool CanInferDelete()
+                {
+	                if (!Type.CanPossiblyInferDelete)
+		                return false;
+
                     // A delete can be inferred iff there is a non-nullable singleton association that has 
                     // been set to null, and the association has DeleteOnNull = true.
                     if (this.state == State.Modified || this.state == State.PossiblyModified) {
