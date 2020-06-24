@@ -114,8 +114,7 @@ namespace System.Data.Linq.Mapping
 		private readonly object metaDataMemberLock = new object(); // Hold locks on private object rather than public MetaType.
 		private bool hasLoadMethod;
 		private MethodInfo loadMethod;
-		private readonly bool databaseIsMigrated;
-		private readonly Dictionary<string, bool> databaseMigrationStatus;
+		private readonly Dictionary<string, bool> databaseMigratedColumns;
 
 
 		internal AttributedMetaDataMember(AttributedMetaType metaType, MemberInfo member, int ordinal)
@@ -128,8 +127,7 @@ namespace System.Data.Linq.Mapping
 			isNullableType = TypeSystem.IsNullableType(type);
 			columnAttribute = ((AttributedMetaModel)metaType.Model).TryGetColumnAttribute(member);
 			associationAttribute = ((AttributedMetaModel)metaType.Model).TryGetAssociationAttribute(member);
-			databaseIsMigrated = (metaType.Model as MindboxMetaModel)?.DatabaseIsMigrated ?? false;
-			databaseMigrationStatus = (metaType.Model as MindboxMetaModel)?.DatabaseMigrationStatus ??
+			databaseMigratedColumns = (metaType.Model as MindboxMetaModel)?.DatabaseMigratedColumns ??
 			                          new Dictionary<string, bool>();
 
 			var attr = (columnAttribute == null) ? associationAttribute : (DataAttribute)columnAttribute;
@@ -283,17 +281,14 @@ namespace System.Data.Linq.Mapping
 				if (columnAttribute == null)
 					return null;
 
-				var isDatabaseMigrated = databaseIsMigrated;
-
 				if (columnAttribute.MigrationIdentifier != null
-				    && databaseMigrationStatus.TryGetValue(columnAttribute.MigrationIdentifier, out var isMigrated))
+				    && databaseMigratedColumns.TryGetValue(columnAttribute.MigrationIdentifier, out var isMigrated)
+				    && isMigrated)
 				{
-					isDatabaseMigrated = isMigrated;
+					return columnAttribute.DbTypeAfterDatabaseMigration ?? columnAttribute.DbType;
 				}
 
-				return isDatabaseMigrated
-					? columnAttribute.DbTypeAfterDatabaseMigration ?? columnAttribute.DbType
-					: columnAttribute.DbType;
+				return columnAttribute.DbType;
 			}
 		}
 

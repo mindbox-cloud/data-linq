@@ -9,16 +9,9 @@ namespace Mindbox.Data.Linq.Mapping
 	/// </summary>
 	public class MindboxMappingSource : AttributeMappingSource
 	{
-		[Obsolete]
-		public MindboxMappingSource(MindboxMappingConfiguration configuration, bool isDatabaseMigrated)
-			: this(configuration, isDatabaseMigrated, new Dictionary<string, bool>())
-		{
-		}
-
 		public MindboxMappingSource(
 			MindboxMappingConfiguration configuration,
-			bool isDatabaseMigrated,
-			Dictionary<string, bool> databaseMigrationStatus)
+			Dictionary<string, bool> databaseMigratedColumns)
 		{
 			if (configuration == null)
 				throw new ArgumentNullException(nameof(configuration));
@@ -27,13 +20,11 @@ namespace Mindbox.Data.Linq.Mapping
 				configuration.Freeze();
 
 			Configuration = configuration;
-			IsDatabaseMigrated = isDatabaseMigrated;
-			DatabaseMigrationStatus = databaseMigrationStatus;
+			DatabaseMigratedColumns = databaseMigratedColumns;
 		}
 
-		internal MindboxMappingConfiguration Configuration { get; private set; }
-		public bool IsDatabaseMigrated { get; }
-		public Dictionary<string, bool> DatabaseMigrationStatus { get; }
+		internal MindboxMappingConfiguration Configuration { get; }
+		public Dictionary<string, bool> DatabaseMigratedColumns { get; }
 
 		protected override MetaModel CreateModel(Type dataContextType)
 		{

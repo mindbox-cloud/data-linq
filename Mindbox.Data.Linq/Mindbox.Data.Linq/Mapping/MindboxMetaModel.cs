@@ -18,8 +18,7 @@ namespace Mindbox.Data.Linq.Mapping
         internal MindboxMetaModel(MindboxMappingSource mappingSource, Type contextType)
 			: base(mappingSource, contextType)
         {
-	        DatabaseIsMigrated = mappingSource.IsDatabaseMigrated;
-	        DatabaseMigrationStatus = mappingSource.DatabaseMigrationStatus;
+	        DatabaseMigratedColumns = mappingSource.DatabaseMigratedColumns;
         }
 
 
@@ -163,7 +162,6 @@ namespace Mindbox.Data.Linq.Mapping
 			return (property != null) && property.GetMethod.IsVirtual && !property.GetMethod.IsFinal;
 		}
 
-		public bool DatabaseIsMigrated { get; }
-		public Dictionary<string, bool> DatabaseMigrationStatus { get; }
+		public Dictionary<string, bool> DatabaseMigratedColumns { get; }
 	}
 }
