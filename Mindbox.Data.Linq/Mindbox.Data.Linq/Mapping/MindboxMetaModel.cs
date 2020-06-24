@@ -8,17 +8,17 @@ using System.Linq;
 using Castle.DynamicProxy;
 using Mindbox.Data.Linq.Proxy;
 
-namespace Mindbox.Data.Linq.Mapping 
+namespace Mindbox.Data.Linq.Mapping
 {
-	internal class MindboxMetaModel : AttributedMetaModel 
+	internal class MindboxMetaModel : AttributedMetaModel
 	{
 		private static readonly ProxyGenerator proxyGenerator = new ProxyGenerator();
 
 
-        internal MindboxMetaModel(MindboxMappingSource mappingSource, Type contextType) 
+        internal MindboxMetaModel(MindboxMappingSource mappingSource, Type contextType)
 			: base(mappingSource, contextType)
         {
-	        DatabaseIsMigrated = mappingSource.IsDatabaseMigrated;
+	        DatabaseMigratedColumns = mappingSource.DatabaseMigratedColumns;
         }
 
 
@@ -90,7 +90,7 @@ namespace Mindbox.Data.Linq.Mapping
 
 		internal override bool IsDeferredMember(MemberInfo member, Type storageType, AssociationAttribute associationAttribute)
 		{
-			return base.IsDeferredMember(member, storageType, associationAttribute) || 
+			return base.IsDeferredMember(member, storageType, associationAttribute) ||
 				IsProxyDeferredMember(member, associationAttribute);
 		}
 
@@ -104,8 +104,8 @@ namespace Mindbox.Data.Linq.Mapping
 		}
 
 		internal override bool DoesMemberRequireProxy(
-			MemberInfo member, 
-			Type storageType, 
+			MemberInfo member,
+			Type storageType,
 			AssociationAttribute associationAttribute)
 		{
 			if (member == null)
@@ -113,7 +113,7 @@ namespace Mindbox.Data.Linq.Mapping
 			if (storageType == null)
 				throw new ArgumentNullException(nameof(storageType));
 
-			return !base.IsDeferredMember(member, storageType, associationAttribute) && 
+			return !base.IsDeferredMember(member, storageType, associationAttribute) &&
 				IsProxyDeferredMember(member, associationAttribute);
 		}
 
@@ -162,6 +162,6 @@ namespace Mindbox.Data.Linq.Mapping
 			return (property != null) && property.GetMethod.IsVirtual && !property.GetMethod.IsFinal;
 		}
 
-		public bool DatabaseIsMigrated { get; }
+		public Dictionary<string, bool> DatabaseMigratedColumns { get; }
 	}
 }

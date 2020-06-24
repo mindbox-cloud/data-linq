@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Data.Linq.Mapping;
 
 namespace Mindbox.Data.Linq.Mapping
@@ -6,23 +7,24 @@ namespace Mindbox.Data.Linq.Mapping
 	/// <summary>
 	/// A mapping source that uses attributes on the context to create the mapping model.
 	/// </summary>
-	public class MindboxMappingSource : AttributeMappingSource 
+	public class MindboxMappingSource : AttributeMappingSource
 	{
-		public MindboxMappingSource(MindboxMappingConfiguration configuration, bool isDatabaseMigrated)
+		public MindboxMappingSource(
+			MindboxMappingConfiguration configuration,
+			Dictionary<string, bool> databaseMigratedColumns)
 		{
 			if (configuration == null)
-				throw new ArgumentNullException("configuration");
+				throw new ArgumentNullException(nameof(configuration));
 
 			if (!configuration.IsFrozen)
 				configuration.Freeze();
+
 			Configuration = configuration;
-			IsDatabaseMigrated = isDatabaseMigrated;
+			DatabaseMigratedColumns = databaseMigratedColumns;
 		}
 
-
-		internal MindboxMappingConfiguration Configuration { get; private set; }
-		public bool IsDatabaseMigrated { get; }
-
+		internal MindboxMappingConfiguration Configuration { get; }
+		public Dictionary<string, bool> DatabaseMigratedColumns { get; }
 
 		protected override MetaModel CreateModel(Type dataContextType)
 		{

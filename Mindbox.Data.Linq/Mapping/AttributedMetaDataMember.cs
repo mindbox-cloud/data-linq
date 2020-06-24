@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.Data.Linq.SqlClient;
 using System.Reflection;
 using System.Runtime.CompilerServices;
@@ -6,7 +7,7 @@ using Mindbox.Data.Linq.Proxy;
 
 namespace System.Data.Linq.Mapping
 {
-	internal sealed class AttributedMetaDataMember : MetaDataMember 
+	internal sealed class AttributedMetaDataMember : MetaDataMember
 	{
 		private static MetaAccessor CreateAccessor(Type accessorType, params object[] args)
 		{
@@ -37,10 +38,10 @@ namespace System.Data.Linq.Mapping
 
 		[MethodImpl(MethodImplOptions.NoInlining | MethodImplOptions.NoOptimization)]
 		private static void MakeDeferredAccessors(
-			Type objectDeclaringType, 
+			Type objectDeclaringType,
 			MetaAccessor accessor,
-			out MetaAccessor accessorValue, 
-			out MetaAccessor accessorDeferredValue, 
+			out MetaAccessor accessorValue,
+			out MetaAccessor accessorDeferredValue,
 			out MetaAccessor accessorDeferredSource)
 		{
 			if (accessor.Type.IsGenericType)
@@ -113,10 +114,10 @@ namespace System.Data.Linq.Mapping
 		private readonly object metaDataMemberLock = new object(); // Hold locks on private object rather than public MetaType.
 		private bool hasLoadMethod;
 		private MethodInfo loadMethod;
-		private bool databaseIsMigrated;
+		private readonly Dictionary<string, bool> databaseMigratedColumns;
 
 
-		internal AttributedMetaDataMember(AttributedMetaType metaType, MemberInfo member, int ordinal) 
+		internal AttributedMetaDataMember(AttributedMetaType metaType, MemberInfo member, int ordinal)
 		{
 			declaringType = member.DeclaringType;
 			this.metaType = metaType;
@@ -126,9 +127,11 @@ namespace System.Data.Linq.Mapping
 			isNullableType = TypeSystem.IsNullableType(type);
 			columnAttribute = ((AttributedMetaModel)metaType.Model).TryGetColumnAttribute(member);
 			associationAttribute = ((AttributedMetaModel)metaType.Model).TryGetAssociationAttribute(member);
-			databaseIsMigrated = (metaType.Model as MindboxMetaModel)?.DatabaseIsMigrated ?? false;
+			databaseMigratedColumns = (metaType.Model as MindboxMetaModel)?.DatabaseMigratedColumns ??
+			                          new Dictionary<string, bool>();
+
 			var attr = (columnAttribute == null) ? associationAttribute : (DataAttribute)columnAttribute;
-			if (attr != null && attr.Storage != null) 
+			if (attr != null && attr.Storage != null)
 			{
 				var mis = member.DeclaringType.GetMember(attr.Storage, BindingFlags.Instance | BindingFlags.NonPublic);
 				if (mis.Length != 1)
@@ -141,10 +144,10 @@ namespace System.Data.Linq.Mapping
 				.DoesMemberRequireProxy(member, storageType, associationAttribute);
 
 			// auto-gen identities must be synced on insert
-			if ((columnAttribute != null) && 
-					columnAttribute.IsDbGenerated && 
+			if ((columnAttribute != null) &&
+					columnAttribute.IsDbGenerated &&
 					columnAttribute.IsPrimaryKey &&
-					(columnAttribute.AutoSync != AutoSync.Default) && 
+					(columnAttribute.AutoSync != AutoSync.Default) &&
 					(columnAttribute.AutoSync != AutoSync.OnInsert))
 				throw Error.IncorrectAutoSyncSpecification(member.Name);
 		}
@@ -271,11 +274,23 @@ namespace System.Data.Linq.Mapping
 			}
 		}
 
-		public override string DbType => columnAttribute == null 
-			? null 
-			: databaseIsMigrated 
-				? columnAttribute.DbTypeAfterDatabaseMigration ?? columnAttribute.DbType
-				: columnAttribute.DbType;
+		public override string DbType
+		{
+			get
+			{
+				if (columnAttribute == null)
+					return null;
+
+				if (columnAttribute.MigrationIdentifier != null
+				    && databaseMigratedColumns.TryGetValue(columnAttribute.MigrationIdentifier, out var isMigrated)
+				    && isMigrated)
+				{
+					return columnAttribute.DbTypeAfterDatabaseMigration ?? columnAttribute.DbType;
+				}
+
+				return columnAttribute.DbType;
+			}
+		}
 
 		public override string Expression => columnAttribute?.Expression;
 
@@ -384,7 +399,7 @@ namespace System.Data.Linq.Mapping
 			if (areAccessorsInitialized)
 				return;
 
-			lock (metaDataMemberLock) 
+			lock (metaDataMemberLock)
 			{
 				if (areAccessorsInitialized)
 					return;

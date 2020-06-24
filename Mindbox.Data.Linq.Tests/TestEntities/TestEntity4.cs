@@ -14,10 +14,12 @@ namespace Mindbox.Data.Linq.Tests
 	[Table(Name = "administration.Staff")]
 	public sealed class TestEntity4 : INotifyPropertyChanging, INotifyPropertyChanged
 	{
+		public const string IdMigrationIdentifier = "TestEntity4_Id";
+
 		private static readonly PropertyChangingEventArgs EmptyChangingEventArgs =
 			new PropertyChangingEventArgs(string.Empty);
 
-	
+
 		private long id;
 		private string userName;
 		private string passwordHash;
@@ -46,10 +48,11 @@ namespace Mindbox.Data.Linq.Tests
 
 
 		[Column(
-			Storage = "id", 
-			AutoSync = AutoSync.OnInsert, 
-			IsPrimaryKey = true, 
+			Storage = "id",
+			AutoSync = AutoSync.OnInsert,
+			IsPrimaryKey = true,
 			IsDbGenerated = true,
+			MigrationIdentifier = IdMigrationIdentifier,
 			DbType = "int identity not null",
 			DbTypeAfterDatabaseMigration = "bigint identity not null")]
 		public long Id
@@ -142,10 +145,10 @@ namespace Mindbox.Data.Linq.Tests
 		}
 
 		[Column(
-			Storage = "rowVersion", 
-			AutoSync = AutoSync.Always, 
-			CanBeNull = false, 
-			IsDbGenerated = true, 
+			Storage = "rowVersion",
+			AutoSync = AutoSync.Always,
+			CanBeNull = false,
+			IsDbGenerated = true,
 			IsVersion = true,
 			DbType = "rowversion not null")]
 		public Binary RowVersion
@@ -196,8 +199,8 @@ namespace Mindbox.Data.Linq.Tests
 		}
 
 		[Column(
-			Storage = "creatorId", 
-			CanBeNull = false, 
+			Storage = "creatorId",
+			CanBeNull = false,
 			DbType = "int not null",
 			DbTypeAfterDatabaseMigration = "bigint not null")]
 		public long CreatorId
