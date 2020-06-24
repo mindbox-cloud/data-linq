@@ -603,6 +603,42 @@ namespace Mindbox.Data.Linq.Tests
 			Assert.AreEqual(UpdateCheck.Always, metaDataMember.UpdateCheck);
 		}
 
+		[TestMethod]
+		public void IdentityColumnViaAttribute_AfterMigrationUsingDictionary()
+		{
+			var configuration = new MindboxMappingConfiguration();
+			var mappingSource = new MindboxMappingSource(
+				configuration,
+				isDatabaseMigrated: false,
+				databaseMigrationStatus: new Dictionary<string, bool>
+				{
+					[TestEntity4.IdMigrationIdentifier] = true
+				});
+
+			var metaDataMember = mappingSource
+				.GetModel(typeof(DataContext))
+				.GetMetaType(typeof(TestEntity4))
+				.DataMembers
+				.SingleOrDefault(aMetaDataMember => aMetaDataMember.Name == "Id");
+
+			Assert.IsNotNull(metaDataMember);
+			Assert.AreEqual("Id", metaDataMember.MappedName);
+			Assert.IsNull(metaDataMember.Association);
+			Assert.AreEqual(AutoSync.OnInsert, metaDataMember.AutoSync);
+			Assert.IsFalse(metaDataMember.CanBeNull);
+			Assert.AreEqual("bigint identity not null", metaDataMember.DbType);
+			Assert.IsNull(metaDataMember.Expression);
+			Assert.IsFalse(metaDataMember.IsAssociation);
+			Assert.IsTrue(metaDataMember.IsDbGenerated);
+			Assert.IsFalse(metaDataMember.IsDeferred);
+			Assert.IsFalse(metaDataMember.IsDiscriminator);
+			Assert.IsTrue(metaDataMember.IsPersistent);
+			Assert.IsTrue(metaDataMember.IsPrimaryKey);
+			Assert.IsFalse(metaDataMember.IsVersion);
+			Assert.AreEqual(typeof(long), metaDataMember.Type);
+			Assert.AreEqual(UpdateCheck.Always, metaDataMember.UpdateCheck);
+		}
+
 
 		[TestMethod]
 		public void IdentityColumnViaBuilder()
@@ -1252,7 +1288,7 @@ namespace Mindbox.Data.Linq.Tests
 					var id10B = Convert.ToInt32(insert10BCommand.ExecuteScalar());
 
 					var insert9ACommand = new SqlCommand(
-						"insert into Test9 (OtherId) values (@OtherId); select scope_identity()", 
+						"insert into Test9 (OtherId) values (@OtherId); select scope_identity()",
 						connection);
 					insert9ACommand.Parameters.AddWithValue("OtherId", id10A);
 					var id9A = Convert.ToInt32(insert9ACommand.ExecuteScalar());
@@ -1389,7 +1425,7 @@ namespace Mindbox.Data.Linq.Tests
 			var mappingSource = new MindboxMappingSource(configuration, false);
 			var metaTable = mappingSource.GetModel(typeof(DataContext)).GetTable(typeof(TestEntity12));
 
-			var member = (AttributedMetaDataMember)metaTable.RowType.PersistentDataMembers.Single(aMember => 
+			var member = (AttributedMetaDataMember)metaTable.RowType.PersistentDataMembers.Single(aMember =>
 				aMember.Name == "Value");
 			Assert.IsFalse(member.DoesRequireProxy);
 		}
@@ -1829,7 +1865,7 @@ namespace Mindbox.Data.Linq.Tests
 		}
 
 		private void RunRealDatabaseTest(
-			MindboxMappingConfiguration configuration, 
+			MindboxMappingConfiguration configuration,
 			Action<SqlConnection> tableInitializer,
 			Action<Func<DataContext>> body)
 		{

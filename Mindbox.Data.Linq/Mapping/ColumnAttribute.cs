@@ -1,7 +1,7 @@
 ﻿namespace System.Data.Linq.Mapping
 {
 	[AttributeUsage(AttributeTargets.Field | AttributeTargets.Property, AllowMultiple = false)]
-	public sealed class ColumnAttribute : DataAttribute 
+	public sealed class ColumnAttribute : DataAttribute
 	{
 		private bool canBeNull = true;
 
@@ -22,11 +22,12 @@
 		public UpdateCheck UpdateCheck { get; set; }
 		public AutoSync AutoSync { get; set; }
 		public bool IsDiscriminator { get; set; }
+		public string MigrationIdentifier { get; set; }
 
-		public bool CanBeNull 
-		{ 
+		public bool CanBeNull
+		{
 			get { return canBeNull; }
-			set 
+			set
 			{
 				CanBeNullSet = true;
 				canBeNull = value;
