@@ -287,6 +287,11 @@ namespace System.Data.Linq
 		{
 			return (TEntity) this.Context.Services.GetCachedObject(metaTable.RowType, keyValues);
 		}
+		
+		object ITable.TryGetAttached(object[] keyValues)
+		{
+			return TryGetAttached(keyValues);
+		}
 
 		/// <summary>
 		/// Attaches an entity to the DataContext in an unmodified state, similiar to as if it had been
