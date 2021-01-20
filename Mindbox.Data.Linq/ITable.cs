@@ -104,5 +104,10 @@ namespace System.Data.Linq
 		/// True if the table is read-only.
 		/// </summary>
 		bool IsReadOnly { get; }
+		/// <summary>
+		/// Find entity in cache (identity map) by key.
+		/// </summary>
+		/// <param name="keyValues"></param>
+		object TryGetAttached(object[] keyValues);
 	}
 }
