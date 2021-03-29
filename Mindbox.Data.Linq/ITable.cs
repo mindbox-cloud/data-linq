@@ -109,5 +109,11 @@ namespace System.Data.Linq
 		/// </summary>
 		/// <param name="keyValues"></param>
 		object TryGetAttached(object[] keyValues);
+
+		/// <summary>
+		/// Detaches entity from the context. After detach it will not have any refs on context and other entities.
+		/// </summary>
+		/// <param name="entity">Entity to detach</param>
+		void Detach(object entity);
 	}
 }
