@@ -564,6 +564,17 @@ namespace System.Data.Linq
 			}
 		}
 
+		public void Detach(object entity)
+		{
+			if (entity == null) throw new ArgumentNullException(nameof(entity));
+
+			var typedEntity = entity as TEntity;
+			if (typedEntity == null)
+				throw new InvalidOperationException($"entity is {entity.GetType()}, expected {typeof(TEntity)}");
+			
+			context.Services.ChangeTracker.StopTracking(entity);
+		}
+		
 		public override string ToString() {
 			return "Table(" + typeof(TEntity).Name + ")";
 		}
