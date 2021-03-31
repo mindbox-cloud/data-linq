@@ -568,11 +568,11 @@ namespace System.Data.Linq
 		{
 			if (entity == null) throw new ArgumentNullException(nameof(entity));
 
-			var typedEntity = entity as TEntity;
-			if (typedEntity == null)
+			if (entity is not TEntity)
 				throw new InvalidOperationException($"entity is {entity.GetType()}, expected {typeof(TEntity)}");
 			
 			context.Services.ChangeTracker.StopTracking(entity);
+			context.Services.RemoveCachedObjectLike(metaTable.RowType.GetInheritanceType(entity.GetType()), entity);
 		}
 		
 		public override string ToString() {
