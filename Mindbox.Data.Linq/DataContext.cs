@@ -949,10 +949,7 @@ namespace System.Data.Linq
 	        return clonedDataContext;
         }
 
-        protected virtual DataContext Create()
-        {
-	        return new DataContext();
-        }
+        protected virtual DataContext Create() => new DataContext();
 
         private ITable GetTable(MetaTable metaTable) 
 		{
