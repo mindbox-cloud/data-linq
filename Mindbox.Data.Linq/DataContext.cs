@@ -943,17 +943,10 @@ namespace System.Data.Linq
 	        clonedDataContext.services = new CommonDataServices(clonedDataContext, services.Model);
 	        clonedDataContext.conflicts = new ChangeConflictCollection();
 	        clonedDataContext.provider = provider.CloneWithSameConnection(clonedDataContext.services);
-	        clonedDataContext.tables = tables;
-	        clonedDataContext.UpdateUsedDataContext();
+	        
+	        clonedDataContext.tables = new Dictionary<MetaTable, ITable>();
+	        clonedDataContext.InitTables(clonedDataContext);
 	        return clonedDataContext;
-        }
-
-        public void UpdateUsedDataContext()
-        {
-	        foreach (var pair in tables)
-	        {
-		        pair.Value.Context = this;
-	        }
         }
 
         private ITable GetTable(MetaTable metaTable) 
