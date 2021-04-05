@@ -100,7 +100,7 @@ namespace System.Data.Linq
         }
 
 
-		private DataContext() 
+		protected DataContext() 
 		{
 		}
 
@@ -935,6 +935,25 @@ namespace System.Data.Linq
 
             tables = new Dictionary<MetaTable, ITable>();
             InitTables(this);
+        }
+
+        public object CloneWithSameConnection()
+        {
+	        var clonedDataContext = (DataContext) Activator.CreateInstance(GetType());
+	        clonedDataContext.services = new CommonDataServices(clonedDataContext, services.Model);
+	        clonedDataContext.conflicts = new ChangeConflictCollection();
+	        clonedDataContext.provider = provider.CloneWithSameConnection(clonedDataContext.services);
+	        clonedDataContext.tables = tables;
+	        clonedDataContext.UpdateUsedDataContext();
+	        return clonedDataContext;
+        }
+
+        public void UpdateUsedDataContext()
+        {
+	        foreach (var pair in tables)
+	        {
+		        pair.Value.Context = this;
+	        }
         }
 
         private ITable GetTable(MetaTable metaTable) 

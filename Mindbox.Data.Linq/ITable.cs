@@ -13,7 +13,7 @@ namespace System.Data.Linq
 		/// <summary>
 		/// The DataContext containing this Table.
 		/// </summary>
-		DataContext Context { get; }
+		DataContext Context { get; set; }
 		/// <summary>
 		/// Adds an entity in a 'pending insert' state to this table.  The added entity will not be observed
 		/// in query results from this table until after SubmitChanges has been called. Any untracked

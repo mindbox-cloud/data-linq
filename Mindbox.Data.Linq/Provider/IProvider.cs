@@ -116,6 +116,8 @@ namespace System.Data.Linq.Provider {
         /// <param name="query"></param>
         /// <returns></returns>
         DbCommand GetCommand(Expression query);
+
+        IProvider CloneWithSameConnection(IDataServices services);
     }
 
     /// <summary>

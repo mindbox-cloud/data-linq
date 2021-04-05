@@ -32,6 +32,7 @@ namespace System.Data.Linq
 		/// </summary>
 		public DataContext Context {
 			get { return this.context; }
+			set { this.context = value; }
 		}
 
 		/// <summary>

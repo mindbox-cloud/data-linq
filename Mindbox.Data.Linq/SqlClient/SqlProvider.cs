@@ -62,6 +62,7 @@ namespace System.Data.Linq.SqlClient {
         private bool enableCacheLookup = true;
         private ProviderMode mode = ProviderMode.NotYetDecided;
         private bool deleted = false;
+        private Type readerType;
 
 
         internal enum ProviderMode {
@@ -395,7 +396,6 @@ namespace System.Data.Linq.SqlClient {
             SqlNode.Formatter = new SqlFormatter(((IProvider)this).StatementLabel);
 #endif
 
-            Type readerType;
             if (mode == ProviderMode.SqlCE) 
             {
                 readerType = con.GetType().Module.GetType(SqlCeDataReaderTypeName);
@@ -441,7 +441,24 @@ namespace System.Data.Linq.SqlClient {
                 this.log = null;
             }
         }
+        
+        IProvider IProvider.CloneWithSameConnection(IDataServices services)
+        {
+            var provider = (SqlProvider)Activator.CreateInstance(services.Model.ProviderType);
+            provider.conManager = conManager;
+            provider.services = services;
+            provider.dbName = dbName;
+            provider.mode = mode;
+            provider.commandTimeout = commandTimeout;
+            
+#if DEBUG
+            SqlNode.Formatter = new SqlFormatter(((IProvider)this).StatementLabel);
+#endif
 
+            provider.readerCompiler = new ObjectReaderCompiler(readerType, services);
+            return provider;
+        }
+        
         internal void CheckDispose() {
             if (this.disposed) {
                 throw Error.ProviderCannotBeUsedAfterDispose();
