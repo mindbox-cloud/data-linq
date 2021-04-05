@@ -937,9 +937,9 @@ namespace System.Data.Linq
             InitTables(this);
         }
 
-        public object CloneWithSameConnection()
+        public DataContext CloneWithSameConnection()
         {
-	        var clonedDataContext = (DataContext) Activator.CreateInstance(GetType());
+	        var clonedDataContext = Create();
 	        clonedDataContext.services = new CommonDataServices(clonedDataContext, services.Model);
 	        clonedDataContext.conflicts = new ChangeConflictCollection();
 	        clonedDataContext.provider = provider.CloneWithSameConnection(clonedDataContext.services);
@@ -947,6 +947,11 @@ namespace System.Data.Linq
 	        clonedDataContext.tables = new Dictionary<MetaTable, ITable>();
 	        clonedDataContext.InitTables(clonedDataContext);
 	        return clonedDataContext;
+        }
+
+        protected virtual DataContext Create()
+        {
+	        return new DataContext();
         }
 
         private ITable GetTable(MetaTable metaTable) 
