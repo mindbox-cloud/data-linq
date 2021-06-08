@@ -12,19 +12,19 @@
     <PublishRepositoryUrl>true</PublishRepositoryUrl>
     <IncludeSymbols>true</IncludeSymbols>
     <SymbolPackageFormat>snupkg</SymbolPackageFormat>
-    <PackageVersion>3.0.5</PackageVersion>
+    <PackageVersion>4.0.0</PackageVersion>
   </PropertyGroup>
 
   <ItemGroup>
     <PackageReference Include="Castle.Core" Version="4.3.1" />
+    <PackageReference Include="Microsoft.Data.SqlClient" Version="2.1.3" />
     <PackageReference Include="Mindbox.Expressions" Version="3.2.0" />
     <PackageReference Include="System.ComponentModel.Annotations" Version="4.5.0" />
-    <PackageReference Include="System.Data.SqlClient" Version="4.5.1" />
     <PackageReference Include="System.Reflection.Emit" Version="4.3.0" />
     <PackageReference Include="System.Reflection.Emit.Lightweight" Version="4.3.0" />
     <PackageReference Include="System.Runtime" Version="4.3.0" />
     <PackageReference Include="System.Runtime.Extensions" Version="4.3.0" />
-    <PackageReference Include="System.Security.Permissions" Version="4.5.0" />
     <PackageReference Include="Microsoft.SourceLink.GitHub" Version="1.0.0-beta2-19367-01" PrivateAssets="All" />
+    <PackageReference Include="System.Security.Permissions" Version="4.7.0" />
   </ItemGroup>
 </Project>

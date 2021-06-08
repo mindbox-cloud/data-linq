@@ -7,5 +7,5 @@ packages
 _ReSharper.Caches/*
 .vs/*
 TestResults
-.idea/*
+.idea
 /Mindbox.Data.Linq/nuget.exe

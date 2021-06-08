@@ -52,7 +52,6 @@ namespace System.Data.Linq
 		private bool disposed;
 		private bool isInSubmitChanges;
 		private DataLoadOptions loadOptions;
-		private string statementsLabel;
 		private ChangeConflictCollection conflicts;
 
 		public DataContext(string fileOrServerOrConnection) 

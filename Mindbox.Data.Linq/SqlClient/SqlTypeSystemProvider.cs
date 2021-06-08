@@ -973,8 +973,8 @@ namespace System.Data.Linq.SqlClient {
                 if (sqlType.IsRuntimeOnlyType) {
                     throw Error.BadParameterType(sqlType.GetClosestRuntimeType());
                 }
-                System.Data.SqlClient.SqlParameter sParameter = parameter as System.Data.SqlClient.SqlParameter;
-                if (sParameter != null) {
+
+                if (parameter is Microsoft.Data.SqlClient.SqlParameter sParameter) {
                     sParameter.SqlDbType = sqlType.SqlDbType;
                     if (sqlType.HasPrecisionAndScale) {
                         sParameter.Precision = (byte)sqlType.Precision;
