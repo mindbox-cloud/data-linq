@@ -12,6 +12,7 @@ using System.Data.Linq.Mapping;
 using System.Data.Linq.Provider;
 using System.Collections.ObjectModel;
 using System.Diagnostics.CodeAnalysis;
+using Mindbox.Data.Linq.Mapping;
 
 namespace System.Data.Linq.SqlClient {
 
@@ -2409,10 +2410,20 @@ namespace System.Data.Linq.SqlClient {
             List<SqlMemberAssign> bindings = new List<SqlMemberAssign>();
             itemMetaType = metaTable.RowType.GetInheritanceType(conItem.Value.GetType());
             SqlExpression sqlExprItem = sql.ValueFromObject(conItem.Value, true, source);
-            foreach (MetaDataMember mm in itemMetaType.PersistentDataMembers) {
-                if (!mm.IsAssociation && !mm.IsDbGenerated && !mm.IsVersion) {
-                    bindings.Add(new SqlMemberAssign(mm.Member, sql.Member(sqlExprItem, mm.Member)));
-                }
+            foreach (var metaMember in itemMetaType.PersistentDataMembers)
+            {
+	            var shouldOverrideGeneratedId = metaMember is AttributedMetaDataMember attributedMetaMember &&
+	                                            attributedMetaMember.MigrationIdentifier != null &&
+	                                            metaTable.Model is MindboxMetaModel mindboxMetaModel &&
+	                                            mindboxMetaModel.ShouldOverrideGeneratedColumn(attributedMetaMember
+		                                            .MigrationIdentifier);
+
+	            if (!metaMember.IsAssociation &&
+	                (!metaMember.IsDbGenerated || shouldOverrideGeneratedId) &&
+	                !metaMember.IsVersion)
+	            {
+		            bindings.Add(new SqlMemberAssign(metaMember.Member, sql.Member(sqlExprItem, metaMember.Member)));
+	            }
             }
             ConstructorInfo cons = itemMetaType.Type.GetConstructor(Type.EmptyTypes);
             System.Diagnostics.Debug.Assert(cons != null);
