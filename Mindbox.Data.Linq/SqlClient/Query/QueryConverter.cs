@@ -2410,16 +2410,20 @@ namespace System.Data.Linq.SqlClient {
             List<SqlMemberAssign> bindings = new List<SqlMemberAssign>();
             itemMetaType = metaTable.RowType.GetInheritanceType(conItem.Value.GetType());
             SqlExpression sqlExprItem = sql.ValueFromObject(conItem.Value, true, source);
+            var shouldOverrideGeneratedColumn = false;
             foreach (var metaMember in itemMetaType.PersistentDataMembers)
             {
-	            var shouldOverrideGeneratedId = metaMember is AttributedMetaDataMember attributedMetaMember &&
-	                                            attributedMetaMember.MigrationIdentifier != null &&
-	                                            metaTable.Model is MindboxMetaModel mindboxMetaModel &&
-	                                            mindboxMetaModel.ShouldOverrideGeneratedColumn(attributedMetaMember
-		                                            .MigrationIdentifier);
+	            if (metaMember.IsDbGenerated && metaMember is AttributedMetaDataMember attributedMetaMember &&
+	                attributedMetaMember.MigrationIdentifier != null &&
+	                metaTable.Model is MindboxMetaModel mindboxMetaModel &&
+	                mindboxMetaModel.ShouldOverrideGeneratedColumn(attributedMetaMember
+		                .MigrationIdentifier))
+	            {
+		            shouldOverrideGeneratedColumn = true;
+	            }
 
 	            if (!metaMember.IsAssociation &&
-	                (!metaMember.IsDbGenerated || shouldOverrideGeneratedId) &&
+	                (!metaMember.IsDbGenerated || shouldOverrideGeneratedColumn) &&
 	                !metaMember.IsVersion)
 	            {
 		            bindings.Add(new SqlMemberAssign(metaMember.Member, sql.Member(sqlExprItem, metaMember.Member)));
@@ -2429,8 +2433,8 @@ namespace System.Data.Linq.SqlClient {
             System.Diagnostics.Debug.Assert(cons != null);
             sqlItem = sql.New(itemMetaType, cons, null, null, bindings, item);
 
-            SqlTable tab = sql.Table(metaTable, metaTable.RowType, this.dominatingExpression);
-            SqlInsert sin = new SqlInsert(tab, sqlItem, item);
+            SqlTable tab = sql.Table(metaTable, metaTable.RowType, dominatingExpression);
+            SqlInsert sin = new SqlInsert(tab, sqlItem, item, shouldOverrideGeneratedColumn);
 
             if (resultSelector == null) {
                 return sin;
