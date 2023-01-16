@@ -5,8 +5,6 @@ using System.Data.Linq;
 using System.Data.Linq.Mapping;
 using System.Data.SqlClient;
 using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Mindbox.Data.Linq.Mapping;
 
@@ -25,7 +23,10 @@ namespace Mindbox.Data.Linq.Tests
 				if (incompatibility == EntityFrameworkIncompatibility.TableAttribute)
 					incompatibilityDetected = true;
 			};
-			var mappingSource = new MindboxMappingSource(configuration, new Dictionary<string, bool>());
+			var mappingSource = new MindboxMappingSource(
+				configuration,
+				new Dictionary<string, bool>(),
+				Array.Empty<string>);
 			var metaTable = mappingSource.GetModel(typeof(DataContext)).GetTable(typeof(TestEntity4));
 
 			Assert.IsNotNull(metaTable);
@@ -39,7 +40,10 @@ namespace Mindbox.Data.Linq.Tests
 			var configuration = new MindboxMappingConfiguration();
 			configuration.ModelBuilder.Configurations.Add(new TestEntity6.TestEntity6Configuration());
 
-			var mappingSource = new MindboxMappingSource(configuration, new Dictionary<string, bool>());
+			var mappingSource = new MindboxMappingSource(
+				configuration,
+				new Dictionary<string, bool>(),
+				Array.Empty<string>);
 			var metaTable = mappingSource.GetModel(typeof(DataContext)).GetTable(typeof(TestEntity6));
 
 			Assert.IsNotNull(metaTable);
@@ -53,7 +57,10 @@ namespace Mindbox.Data.Linq.Tests
 			configuration.ModelBuilder.Configurations.Add(new TestEntity6.TestEntity6Configuration());
 			configuration.Freeze();
 
-			var mappingSource = new MindboxMappingSource(configuration, new Dictionary<string, bool>());
+			var mappingSource = new MindboxMappingSource(
+				configuration,
+				new Dictionary<string, bool>(),
+				Array.Empty<string>);
 			var metaTable = mappingSource.GetModel(typeof(DataContext)).GetTable(typeof(TestEntity6));
 
 			Assert.IsNotNull(metaTable);
@@ -70,7 +77,10 @@ namespace Mindbox.Data.Linq.Tests
 				if (incompatibility == EntityFrameworkIncompatibility.ColumnAttribute)
 					incompatibilityDetected = true;
 			};
-			var mappingSource = new MindboxMappingSource(configuration, new Dictionary<string, bool>());
+			var mappingSource = new MindboxMappingSource(
+				configuration,
+				new Dictionary<string, bool>(),
+				Array.Empty<string>);
 			var metaDataMember = mappingSource
 				.GetModel(typeof(DataContext))
 				.GetMetaType(typeof(TestEntity4))
@@ -102,7 +112,10 @@ namespace Mindbox.Data.Linq.Tests
 			var configuration = new MindboxMappingConfiguration();
 			configuration.ModelBuilder.Configurations.Add(new TestEntity6.TestEntity6Configuration());
 
-			var mappingSource = new MindboxMappingSource(configuration, new Dictionary<string, bool>());
+			var mappingSource = new MindboxMappingSource(
+				configuration,
+				new Dictionary<string, bool>(),
+				Array.Empty<string>);
 			var metaDataMember = mappingSource
 				.GetModel(typeof(DataContext))
 				.GetMetaType(typeof(TestEntity6))
@@ -131,7 +144,10 @@ namespace Mindbox.Data.Linq.Tests
 		public void NvarcharNotNullColumnViaAttribute()
 		{
 			var configuration = new MindboxMappingConfiguration();
-			var mappingSource = new MindboxMappingSource(configuration, new Dictionary<string, bool>());
+			var mappingSource = new MindboxMappingSource(
+				configuration,
+				new Dictionary<string, bool>(),
+				Array.Empty<string>);
 			var metaDataMember = mappingSource
 				.GetModel(typeof(DataContext))
 				.GetMetaType(typeof(TestEntity4))
@@ -162,7 +178,10 @@ namespace Mindbox.Data.Linq.Tests
 			var configuration = new MindboxMappingConfiguration();
 			configuration.ModelBuilder.Configurations.Add(new TestEntity6.TestEntity6Configuration());
 
-			var mappingSource = new MindboxMappingSource(configuration, new Dictionary<string, bool>());
+			var mappingSource = new MindboxMappingSource(
+				configuration,
+				new Dictionary<string, bool>(),
+				Array.Empty<string>);
 			var metaDataMember = mappingSource
 				.GetModel(typeof(DataContext))
 				.GetMetaType(typeof(TestEntity6))
@@ -191,7 +210,10 @@ namespace Mindbox.Data.Linq.Tests
 		public void CharNullColumnViaAttribute()
 		{
 			var configuration = new MindboxMappingConfiguration();
-			var mappingSource = new MindboxMappingSource(configuration, new Dictionary<string, bool>());
+			var mappingSource = new MindboxMappingSource(
+				configuration,
+				new Dictionary<string, bool>(),
+				Array.Empty<string>);
 			var metaDataMember = mappingSource
 				.GetModel(typeof(DataContext))
 				.GetMetaType(typeof(TestEntity4))
@@ -222,7 +244,10 @@ namespace Mindbox.Data.Linq.Tests
 			var configuration = new MindboxMappingConfiguration();
 			configuration.ModelBuilder.Configurations.Add(new TestEntity6.TestEntity6Configuration());
 
-			var mappingSource = new MindboxMappingSource(configuration, new Dictionary<string, bool>());
+			var mappingSource = new MindboxMappingSource(
+				configuration,
+				new Dictionary<string, bool>(),
+				Array.Empty<string>);
 			var metaDataMember = mappingSource
 				.GetModel(typeof(DataContext))
 				.GetMetaType(typeof(TestEntity6))
@@ -251,7 +276,10 @@ namespace Mindbox.Data.Linq.Tests
 		public void NvarcharMaxNotNullColumnViaAttribute()
 		{
 			var configuration = new MindboxMappingConfiguration();
-			var mappingSource = new MindboxMappingSource(configuration, new Dictionary<string, bool>());
+			var mappingSource = new MindboxMappingSource(
+				configuration,
+				new Dictionary<string, bool>(),
+				Array.Empty<string>);
 			var metaDataMember = mappingSource
 				.GetModel(typeof(DataContext))
 				.GetMetaType(typeof(TestEntity4))
@@ -282,7 +310,10 @@ namespace Mindbox.Data.Linq.Tests
 			var configuration = new MindboxMappingConfiguration();
 			configuration.ModelBuilder.Configurations.Add(new TestEntity6.TestEntity6Configuration());
 
-			var mappingSource = new MindboxMappingSource(configuration, new Dictionary<string, bool>());
+			var mappingSource = new MindboxMappingSource(
+				configuration,
+				new Dictionary<string, bool>(),
+				Array.Empty<string>);
 			var metaDataMember = mappingSource
 				.GetModel(typeof(DataContext))
 				.GetMetaType(typeof(TestEntity6))
@@ -311,7 +342,10 @@ namespace Mindbox.Data.Linq.Tests
 		public void DateTimeColumnViaAttribute()
 		{
 			var configuration = new MindboxMappingConfiguration();
-			var mappingSource = new MindboxMappingSource(configuration, new Dictionary<string, bool>());
+			var mappingSource = new MindboxMappingSource(
+				configuration,
+				new Dictionary<string, bool>(),
+				Array.Empty<string>);
 			var metaDataMember = mappingSource
 				.GetModel(typeof(DataContext))
 				.GetMetaType(typeof(TestEntity4))
@@ -342,7 +376,10 @@ namespace Mindbox.Data.Linq.Tests
 			var configuration = new MindboxMappingConfiguration();
 			configuration.ModelBuilder.Configurations.Add(new TestEntity6.TestEntity6Configuration());
 
-			var mappingSource = new MindboxMappingSource(configuration, new Dictionary<string, bool>());
+			var mappingSource = new MindboxMappingSource(
+				configuration,
+				new Dictionary<string, bool>(),
+				Array.Empty<string>);
 			var metaDataMember = mappingSource
 				.GetModel(typeof(DataContext))
 				.GetMetaType(typeof(TestEntity6))
@@ -371,7 +408,10 @@ namespace Mindbox.Data.Linq.Tests
 		public void NullableDateTimeColumnViaAttribute()
 		{
 			var configuration = new MindboxMappingConfiguration();
-			var mappingSource = new MindboxMappingSource(configuration, new Dictionary<string, bool>());
+			var mappingSource = new MindboxMappingSource(
+				configuration,
+				new Dictionary<string, bool>(),
+				Array.Empty<string>);
 			var metaDataMember = mappingSource
 				.GetModel(typeof(DataContext))
 				.GetMetaType(typeof(TestEntity4))
@@ -402,7 +442,10 @@ namespace Mindbox.Data.Linq.Tests
 			var configuration = new MindboxMappingConfiguration();
 			configuration.ModelBuilder.Configurations.Add(new TestEntity6.TestEntity6Configuration());
 
-			var mappingSource = new MindboxMappingSource(configuration, new Dictionary<string, bool>());
+			var mappingSource = new MindboxMappingSource(
+				configuration,
+				new Dictionary<string, bool>(),
+				Array.Empty<string>);
 			var metaDataMember = mappingSource
 				.GetModel(typeof(DataContext))
 				.GetMetaType(typeof(TestEntity6))
@@ -431,7 +474,10 @@ namespace Mindbox.Data.Linq.Tests
 		public void VersionColumnViaAttribute()
 		{
 			var configuration = new MindboxMappingConfiguration();
-			var mappingSource = new MindboxMappingSource(configuration, new Dictionary<string, bool>());
+			var mappingSource = new MindboxMappingSource(
+				configuration,
+				new Dictionary<string, bool>(),
+				Array.Empty<string>);
 			var metaDataMember = mappingSource
 				.GetModel(typeof(DataContext))
 				.GetMetaType(typeof(TestEntity4))
@@ -462,7 +508,10 @@ namespace Mindbox.Data.Linq.Tests
 			var configuration = new MindboxMappingConfiguration();
 			configuration.ModelBuilder.Configurations.Add(new TestEntity6.TestEntity6Configuration());
 
-			var mappingSource = new MindboxMappingSource(configuration, new Dictionary<string, bool>());
+			var mappingSource = new MindboxMappingSource(
+				configuration,
+				new Dictionary<string, bool>(),
+				Array.Empty<string>);
 			var metaDataMember = mappingSource
 				.GetModel(typeof(DataContext))
 				.GetMetaType(typeof(TestEntity6))
@@ -548,7 +597,10 @@ namespace Mindbox.Data.Linq.Tests
 		public void IdentityColumnViaAttribute()
 		{
 			var configuration = new MindboxMappingConfiguration();
-			var mappingSource = new MindboxMappingSource(configuration, new Dictionary<string, bool>());
+			var mappingSource = new MindboxMappingSource(
+				configuration,
+				new Dictionary<string, bool>(),
+				Array.Empty<string>);
 			var metaDataMember = mappingSource
 				.GetModel(typeof(DataContext))
 				.GetMetaType(typeof(TestEntity4))
@@ -583,7 +635,8 @@ namespace Mindbox.Data.Linq.Tests
 				new Dictionary<string, bool>
 				{
 					[TestEntity4.IdMigrationIdentifier] = true
-				});
+				},
+				Array.Empty<string>);
 
 			var metaDataMember = mappingSource
 				.GetModel(typeof(DataContext))
@@ -616,7 +669,10 @@ namespace Mindbox.Data.Linq.Tests
 			var configuration = new MindboxMappingConfiguration();
 			configuration.ModelBuilder.Configurations.Add(new TestEntity6.TestEntity6Configuration());
 
-			var mappingSource = new MindboxMappingSource(configuration, new Dictionary<string, bool>());
+			var mappingSource = new MindboxMappingSource(
+				configuration,
+				new Dictionary<string, bool>(),
+				Array.Empty<string>);
 			var metaDataMember = mappingSource
 				.GetModel(typeof(DataContext))
 				.GetMetaType(typeof(TestEntity6))
@@ -651,7 +707,10 @@ namespace Mindbox.Data.Linq.Tests
 				if (incompatibility == EntityFrameworkIncompatibility.AssociationAttribute)
 					incompatibilityDetected = true;
 			};
-			var mappingSource = new MindboxMappingSource(configuration, new Dictionary<string, bool>());
+			var mappingSource = new MindboxMappingSource(
+				configuration,
+				new Dictionary<string, bool>(),
+				Array.Empty<string>);
 			var metaModel = mappingSource.GetModel(typeof(DataContext));
 			var entityMetaType = metaModel.GetMetaType(typeof(TestEntity4));
 
@@ -723,7 +782,10 @@ namespace Mindbox.Data.Linq.Tests
 			var configuration = new MindboxMappingConfiguration();
 			configuration.ModelBuilder.Configurations.Add(new TestEntity6.TestEntity6Configuration());
 
-			var mappingSource = new MindboxMappingSource(configuration, new Dictionary<string, bool>());
+			var mappingSource = new MindboxMappingSource(
+				configuration,
+				new Dictionary<string, bool>(),
+				Array.Empty<string>);
 			var metaModel = mappingSource.GetModel(typeof(DataContext));
 			var entityMetaType = metaModel.GetMetaType(typeof(TestEntity6));
 
@@ -792,7 +854,10 @@ namespace Mindbox.Data.Linq.Tests
 			var configuration = new MindboxMappingConfiguration();
 			configuration.ModelBuilder.Configurations.Add(new TestEntity6.TestEntity6Configuration());
 
-			var mappingSource = new MindboxMappingSource(configuration, new Dictionary<string, bool>());
+			var mappingSource = new MindboxMappingSource(
+				configuration,
+				new Dictionary<string, bool>(),
+				Array.Empty<string>);
 			var metaModel = mappingSource.GetModel(typeof(DataContext));
 			var entityMetaType = metaModel.GetMetaType(typeof(TestEntity6));
 
@@ -888,7 +953,10 @@ namespace Mindbox.Data.Linq.Tests
 				if (incompatibility == EntityFrameworkIncompatibility.AssociationAttribute)
 					incompatibilityDetected = true;
 			};
-			var mappingSource = new MindboxMappingSource(configuration, new Dictionary<string, bool>());
+			var mappingSource = new MindboxMappingSource(
+				configuration,
+				new Dictionary<string, bool>(),
+				Array.Empty<string>);
 			var metaModel = mappingSource.GetModel(typeof(DataContext));
 			var entityMetaType = metaModel.GetMetaType(typeof(TestEntity20));
 
@@ -960,7 +1028,10 @@ namespace Mindbox.Data.Linq.Tests
 			var configuration = new MindboxMappingConfiguration();
 			configuration.ModelBuilder.Configurations.Add(new TestEntity21.TestEntity21Configuration());
 
-			var mappingSource = new MindboxMappingSource(configuration, new Dictionary<string, bool>());
+			var mappingSource = new MindboxMappingSource(
+				configuration,
+				new Dictionary<string, bool>(),
+				Array.Empty<string>);
 			var metaModel = mappingSource.GetModel(typeof(DataContext));
 			var entityMetaType = metaModel.GetMetaType(typeof(TestEntity21));
 
@@ -1029,7 +1100,10 @@ namespace Mindbox.Data.Linq.Tests
 			var configuration = new MindboxMappingConfiguration();
 			configuration.ModelBuilder.Configurations.Add(new TestEntity21.TestEntity21Configuration());
 
-			var mappingSource = new MindboxMappingSource(configuration, new Dictionary<string, bool>());
+			var mappingSource = new MindboxMappingSource(
+				configuration,
+				new Dictionary<string, bool>(),
+				Array.Empty<string>);
 			var metaModel = mappingSource.GetModel(typeof(DataContext));
 			var entityMetaType = metaModel.GetMetaType(typeof(TestEntity21));
 
@@ -1392,7 +1466,10 @@ namespace Mindbox.Data.Linq.Tests
 		public void VirtualStringPropertyIsNotDeferredViaAttribute()
 		{
 			var configuration = new MindboxMappingConfiguration();
-			var mappingSource = new MindboxMappingSource(configuration, new Dictionary<string, bool>());
+			var mappingSource = new MindboxMappingSource(
+				configuration,
+				new Dictionary<string, bool>(),
+				Array.Empty<string>);
 			var metaTable = mappingSource.GetModel(typeof(DataContext)).GetTable(typeof(TestEntity12));
 
 			var member = (AttributedMetaDataMember)metaTable.RowType.PersistentDataMembers.Single(aMember =>
@@ -1404,7 +1481,10 @@ namespace Mindbox.Data.Linq.Tests
 		public void InterfaceImplementationStringPropertyIsNotDeferredViaAttribute()
 		{
 			var configuration = new MindboxMappingConfiguration();
-			var mappingSource = new MindboxMappingSource(configuration, new Dictionary<string, bool>());
+			var mappingSource = new MindboxMappingSource(
+				configuration,
+				new Dictionary<string, bool>(),
+				Array.Empty<string>);
 			var metaTable = mappingSource.GetModel(typeof(DataContext)).GetTable(typeof(TestEntity13));
 
 			var member = (AttributedMetaDataMember)metaTable.RowType.PersistentDataMembers.Single(aMember =>
@@ -1460,7 +1540,10 @@ namespace Mindbox.Data.Linq.Tests
 		public void ProtectedSetterViaAttributeWithoutStorage()
 		{
 			var configuration = new MindboxMappingConfiguration();
-			var mappingSource = new MindboxMappingSource(configuration, new Dictionary<string, bool>());
+			var mappingSource = new MindboxMappingSource(
+				configuration,
+				new Dictionary<string, bool>(),
+				Array.Empty<string>);
 			var metaTable = mappingSource.GetModel(typeof(DataContext)).GetTable(typeof(TestEntity14));
 
 			var member = (AttributedMetaDataMember)metaTable.RowType.PersistentDataMembers.Single(aMember =>
@@ -1864,7 +1947,10 @@ namespace Mindbox.Data.Linq.Tests
 						tableInitializer(initializationConnection);
 					}
 
-					var mappingSource = new MindboxMappingSource(configuration, new Dictionary<string, bool>());
+					var mappingSource = new MindboxMappingSource(
+				configuration,
+				new Dictionary<string, bool>(),
+				Array.Empty<string>);
 					body(() => new DataContext(databaseConnectionString, mappingSource));
 				}
 				finally
