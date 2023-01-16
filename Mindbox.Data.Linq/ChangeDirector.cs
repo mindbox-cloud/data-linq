@@ -63,6 +63,9 @@ namespace System.Data.Linq {
             }
 
             internal override int Insert(TrackedObject item) {
+                if (context.ProcessInsert(item.Current)) // True - we do have custom handling, false - no custom handling
+                    return 1;
+
                 if (item.Type.Table.InsertMethod != null) {
                     try {
                         item.Type.Table.InsertMethod.Invoke(this.context, new object[] { item.Current });
