@@ -999,7 +999,10 @@ namespace System.Data.Linq.SqlClient {
             internal override SqlStatement VisitInsert(SqlInsert si)
             {
 	            if (si.ShouldOverrideGeneratedColumn)
-		            sb.AppendLine($"SET IDENTITY_INSERT {si.Table.Name} ON");
+	            {
+		            sb.Append($"SET IDENTITY_INSERT {si.Table.Name} ON");
+		            NewLine();
+	            }
 
                 if (si.OutputKey != null) {
                     sb.Append("DECLARE @output TABLE(");
@@ -1071,7 +1074,10 @@ namespace System.Data.Linq.SqlClient {
                 }
 
                 if (si.ShouldOverrideGeneratedColumn)
-	                sb.AppendLine($"SET IDENTITY_INSERT {si.Table.Name} OFF");
+                {
+	                NewLine();
+	                sb.Append($"SET IDENTITY_INSERT {si.Table.Name} OFF");
+                }
 
                 return si;
             }
