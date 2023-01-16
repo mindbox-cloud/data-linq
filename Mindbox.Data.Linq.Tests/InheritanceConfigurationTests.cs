@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.Data.Linq;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Mindbox.Data.Linq.Mapping;
@@ -11,7 +12,10 @@ namespace Mindbox.Data.Linq.Tests
 		[TestMethod]
 		public void AttributeInheritanceWorks()
 		{
-			var mappingSource = new MindboxMappingSource(new MindboxMappingConfiguration(), new Dictionary<string, bool>());
+			var mappingSource = new MindboxMappingSource(
+				new MindboxMappingConfiguration(),
+				new Dictionary<string, bool>(),
+				Array.Empty<string>);
 			var metaTable = mappingSource.GetModel(typeof(DataContext)).GetTable(typeof(RootEntityWithInheritanceMapping));
 
 			Assert.IsTrue(metaTable.RowType.IsInheritanceDefault);
@@ -23,7 +27,10 @@ namespace Mindbox.Data.Linq.Tests
 		{
 			var configuration = new MindboxMappingConfiguration();
 			configuration.AddInheritance<RootEntityWithInheritanceMapping, TestEntity3>("3");
-			var mappingSource = new MindboxMappingSource(configuration, new Dictionary<string, bool>());
+			var mappingSource = new MindboxMappingSource(
+				configuration,
+				new Dictionary<string, bool>(),
+				Array.Empty<string>);
 			var metaTable = mappingSource.GetModel(typeof(DataContext)).GetTable(typeof(RootEntityWithInheritanceMapping));
 
 			Assert.IsTrue(metaTable.RowType.IsInheritanceDefault);
