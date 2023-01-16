@@ -998,6 +998,12 @@ namespace System.Data.Linq.SqlClient {
 
             internal override SqlStatement VisitInsert(SqlInsert si)
             {
+	            if (si.ShouldOverrideGeneratedColumn)
+	            {
+		            sb.Append($"SET IDENTITY_INSERT {si.Table.Name} ON");
+		            NewLine();
+	            }
+
                 if (si.OutputKey != null) {
                     sb.Append("DECLARE @output TABLE(");
                     this.WriteName(si.OutputKey.Name);
@@ -1065,6 +1071,12 @@ namespace System.Data.Linq.SqlClient {
                         this.WriteName(si.OutputKey.Name);
                         sb.Append(" FROM @output");
                     }
+                }
+
+                if (si.ShouldOverrideGeneratedColumn)
+                {
+	                NewLine();
+	                sb.Append($"SET IDENTITY_INSERT {si.Table.Name} OFF");
                 }
 
                 return si;

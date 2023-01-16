@@ -11,7 +11,8 @@ namespace Mindbox.Data.Linq.Mapping
 	{
 		public MindboxMappingSource(
 			MindboxMappingConfiguration configuration,
-			Dictionary<string, bool> databaseMigratedColumns)
+			Dictionary<string, bool> databaseMigratedColumns,
+			Func<IEnumerable<string>> overrideGeneratedColumns)
 		{
 			if (configuration == null)
 				throw new ArgumentNullException(nameof(configuration));
@@ -21,10 +22,12 @@ namespace Mindbox.Data.Linq.Mapping
 
 			Configuration = configuration;
 			DatabaseMigratedColumns = databaseMigratedColumns;
+			OverrideGeneratedColumns = overrideGeneratedColumns;
 		}
 
 		internal MindboxMappingConfiguration Configuration { get; }
 		public Dictionary<string, bool> DatabaseMigratedColumns { get; }
+		internal Func<IEnumerable<string>> OverrideGeneratedColumns { get; }
 
 		protected override MetaModel CreateModel(Type dataContextType)
 		{

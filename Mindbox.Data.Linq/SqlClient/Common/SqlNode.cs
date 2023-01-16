@@ -1989,11 +1989,17 @@ namespace System.Data.Linq.SqlClient {
         private SqlColumn outputKey;
         private bool outputToLocal;
 
-        internal SqlInsert(SqlTable table, SqlExpression expr, Expression sourceExpression)
-            : base(SqlNodeType.Insert, sourceExpression) {
-            this.Table = table;
-            this.Expression = expr;
-            this.Row = new SqlRow(sourceExpression);
+        internal SqlInsert(
+	        SqlTable table,
+	        SqlExpression expr,
+	        Expression sourceExpression,
+	        bool shouldOverrideGeneratedColumn = false)
+	        : base(SqlNodeType.Insert, sourceExpression)
+        {
+	        Table = table;
+	        Expression = expr;
+	        Row = new SqlRow(sourceExpression);
+	        ShouldOverrideGeneratedColumn = shouldOverrideGeneratedColumn;
         }
 
         internal SqlTable Table {
@@ -2020,6 +2026,8 @@ namespace System.Data.Linq.SqlClient {
                 this.expression = value;
             }
         }
+
+        internal bool ShouldOverrideGeneratedColumn { get; }
 
         internal SqlColumn OutputKey {
             get { return this.outputKey; }

@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.ComponentModel;
 using System.Data.Linq.Mapping;
 using System.Reflection;
-using System.Text;
 using System.Linq;
 using Castle.DynamicProxy;
 using Mindbox.Data.Linq.Proxy;
@@ -14,13 +13,16 @@ namespace Mindbox.Data.Linq.Mapping
 	{
 		private static readonly ProxyGenerator proxyGenerator = new ProxyGenerator();
 
+		private readonly Func<IEnumerable<string>> overrideGeneratedColumns;
 
-        internal MindboxMetaModel(MindboxMappingSource mappingSource, Type contextType)
+
+		internal MindboxMetaModel(MindboxMappingSource mappingSource, Type contextType)
 			: base(mappingSource, contextType)
-        {
-	        DatabaseMigratedColumns = mappingSource.DatabaseMigratedColumns;
-        }
+		{
+			DatabaseMigratedColumns = mappingSource.DatabaseMigratedColumns;
 
+			overrideGeneratedColumns = mappingSource.OverrideGeneratedColumns;
+		}
 
 		internal override AttributedRootType CreateRootType(AttributedMetaTable table, Type type)
 		{
@@ -160,6 +162,11 @@ namespace Mindbox.Data.Linq.Mapping
 
 			var property = member as PropertyInfo;
 			return (property != null) && property.GetMethod.IsVirtual && !property.GetMethod.IsFinal;
+		}
+
+		internal bool ShouldOverrideGeneratedColumn(string columnIdentifier)
+		{
+			return overrideGeneratedColumns().Contains(columnIdentifier);
 		}
 
 		public Dictionary<string, bool> DatabaseMigratedColumns { get; }
