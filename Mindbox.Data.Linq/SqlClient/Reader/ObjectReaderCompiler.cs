@@ -14,7 +14,7 @@ using System.Runtime.CompilerServices;
 using System.Runtime.Versioning;
 using System.Threading;
 using System.Data.Linq.SqlClient.Implementation;
-using Microsoft.Data.SqlClient;
+using System.Data.SqlClient;
 using System.Diagnostics.CodeAnalysis;
 using Mindbox.Data.Linq.Proxy;
 using Mindbox.Expressions;
