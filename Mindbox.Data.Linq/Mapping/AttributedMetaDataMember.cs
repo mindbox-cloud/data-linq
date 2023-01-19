@@ -294,6 +294,8 @@ namespace System.Data.Linq.Mapping
 
 		public string MigrationIdentifier => columnAttribute?.MigrationIdentifier;
 
+		public string IdentityInsertColumnIdentifier => columnAttribute?.IdentityInsertColumnIdentifier;
+
 		public override string Expression => columnAttribute?.Expression;
 
 		public override string MappedName

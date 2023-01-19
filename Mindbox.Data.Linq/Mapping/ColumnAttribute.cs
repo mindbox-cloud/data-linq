@@ -23,6 +23,7 @@
 		public AutoSync AutoSync { get; set; }
 		public bool IsDiscriminator { get; set; }
 		public string MigrationIdentifier { get; set; }
+		public string IdentityInsertColumnIdentifier { get; set; }
 
 		public bool CanBeNull
 		{
