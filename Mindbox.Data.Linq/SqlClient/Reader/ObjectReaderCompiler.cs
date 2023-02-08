@@ -2162,8 +2162,8 @@ namespace System.Data.Linq.SqlClient
                 return suc.ClrType;
             }
 
-            private void GenerateColumnAccess(Type cType, ProviderType pType, int ordinal, LocalBuilder locOrdinal) 
-			{
+            private void GenerateColumnAccess(Type cType, ProviderType pType, int ordinal, LocalBuilder locOrdinal)
+            {
                 var rType = pType.GetClosestRuntimeType();
                 var readerMethod = GetReaderMethod(compiler.dataReaderType, rType);
                 var bufferMethod = GetReaderMethod(typeof(DbDataReader), rType);
@@ -2188,15 +2188,62 @@ namespace System.Data.Linq.SqlClient
                 gen.Emit(GetMethodCallOpCode(this.compiler.miDRisDBNull), this.compiler.miDRisDBNull);
                 gen.Emit(OpCodes.Brtrue, labIsNull);
 
-                // this.reader.GetXXX()
-                GenerateAccessDataReader();
-                if (locOrdinal != null)
-                    gen.Emit(OpCodes.Ldloc, locOrdinal);
+                // Special case handling. Allow to read Int32 value if rType is Int64
+                if (rType == typeof(long))
+                {
+                    var labUseGetInt32 = gen.DefineLabel();
+
+                    // this.reader.GetFieldType(i) 
+                    var fieldTypeMethod = GetFieldTypeMethod(compiler.dataReaderType);
+                    var readerInt32Method = GetReaderMethod(compiler.dataReaderType, typeof(int));
+
+                    // this.reader.GetFieldType(i) 
+                    GenerateAccessDataReader();
+                    if (locOrdinal != null)
+                        gen.Emit(OpCodes.Ldloc, locOrdinal);
+                    else
+                        GenerateConstInt(ordinal);
+                    gen.Emit(GetMethodCallOpCode(fieldTypeMethod), fieldTypeMethod);
+
+                    // fieldType == typeof(int)
+                    gen.Emit(OpCodes.Ldtoken, typeof(int));
+                    gen.Emit(OpCodes.Call, typeof(Type).GetMethod("GetTypeFromHandle", BindingFlags.Static | BindingFlags.Public));
+                    gen.Emit(OpCodes.Ceq);
+                    gen.Emit(OpCodes.Brtrue, labUseGetInt32);
+
+                    // this.reader.GetInt64
+                    GenerateAccessDataReader();
+                    if (locOrdinal != null)
+                        gen.Emit(OpCodes.Ldloc, locOrdinal);
+                    else
+                        GenerateConstInt(ordinal);
+                    gen.Emit(GetMethodCallOpCode(readerMethod), readerMethod);
+                    GenerateConvertToType(rType, cType, readerMethod.ReturnType);
+                    gen.Emit(OpCodes.Br_S, labExit);
+
+                    // this.reader.GetInt32
+                    gen.MarkLabel(labUseGetInt32);
+                    GenerateAccessDataReader();
+                    if (locOrdinal != null)
+                        gen.Emit(OpCodes.Ldloc, locOrdinal);
+                    else
+                        GenerateConstInt(ordinal);
+                    gen.Emit(GetMethodCallOpCode(readerInt32Method), readerInt32Method);
+                    gen.Emit(OpCodes.Conv_I8); // (long)%value%
+                    gen.Emit(OpCodes.Br_S, labExit);
+                }
                 else
-                    GenerateConstInt(ordinal);
-                gen.Emit(GetMethodCallOpCode(readerMethod), readerMethod);
-                GenerateConvertToType(rType, cType, readerMethod.ReturnType);
-                gen.Emit(OpCodes.Br_S, labExit);
+                {
+                    // this.reader.GetXXX()
+                    GenerateAccessDataReader();
+                    if (locOrdinal != null)
+                        gen.Emit(OpCodes.Ldloc, locOrdinal);
+                    else
+                        GenerateConstInt(ordinal);
+                    gen.Emit(GetMethodCallOpCode(readerMethod), readerMethod);
+                    GenerateConvertToType(rType, cType, readerMethod.ReturnType);
+                    gen.Emit(OpCodes.Br_S, labExit);
+                }
 
                 // read from BUFFER
                 gen.MarkLabel(labReadFromBuffer);
@@ -2210,15 +2257,62 @@ namespace System.Data.Linq.SqlClient
                 gen.Emit(GetMethodCallOpCode(compiler.miBRisDBNull), compiler.miBRisDBNull);
                 gen.Emit(OpCodes.Brtrue, labIsNull);
 
-                // this.bufferReader.GetXXX()
-                GenerateAccessBufferReader();
-                if (locOrdinal != null)
-                    gen.Emit(OpCodes.Ldloc, locOrdinal);
+                // Special case handling. Allow to read Int32 value if rType is Int64
+                if (rType == typeof(long))
+                {
+                    var labBufferUseGetInt32 = gen.DefineLabel();
+
+                    // this.reader.GetFieldType(i) 
+                    var bufferFieldTypeMethod = GetFieldTypeMethod(typeof(DbDataReader));
+                    var bufferReaderInt32Method = GetReaderMethod(typeof(DbDataReader), typeof(int));
+
+                    // this.reader.GetFieldType(i) 
+                    GenerateAccessBufferReader();
+                    if (locOrdinal != null)
+                        gen.Emit(OpCodes.Ldloc, locOrdinal);
+                    else
+                        GenerateConstInt(ordinal);
+                    gen.Emit(GetMethodCallOpCode(bufferFieldTypeMethod), bufferFieldTypeMethod);
+
+                    // fieldType == typeof(int)
+                    gen.Emit(OpCodes.Ldtoken, typeof(int));
+                    gen.Emit(OpCodes.Call, typeof(Type).GetMethod("GetTypeFromHandle", BindingFlags.Static | BindingFlags.Public));
+                    gen.Emit(OpCodes.Ceq);
+                    gen.Emit(OpCodes.Brtrue, labBufferUseGetInt32);
+
+                    // this.reader.GetInt64
+                    GenerateAccessBufferReader();
+                    if (locOrdinal != null)
+                        gen.Emit(OpCodes.Ldloc, locOrdinal);
+                    else
+                        GenerateConstInt(ordinal);
+                    gen.Emit(GetMethodCallOpCode(bufferMethod), bufferMethod);
+                    GenerateConvertToType(rType, cType, bufferMethod.ReturnType);
+                    gen.Emit(OpCodes.Br_S, labExit);
+
+                    // this.reader.GetInt32
+                    gen.MarkLabel(labBufferUseGetInt32);
+                    GenerateAccessBufferReader();
+                    if (locOrdinal != null)
+                        gen.Emit(OpCodes.Ldloc, locOrdinal);
+                    else
+                        GenerateConstInt(ordinal);
+                    gen.Emit(GetMethodCallOpCode(bufferReaderInt32Method), bufferReaderInt32Method);
+                    gen.Emit(OpCodes.Conv_I8); // (long)%value%
+                    gen.Emit(OpCodes.Br_S, labExit);
+                }
                 else
-                    GenerateConstInt(ordinal);
-                gen.Emit(GetMethodCallOpCode(bufferMethod), bufferMethod);
-                GenerateConvertToType(rType, cType, bufferMethod.ReturnType);
-                gen.Emit(OpCodes.Br_S, labExit);
+                {
+                    // this.bufferReader.GetXXX()
+                    GenerateAccessBufferReader();
+                    if (locOrdinal != null)
+                        gen.Emit(OpCodes.Ldloc, locOrdinal);
+                    else
+                        GenerateConstInt(ordinal);
+                    gen.Emit(GetMethodCallOpCode(bufferMethod), bufferMethod);
+                    GenerateConvertToType(rType, cType, bufferMethod.ReturnType);
+                    gen.Emit(OpCodes.Br_S, labExit);
+                }
 
                 // return NULL
                 gen.MarkLabel(labIsNull);
@@ -2430,6 +2524,16 @@ namespace System.Data.Linq.SqlClient
             }
 
             private static Type[] readMethodSignature = new Type[] { typeof(int) };
+
+            private MethodInfo GetFieldTypeMethod(Type readerType)
+            {
+                return readerType.GetMethod(
+                   "GetFieldType",
+                   BindingFlags.Instance | BindingFlags.Public,
+                   null,
+                   readMethodSignature,
+                   null);
+            }
 
             [SuppressMessage("Microsoft.Performance", "CA1822:MarkMembersAsStatic", Justification = "Unknown reason.")]
             private MethodInfo GetReaderMethod(Type readerType, Type valueType) {
