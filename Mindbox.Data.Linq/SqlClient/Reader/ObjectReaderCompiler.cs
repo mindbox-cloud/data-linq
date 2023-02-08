@@ -2192,8 +2192,6 @@ namespace System.Data.Linq.SqlClient
                 if (rType == typeof(long))
                 {
                     var labUseGetInt32 = gen.DefineLabel();
-
-                    // this.reader.GetFieldType(i) 
                     var fieldTypeMethod = GetFieldTypeMethod(compiler.dataReaderType);
                     var readerInt32Method = GetReaderMethod(compiler.dataReaderType, typeof(int));
 
@@ -2261,8 +2259,6 @@ namespace System.Data.Linq.SqlClient
                 if (rType == typeof(long))
                 {
                     var labBufferUseGetInt32 = gen.DefineLabel();
-
-                    // this.reader.GetFieldType(i) 
                     var bufferFieldTypeMethod = GetFieldTypeMethod(typeof(DbDataReader));
                     var bufferReaderInt32Method = GetReaderMethod(typeof(DbDataReader), typeof(int));
 
