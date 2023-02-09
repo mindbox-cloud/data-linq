@@ -2164,6 +2164,8 @@ namespace System.Data.Linq.SqlClient
 
             private void GenerateColumnAccess(Type cType, ProviderType pType, int ordinal, LocalBuilder locOrdinal)
             {
+                // pType - type defined by column attribute DBType (or derived from property type if DBType not set)
+                // cType - actual type of porpoerty
                 var rType = pType.GetClosestRuntimeType();
                 var readerMethod = GetReaderMethod(compiler.dataReaderType, rType);
                 var bufferMethod = GetReaderMethod(typeof(DbDataReader), rType);
@@ -2189,7 +2191,7 @@ namespace System.Data.Linq.SqlClient
                 gen.Emit(OpCodes.Brtrue, labIsNull);
 
                 // Special case handling. Allow to read Int32 value if rType is Int64
-                if (rType == typeof(long))
+                if (cType == typeof(long))
                 {
                     var labUseGetInt32 = gen.DefineLabel();
                     var fieldTypeMethod = GetFieldTypeMethod(compiler.dataReaderType);
@@ -2256,7 +2258,7 @@ namespace System.Data.Linq.SqlClient
                 gen.Emit(OpCodes.Brtrue, labIsNull);
 
                 // Special case handling. Allow to read Int32 value if rType is Int64
-                if (rType == typeof(long))
+                if (cType == typeof(long))
                 {
                     var labBufferUseGetInt32 = gen.DefineLabel();
                     var bufferFieldTypeMethod = GetFieldTypeMethod(typeof(DbDataReader));
