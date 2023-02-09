@@ -44,7 +44,7 @@ public class ObjectReaderCompilerTests
         // Arrange
         var reader = CreateReader(new[]
         {
-            new Row(1, 10L),
+            new Row(1, 10L), 
             new Row(2, null),
         });
         using var connection = CreateConnection(reader);
@@ -59,6 +59,26 @@ public class ObjectReaderCompilerTests
         Assert.AreEqual(10, rows[0].ValueNullable);
         Assert.AreEqual(2L, rows[1].Id);
         Assert.IsNull(rows[1].ValueNullable);
+    }
+
+    [TestMethod]
+    public void DBHasInt_PropertyNullableLong_NotSupported()
+    {
+        // Arrange
+        var reader = CreateReader(new[]
+        {
+            new Row(1, 10), // Testing that this (int)10 will not be properly converted
+            new Row(2, null),
+        });
+        using var connection = CreateConnection(reader);
+        using var context = new DataContext(connection);
+
+        // Act
+        var ex = Assert.ThrowsException<InvalidOperationException>(
+            () => context.GetTable<CustomRowWithBigintKey>().ToArray());
+
+        // Assert
+        Assert.AreEqual("Value is not of type Int64.", ex.Message);
     }
 
     private DbDataReader CreateReader(IEnumerable<Row> rows)
