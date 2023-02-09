@@ -2203,7 +2203,7 @@ namespace System.Data.Linq.SqlClient
                         GenerateConstInt(ordinal);
                     gen.Emit(GetMethodCallOpCode(fieldTypeMethod), fieldTypeMethod);
 
-                    // fieldType == typeof(int)
+                    // if (fieldType == typeof(int)) goto labUseGetInt32
                     gen.Emit(OpCodes.Ldtoken, typeof(int));
                     gen.Emit(OpCodes.Call, typeof(Type).GetMethod("GetTypeFromHandle", BindingFlags.Static | BindingFlags.Public));
                     gen.Emit(OpCodes.Ceq);
@@ -2270,7 +2270,7 @@ namespace System.Data.Linq.SqlClient
                         GenerateConstInt(ordinal);
                     gen.Emit(GetMethodCallOpCode(bufferFieldTypeMethod), bufferFieldTypeMethod);
 
-                    // fieldType == typeof(int)
+                    // if (fieldType == typeof(int)) goto labUseGetInt32
                     gen.Emit(OpCodes.Ldtoken, typeof(int));
                     gen.Emit(OpCodes.Call, typeof(Type).GetMethod("GetTypeFromHandle", BindingFlags.Static | BindingFlags.Public));
                     gen.Emit(OpCodes.Ceq);
