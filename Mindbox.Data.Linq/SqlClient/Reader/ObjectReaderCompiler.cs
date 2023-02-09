@@ -2270,7 +2270,7 @@ namespace System.Data.Linq.SqlClient
                         GenerateConstInt(ordinal);
                     gen.Emit(GetMethodCallOpCode(bufferFieldTypeMethod), bufferFieldTypeMethod);
 
-                    // if (fieldType == typeof(int)) goto labUseGetInt32
+                    // if (fieldType == typeof(int)) goto labBufferUseGetInt32
                     gen.Emit(OpCodes.Ldtoken, typeof(int));
                     gen.Emit(OpCodes.Call, typeof(Type).GetMethod("GetTypeFromHandle", BindingFlags.Static | BindingFlags.Public));
                     gen.Emit(OpCodes.Ceq);
