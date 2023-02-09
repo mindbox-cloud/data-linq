@@ -2190,7 +2190,7 @@ namespace System.Data.Linq.SqlClient
                 gen.Emit(GetMethodCallOpCode(this.compiler.miDRisDBNull), this.compiler.miDRisDBNull);
                 gen.Emit(OpCodes.Brtrue, labIsNull);
 
-                // Special case handling. Allow to read Int32 value if rType is Int64
+                // Special case handling. Allow to read Int32 value if cType is Int64
                 if (cType == typeof(long))
                 {
                     var labUseGetInt32 = gen.DefineLabel();
@@ -2257,7 +2257,7 @@ namespace System.Data.Linq.SqlClient
                 gen.Emit(GetMethodCallOpCode(compiler.miBRisDBNull), compiler.miBRisDBNull);
                 gen.Emit(OpCodes.Brtrue, labIsNull);
 
-                // Special case handling. Allow to read Int32 value if rType is Int64
+                // Special case handling. Allow to read Int32 value if cType is Int64
                 if (cType == typeof(long))
                 {
                     var labBufferUseGetInt32 = gen.DefineLabel();
