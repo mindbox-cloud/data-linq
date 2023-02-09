@@ -2211,7 +2211,7 @@ namespace System.Data.Linq.SqlClient
                     gen.Emit(OpCodes.Ceq);
                     gen.Emit(OpCodes.Brtrue, labUseGetInt32);
 
-                    // this.reader.GetInt64
+                    // this.reader.GetXXX (original reading, code copied)
                     GenerateAccessDataReader();
                     if (locOrdinal != null)
                         gen.Emit(OpCodes.Ldloc, locOrdinal);
@@ -2278,7 +2278,7 @@ namespace System.Data.Linq.SqlClient
                     gen.Emit(OpCodes.Ceq);
                     gen.Emit(OpCodes.Brtrue, labBufferUseGetInt32);
 
-                    // this.reader.GetInt64
+                    // this.reader.GetXXX (original reading, code copied)
                     GenerateAccessBufferReader();
                     if (locOrdinal != null)
                         gen.Emit(OpCodes.Ldloc, locOrdinal);
