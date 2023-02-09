@@ -2165,7 +2165,7 @@ namespace System.Data.Linq.SqlClient
             private void GenerateColumnAccess(Type cType, ProviderType pType, int ordinal, LocalBuilder locOrdinal)
             {
                 // pType - type defined by column attribute DBType (or derived from property type if DBType not set)
-                // cType - actual type of porpoerty
+                // cType - actual type of property
                 var rType = pType.GetClosestRuntimeType();
                 var readerMethod = GetReaderMethod(compiler.dataReaderType, rType);
                 var bufferMethod = GetReaderMethod(typeof(DbDataReader), rType);
