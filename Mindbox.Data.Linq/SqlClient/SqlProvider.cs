@@ -20,6 +20,7 @@ using System.Diagnostics.CodeAnalysis;
 using Me = System.Data.Linq.SqlClient;
 using System.Runtime.Versioning;
 using System.Runtime.CompilerServices;
+using Mindbox.Expressions;
 
 namespace System.Data.Linq.SqlClient {
     public sealed class Sql2000Provider : SqlProvider {
@@ -377,10 +378,15 @@ namespace System.Data.Linq.SqlClient {
             }
 
             int maxUsersPerConnection = 1;
-            if (con.ConnectionString.IndexOf("MultipleActiveResultSets", StringComparison.OrdinalIgnoreCase) >= 0) {
+
+            var multipleActiveResultSetDisplayName = ReflectionExpressions
+                .TryGetPropertyInfo<SqlConnectionStringBuilder>(cb => cb.MultipleActiveResultSets)?
+                .GetCustomAttribute<DisplayNameAttribute>()?.DisplayName ?? "MultipleActiveResultSets";
+            
+            if (con.ConnectionString.IndexOf(multipleActiveResultSetDisplayName, StringComparison.OrdinalIgnoreCase) >= 0) {
                 DbConnectionStringBuilder builder = new DbConnectionStringBuilder();
                 builder.ConnectionString = con.ConnectionString;
-                if (string.Compare((string)builder["MultipleActiveResultSets"], "true", StringComparison.OrdinalIgnoreCase) == 0) {
+                if (string.Compare((string)builder[multipleActiveResultSetDisplayName], "true", StringComparison.OrdinalIgnoreCase) == 0) {
                     maxUsersPerConnection = 50;
                 }
             }
