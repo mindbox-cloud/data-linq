@@ -2219,7 +2219,7 @@ namespace System.Data.Linq.SqlClient
                         GenerateConstInt(ordinal);
                     gen.Emit(GetMethodCallOpCode(readerMethod), readerMethod);
                     GenerateConvertToType(rType, cType, readerMethod.ReturnType);
-                    gen.Emit(OpCodes.Br_S, labExit);
+                    gen.Emit(OpCodes.Br, labExit);
 
                     // this.reader.GetInt32
                     gen.MarkLabel(labUseGetInt32);
@@ -2230,7 +2230,7 @@ namespace System.Data.Linq.SqlClient
                         GenerateConstInt(ordinal);
                     gen.Emit(GetMethodCallOpCode(readerInt32Method), readerInt32Method);
                     gen.Emit(OpCodes.Conv_I8); // (long)%value%
-                    gen.Emit(OpCodes.Br_S, labExit);
+                    gen.Emit(OpCodes.Br, labExit);
                 }
                 else
                 {
@@ -2286,7 +2286,7 @@ namespace System.Data.Linq.SqlClient
                         GenerateConstInt(ordinal);
                     gen.Emit(GetMethodCallOpCode(bufferMethod), bufferMethod);
                     GenerateConvertToType(rType, cType, bufferMethod.ReturnType);
-                    gen.Emit(OpCodes.Br_S, labExit);
+                    gen.Emit(OpCodes.Br, labExit);
 
                     // this.reader.GetInt32
                     gen.MarkLabel(labBufferUseGetInt32);
@@ -2297,7 +2297,7 @@ namespace System.Data.Linq.SqlClient
                         GenerateConstInt(ordinal);
                     gen.Emit(GetMethodCallOpCode(bufferReaderInt32Method), bufferReaderInt32Method);
                     gen.Emit(OpCodes.Conv_I8); // (long)%value%
-                    gen.Emit(OpCodes.Br_S, labExit);
+                    gen.Emit(OpCodes.Br, labExit);
                 }
                 else
                 {
