@@ -19,8 +19,6 @@ namespace Mindbox.Data.Linq.Tests
 		[Column(IsDiscriminator = true)]
 		public string Discriminator { get; set; }
 
-		private EntityRef<TestEntity20> creator1;
-
 		[Association(
 			Name = "Staff_Creator",
 			Storage = "creator1",

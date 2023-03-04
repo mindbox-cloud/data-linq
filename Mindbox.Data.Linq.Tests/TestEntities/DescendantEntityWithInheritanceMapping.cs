@@ -16,8 +16,6 @@ namespace Mindbox.Data.Linq.Tests
 		[Column]
 		public int? CreatorId2 { get; set; }
 
-		private EntityRef<TestEntity20> creator2;
-
 		[Association(
 			Name = "Staff_Creator2",
 			Storage = "creator2",
