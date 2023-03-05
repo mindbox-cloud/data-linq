@@ -80,26 +80,24 @@ class SqlQueryConverter
 
                 var binaryExpressionParts = (binaryExpression.Left, binaryExpression.Right);
                 // Reorder parts for simplified analysis
-                if (GetTableFieldAccessPropertyInfo(context, binaryExpression.Right) != null)
+                if (!TryGetSqlChainedField(context, binaryExpression.Left, out var _) && TryGetSqlChainedField(context, binaryExpression.Right, out var _))
                     binaryExpressionParts = (binaryExpression.Right, binaryExpression.Left);
 
                 // If table field is compared against constant or variable -> we can ignore that expression
                 // as it doesn't extend scope
-                var binaryExpressionTableAndField = GetTableFieldAccessPropertyInfo(context, binaryExpressionParts.Left);
-                if (binaryExpressionTableAndField != null && IsConstantOrVariable(binaryExpressionParts.Right))
+                if (TryGetSqlChainedField(context, binaryExpressionParts.Left, out var binaryExpressionTableAndField) && IsConstantOrVariable(binaryExpressionParts.Right))
                 {
-                    binaryExpressionTableAndField.Value.Table.AddField(binaryExpressionTableAndField.Value.Field.Name);
+                    binaryExpressionTableAndField.Collect();
                     return;
                 }
-                
+
                 throw new NotSupportedException();
             case ExpressionType.MemberAccess:
                 var memberAccess = body as MemberExpression;
                 // If it is just bool field access - we can ignore it as it doesn't extend scope
-                var memberAccessExpressionTableAndField = GetTableFieldAccessPropertyInfo(context, memberAccess);
-                if (memberAccessExpressionTableAndField != null && memberAccess.Type == typeof(bool))
+                if (TryGetSqlChainedField(context, memberAccess, out var memberAccessExpressionTableAndField) && memberAccess.Type == typeof(bool))
                 {
-                    memberAccessExpressionTableAndField.Value.Table.AddField(memberAccessExpressionTableAndField.Value.Field.Name);
+                    memberAccessExpressionTableAndField.Collect();
                     return;
                 }
                 throw new NotSupportedException();
@@ -108,10 +106,9 @@ class SqlQueryConverter
                 if (notExpression.Method != null)
                     throw new NotSupportedException();
                 // If it is just bool field access - we can ignore it as it doesn't extend scope
-                var mnotExpressionTableAndField = GetTableFieldAccessPropertyInfo(context, notExpression.Operand);
-                if (mnotExpressionTableAndField != null && notExpression.Operand.Type == typeof(bool))
+                if (TryGetSqlChainedField(context, notExpression.Operand, out var mnotExpressionTableAndField) && notExpression.Operand.Type == typeof(bool))
                 {
-                    mnotExpressionTableAndField.Value.Table.AddField(mnotExpressionTableAndField.Value.Field.Name);
+                    mnotExpressionTableAndField.Collect();
                     return;
                 }
                 throw new NotSupportedException();
@@ -120,22 +117,44 @@ class SqlQueryConverter
         }
     }
 
-    private static (SqlTable Table, PropertyInfo Field)? GetTableFieldAccessPropertyInfo(SqlAnalyzerContext context, Expression expression)
+    private static bool TryGetSqlChainedField(SqlAnalyzerContext context, Expression expression, out SqlChainedField chainedField)
+    {
+        chainedField = null;
+        var propertyExpression = expression as MemberExpression;
+        if (propertyExpression == null)
+            return false;
+        if (propertyExpression.Member is not PropertyInfo propertyInfo)
+            return false;
+        if (!propertyInfo.CustomAttributes.Any(p => p.AttributeType == typeof(ColumnAttribute)))
+            return false;
+
+        // Check that field access is related to table on top of call stack (access via argument)
+        var table = context.CallStack.Peek();
+        if (!context.ParameterMapping.Where(p => p.Key == propertyExpression.Expression && p.Value == table).Any())
+            return false;
+
+        chainedField = new SqlChainedField(table, propertyInfo.Name, null);
+        return true;
+    }
+
+    private static MemberExpression[] GetPropertyChain(SqlAnalyzerContext context, Expression expression)
     {
         var propertyExpression = expression as MemberExpression;
         if (propertyExpression == null)
             return null;
-        if (propertyExpression.Member is not PropertyInfo propertyInfo)
-            return null;
-        if (!propertyInfo.CustomAttributes.Any(p => p.AttributeType == typeof(ColumnAttribute)))
-            return null;
 
-        // Check that field acces is related to table on top of call stack
-        var table = context.CallStack.Peek();
-        if (!context.ParameterMapping.Where(p => p.Key == propertyExpression.Expression && p.Value == table).Any())
-            return null;
+        List<MemberExpression> toReturn = new();
+        toReturn.Add(propertyExpression);
+        do
+        {
+            if (propertyExpression.Member is not PropertyInfo propertyInfo)
+                return null;
+            if (!propertyInfo.CustomAttributes.Any(p => p.AttributeType == typeof(ColumnAttribute)))
+                return false;
 
-        return (table, propertyInfo);
+        } while (propertyExpression != null);
+        toReturn.Reverse();
+        return toReturn.ToArray();
     }
 
     private static bool IsConstantOrVariable(Expression expression)
@@ -306,3 +325,35 @@ class SqlTableLink
 }
 
 record SqlTableLinkConnection(string LeftFieldName, string RightFieldName);
+
+
+
+
+
+/// <summary>
+/// Represetns chained access like  
+///     - User.Area.SomethingElse.Id
+///     - User.CustomerActions.First().PointOfContact.Id
+///     - User.CustomerActions.Any()
+/// Note that aggregation functions are cut off , like: Single, First, Max
+/// </summary>
+class SqlChainedField
+{
+    public SqlChainedField Next { get; set; }
+
+    public string FieldName { get; private set; }
+
+    public SqlTable Table { get; private set; }
+
+    public SqlChainedField(SqlTable table, string fieldName, SqlChainedField next)
+    {
+        FieldName = fieldName;
+        Table = table;
+        Next = next;
+    }
+
+    public void Collect()
+    {
+        Table.AddField(FieldName);
+    }
+}
