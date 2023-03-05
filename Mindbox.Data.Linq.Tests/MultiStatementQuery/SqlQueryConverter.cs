@@ -4,6 +4,7 @@ using System.Data.Linq.Mapping;
 using System.Linq;
 using System.Linq.Expressions;
 using System.Reflection;
+using System.Reflection.Metadata.Ecma335;
 
 namespace Mindbox.Data.Linq.Tests.MultiStatementQuery;
 
@@ -150,7 +151,7 @@ class SqlQueryConverter
             if (propertyExpression.Member is not PropertyInfo propertyInfo)
                 return null;
             if (!propertyInfo.CustomAttributes.Any(p => p.AttributeType == typeof(ColumnAttribute)))
-                return false;
+                return null;
 
         } while (propertyExpression != null);
         toReturn.Reverse();
@@ -357,3 +358,187 @@ class SqlChainedField
         Table.AddField(FieldName);
     }
 }
+
+
+/// <summary>
+/// Sql node
+/// </summary>
+/// <remarks>
+/// Translation exmaple
+///     Customer.Where(
+///         c=> 
+///             c.IsDeleted && 
+///             CustomerActions.Where(ca=> ca.CustomerId == c.Id).Any() &&
+///             CustomerActions.Where(ca=> ca.CustomerId == c.Id).OrderBy(ca=> ca.Id).FirstOrDefault()
+///                 .Select(ca=>new {Customer:c, CustomerAction:ca})
+///                 .Where(p=>ca.
+///         )
+/// 
+/// </remarks>
+class SqlNode
+{
+    /// <summary>
+    /// Parent node.
+    /// </summary>
+    public SqlNode ParentNode { get; set; }
+    /// <summary>
+    /// Expressions.
+    /// </summary>
+    public List<Expression> Expressions { get; private set; } = new();
+}
+
+/// <summary>
+/// Represetns access to table
+/// </summary>
+class SqlTableNode : SqlNode
+{
+    /// <summary>
+    /// Table that is being accessed.
+    /// </summary>
+    public string TableName { get; set; }
+    /// <summary>
+    /// Where clause
+    /// </summary>
+    public SqlWhereNode Where { get; set; }
+}
+
+/// <summary>
+/// Represets where node
+/// </summary>
+class SqlWhereNode : SqlNode
+{
+
+}
+
+/// <summary>
+/// Represents operator node.
+/// Examples
+///     Customer.Where(c => c.IsDeleted && c.IsDeletedCompletely)
+///     Customer.Where(c => c.IsDeleted && CustomerActions.Where(ca=>ca.CustomerId == c.Id).Any())
+/// </summary>
+class SqlWhereOperatorNode : SqlNode
+{
+    /// <summary>
+    /// Left node.
+    /// </summary>
+    public SqlNode Left { get; set; }
+    /// <summary>
+    /// Right node.
+    /// </summary>
+    public SqlNode Right { get; set; }
+}
+
+
+/// <summary>
+/// Represents association field(either refrence or collection) access.
+/// Examples:
+///     c.Area
+///     c.CustomerActions
+/// </summary>
+class SqlAssociationTableNode : SqlWhereNode
+{
+    /// <summary>
+    /// Table.
+    /// </summary>
+    public SqlTableNode FromTable { get; set; }
+    /// <summary>
+    /// Field name.
+    /// </summary>
+    public string FromFieldName { get; set; }
+    /// <summary>
+    /// Table.
+    /// </summary>
+    public SqlTableNode ToTable { get; set; }
+    /// <summary>
+    /// Field name.
+    /// </summary>
+    public string ToFieldName { get; set; }
+    /// <summary>
+    /// Chained next. 
+    /// Following nodes can be chained:
+    /// - SqlFieldAccess, example for Id: c.Area.Id
+    /// - SqlAssociationTableNode, example for PointOfContact: c.Area.PointOfContact
+    /// - SqlWhereNode, example for filter for customerActions: c.CustomerActions.Where(ca=>ca.PointOfContact.Id = 10)
+    /// </summary>
+    public SqlWhereNode ChainedNext { get; set; }
+}
+
+/// <summary>
+/// Represents field access
+/// Examples:
+///     c.IsDeleted ---> Customer.IsDeleted 
+/// </summary>
+class SqlFieldAccess : SqlWhereNode
+{
+    /// <summary>
+    /// Table.
+    /// </summary>
+    public SqlTableNode Table { get; set; }
+    /// <summary>
+    /// Field name.
+    /// </summary>
+    public string FieldName { get; set; }
+
+}
+
+
+/*
+item =>
+        (((object)item) != null)
+    &&(((((pointOfContactSubscriptions.Where(csm => csm.Customer == item).Any(csm => csm.IsSubscribed == ((bool?)subscriptionStatus))
+            ||
+            (!pointOfContactSubscriptions.Where(csm => csm.Customer == item).Any(csm => (csm.IsSubscribed == ((bool?)oppositeSubscriptionStatus))
+            || (csm.IsSubscribed == null))
+        && brandSubscriptions.Where(csm => csm.Customer == item).Any(csm => csm.IsSubscribed == ((bool?)subscriptionStatus))))
+    && Items
+        .Where(retailOrder => retailOrder.CurrentCustomer == item)
+        .SelectMany(
+            retailOrder => retailOrder.History.Single(retailOrderHistoryItem => retailOrderHistoryItem.IsCurrentOtherwiseNull != null).Purchases)
+        .Where(
+            item => (((object)item.Offer) != null) && ((item.Offer.ProductInfo.Description != null) && (item.Offer.ProductInfo.Description == concreteValue)))
+        .Any()) && Items
+        .Where(item => item.Customer == item)
+        .Where(
+            item => (((object)item.Customer) != null) && ((item.Customer.LastName != null) && (item.Customer.LastName == concreteValue)))
+        .Any()) && Items
+        .Where(retailOrder => retailOrder.CurrentCustomer == item)
+        .SelectMany(
+            retailOrder => retailOrder.History.Single(retailOrderHistoryItem => retailOrderHistoryItem.IsCurrentOtherwiseNull != null).Purchases)
+        .Where(
+            item => ((item.PriceForCustomerOfLine / ((decimal?)item.Count)) != null) && ((item.PriceForCustomerOfLine / ((decimal?)item.Count)) >= value))
+        .Any()) && (orders
+        .Where(x => x.CurrentCustomer == item)
+        .Join(
+            histories,
+            order => order.Id,
+            history => history.OrderId,
+            (order, history) => new RetailOrderCurrentHistoryItemData
+            {
+                RetailOrder = order,
+                RetailOrderHistoryItem = history
+            })
+        .Where(x => x.RetailOrderHistoryItem.IsCurrentOtherwiseNull != null)
+        .Where(
+            item => item.RetailOrderHistoryItem.Payments.Where(item => (item.Amount != null) && (item.Amount >= value)).Any())
+        .Any() && _dataContext
+        .ValueAsQueryableNullableDecimal(
+            orders
+                .Where(x => x.CurrentCustomer == item)
+                .Join(
+                    histories,
+                    order => order.Id,
+                    history => history.OrderId,
+                    (order, history) => new RetailOrderCurrentHistoryItemData
+                    {
+                        RetailOrder = order,
+                        RetailOrderHistoryItem = history
+                    })
+                .Where(x => x.RetailOrderHistoryItem.IsCurrentOtherwiseNull != null)
+                .Where(
+                    item => item.RetailOrderHistoryItem.Payments.Where(item => (item.Amount != null) && (item.Amount >= value)).Any())
+                .Select(entity => (decimal?)entity.RetailOrderHistoryItem.EffectivePayedAmount)
+                .Average())
+        .Select(dto => dto.Value)
+        .Any(
+            nullableValue => (nullableValue.HasValue && (nullableValue.Value.CompareTo(ExpressionRange<decimal>.Start) >= 0)) && (nullableValue.Value.CompareTo(ExpressionRange<decimal>.End) < 0))))
+     */
