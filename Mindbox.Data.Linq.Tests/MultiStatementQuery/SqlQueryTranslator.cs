@@ -4,14 +4,13 @@ using System.Data.Linq.Mapping;
 using System.Linq;
 using System.Linq.Expressions;
 using System.Reflection;
-using System.Reflection.Metadata.Ecma335;
 
 namespace Mindbox.Data.Linq.Tests.MultiStatementQuery;
 
 
-class SqlQueryConverter
+class SqlQueryTranslator
 {
-    public static SqlQueryConverterResult Analyze(Expression node)
+    public static SqlQueryTranslatorResult Transalate(Expression node)
     {
         if (!IsQuerableChainCall(node))
             throw new NotSupportedException($"Top level statement should method be of type {typeof(Queryable)} or {typeof(Enumerable)}.");
@@ -28,15 +27,15 @@ class SqlQueryConverter
 
         context.CallStack.Push(context.SqlTree.Table);
         foreach (var expression in chainCall.Skip(1))
-            AnalyzeWhere(context, expression);
+            TranslateWhere(context, expression);
         context.CallStack.Pop();
 
         var command = SqlTreeCommandBuilder.Build(context.SqlTree);
 
-        return new SqlQueryConverterResult(command);
+        return new SqlQueryTranslatorResult(command);
     }
 
-    private static void AnalyzeWhere(SqlAnalyzerContext context, Expression expression)
+    private static void TranslateWhere(SqlAnalyzerContext context, Expression expression)
     {
         var callExpression = expression as MethodCallExpression;
         if (callExpression == null)
@@ -53,11 +52,11 @@ class SqlQueryConverter
             throw new NotSupportedException();
 
         context.ParameterMapping.Add(filterLambda.Parameters[0], context.CallStack.Peek());
-        AnalyzeWhereBody(context, filterLambda.Body);
+        TranslateWhereBody(context, filterLambda.Body);
         context.ParameterMapping.Remove(filterLambda.Parameters[0]);
     }
 
-    private static void AnalyzeWhereBody(SqlAnalyzerContext context, Expression body)
+    private static void TranslateWhereBody(SqlAnalyzerContext context, Expression body)
     {
         switch (body.NodeType)
         {
@@ -66,8 +65,8 @@ class SqlQueryConverter
                 var logicalBinaryExpression = body as BinaryExpression;
                 if (logicalBinaryExpression.Conversion != null || logicalBinaryExpression.Type != typeof(bool))
                     throw new NotSupportedException();
-                AnalyzeWhereBody(context, logicalBinaryExpression.Left);
-                AnalyzeWhereBody(context, logicalBinaryExpression.Right);
+                TranslateWhereBody(context, logicalBinaryExpression.Left);
+                TranslateWhereBody(context, logicalBinaryExpression.Right);
                 return;
             case ExpressionType.GreaterThan:
             case ExpressionType.GreaterThanOrEqual:
@@ -368,11 +367,42 @@ class SqlChainedField
 ///     Customer.Where(
 ///         c=> 
 ///             c.IsDeleted && 
-///             CustomerActions.Where(ca=> ca.CustomerId == c.Id).Any() &&
-///             CustomerActions.Where(ca=> ca.CustomerId == c.Id).OrderBy(ca=> ca.Id).FirstOrDefault()
-///                 .Select(ca=>new {Customer:c, CustomerAction:ca})
-///                 .Where(p=>ca.
+///             CustomerActions.Where(ca=> ca.CustomerId == c.Id && ca.PointOfContactId = 10).Any() &&
+///             c.CustomFields.Any(c=>c.Name == "Test" && c.Value == "1")
 ///         )
+/// Translated to
+///     SqlTableNode
+///     {
+///         TableName: Customers,
+///         Where: SqlWhereOperatorNode
+///         {
+///             Left: SqlFieldAccess { FieldName: IsDeleted}
+///             Right: SqlWhereOperatorNode
+///             {
+///                 Left: SqlTableNode
+///                 {
+///                     TableName: CustomerActions
+///                     Where: SqlWhereOperatorNode
+///                     {
+///                         Left: SqlJoinConditionNode { CustomerAction.CustomerId -> Customer.Id  }
+///                         Right: SqlFieldAccess  // ca.PointOfContactId
+///                         {
+///                             Table: CustomerAciton
+///                             FieldName: PointOfContactId
+///                         }
+///                     }
+///                 }
+///                 Right: SqlAssociationTableNode
+///                 {
+///                     FromTable: Customers
+///                     FromFieldName: Id
+///                     ToTable: CustomerCustomerFieldValues
+///                     ToFieldName: CustomerId
+///                     ChainedNext: 
+///                 }
+///             }
+///         }
+///     }
 /// 
 /// </remarks>
 class SqlNode
@@ -428,6 +458,28 @@ class SqlWhereOperatorNode : SqlNode
     public SqlNode Right { get; set; }
 }
 
+/// <summary>
+/// Sql join condition.
+/// </summary>
+class SqlJoinConditionNode : SqlWhereNode
+{
+    /// <summary>
+    /// Left table.
+    /// </summary>
+    public SqlTableNode LeftTable { get; set; }
+    /// <summary>
+    /// Left field.
+    /// </summary>
+    public string LeftField { get; set; }
+    /// <summary>
+    /// Right table
+    /// </summary>
+    public SqlTableNode RightTable { get; set; }
+    /// <summary>
+    /// Righ field.
+    /// </summary>
+    public string RightField { get; set; }
+}
 
 /// <summary>
 /// Represents association field(either refrence or collection) access.
@@ -484,43 +536,41 @@ class SqlFieldAccess : SqlWhereNode
 
 /*
 item =>
-        (((object)item) != null)
-    &&(((((pointOfContactSubscriptions.Where(csm => csm.Customer == item).Any(csm => csm.IsSubscribed == ((bool?)subscriptionStatus))
+    (item != null)
+    &&  (((((pointOfContactSubscriptions.Where(csm => csm.Customer == item).Any(csm => csm.IsSubscribed == subscriptionStatus)
             ||
-            (!pointOfContactSubscriptions.Where(csm => csm.Customer == item).Any(csm => (csm.IsSubscribed == ((bool?)oppositeSubscriptionStatus))
+            (!pointOfContactSubscriptions.Where(csm => csm.Customer == item).Any(csm => (csm.IsSubscribed == oppositeSubscriptionStatus)
             || (csm.IsSubscribed == null))
-        && brandSubscriptions.Where(csm => csm.Customer == item).Any(csm => csm.IsSubscribed == ((bool?)subscriptionStatus))))
+        && brandSubscriptions.Where(csm => csm.Customer == item).Any(csm => csm.IsSubscribed == subscriptionStatus)))
     && Items
         .Where(retailOrder => retailOrder.CurrentCustomer == item)
-        .SelectMany(
-            retailOrder => retailOrder.History.Single(retailOrderHistoryItem => retailOrderHistoryItem.IsCurrentOtherwiseNull != null).Purchases)
-        .Where(
-            item => (((object)item.Offer) != null) && ((item.Offer.ProductInfo.Description != null) && (item.Offer.ProductInfo.Description == concreteValue)))
-        .Any()) && Items
+        .SelectMany(retailOrder => retailOrder.History.Single(retailOrderHistoryItem => retailOrderHistoryItem.IsCurrentOtherwiseNull != null).Purchases)
+        .Where(item =>(item.Offer != null && item.Offer.ProductInfo.Description != null && item.Offer.ProductInfo.Description == concreteValue)
+        .Any()) 
+    && Items
         .Where(item => item.Customer == item)
-        .Where(
-            item => (((object)item.Customer) != null) && ((item.Customer.LastName != null) && (item.Customer.LastName == concreteValue)))
-        .Any()) && Items
+        .Where(item => item.Customer != null && item.Customer.LastName != null && item.Customer.LastName == concreteValue)
+        .Any()) 
+    && Items
         .Where(retailOrder => retailOrder.CurrentCustomer == item)
-        .SelectMany(
-            retailOrder => retailOrder.History.Single(retailOrderHistoryItem => retailOrderHistoryItem.IsCurrentOtherwiseNull != null).Purchases)
-        .Where(
-            item => ((item.PriceForCustomerOfLine / ((decimal?)item.Count)) != null) && ((item.PriceForCustomerOfLine / ((decimal?)item.Count)) >= value))
-        .Any()) && (orders
-        .Where(x => x.CurrentCustomer == item)
-        .Join(
-            histories,
-            order => order.Id,
-            history => history.OrderId,
-            (order, history) => new RetailOrderCurrentHistoryItemData
-            {
-                RetailOrder = order,
-                RetailOrderHistoryItem = history
-            })
-        .Where(x => x.RetailOrderHistoryItem.IsCurrentOtherwiseNull != null)
-        .Where(
-            item => item.RetailOrderHistoryItem.Payments.Where(item => (item.Amount != null) && (item.Amount >= value)).Any())
-        .Any() && _dataContext
+        .SelectMany(retailOrder => retailOrder.History.Single(retailOrderHistoryItem => retailOrderHistoryItem.IsCurrentOtherwiseNull != null).Purchases)
+        .Where(item => item.PriceForCustomerOfLine / item.Count != null && item.PriceForCustomerOfLine / item.Count >= value)
+        .Any()) 
+    && (orders
+            .Where(x => x.CurrentCustomer == item)
+            .Join(
+                histories,
+                order => order.Id,
+                history => history.OrderId,
+                (order, history) => new RetailOrderCurrentHistoryItemData
+                {
+                    RetailOrder = order,
+                    RetailOrderHistoryItem = history
+                })
+            .Where(x => x.RetailOrderHistoryItem.IsCurrentOtherwiseNull != null)
+            .Where(item => item.RetailOrderHistoryItem.Payments.Where(item => item.Amount != null && item.Amount >= value).Any())
+        .Any() 
+    && _dataContext
         .ValueAsQueryableNullableDecimal(
             orders
                 .Where(x => x.CurrentCustomer == item)

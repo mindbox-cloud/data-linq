@@ -1,22 +1,6 @@
-﻿using System;
-using System.Collections;
-using System.Collections.Generic;
-using System.Data;
-using System.Data.Common;
-using System.Data.Linq;
-using System.Data.Linq.Mapping;
-using System.Diagnostics.CodeAnalysis;
+﻿using System.Data;
 using System.Linq;
-using System.Linq.Expressions;
-using System.Net.Http;
-using System.Reflection.PortableExecutable;
-using System.Security.Cryptography;
-using Castle.Core.Resource;
-using Microsoft.Data.SqlClient;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
-using Moq;
-using Moq.Protected;
-using static Mindbox.Data.Linq.Tests.MultiStatementQuery.MultiStatementQueryTests;
 
 namespace Mindbox.Data.Linq.Tests.MultiStatementQuery;
 
@@ -24,7 +8,7 @@ namespace Mindbox.Data.Linq.Tests.MultiStatementQuery;
 public class MultiStatementQueryTests
 {
     [TestMethod]
-    public void Analyze_NoFilter_Success()
+    public void Translate_NoFilter_Success()
     {
         // Arrange
         using var contextAndConnection = new DataContextAndConnection();
@@ -33,7 +17,7 @@ public class MultiStatementQueryTests
         var customerActions = contextAndConnection.DataContext.GetTable<CustomerAction>();
         var queryExpression = contextAndConnection.DataContext
             .GetTable<Customer>().AsQueryable().Expression;
-        var query = SqlQueryConverter.Analyze(queryExpression);
+        var query = SqlQueryTranslator.Transalate(queryExpression);
 
         // Assert
         Assert.AreEqual("""
@@ -44,7 +28,7 @@ public class MultiStatementQueryTests
     }
 
     [TestMethod]
-    public void Analyze_TopLevelFilterAgainstConstant_Success()
+    public void Translate_TopLevelFilterAgainstConstant_Success()
     {
         // Arrange
         using var contextAndConnection = new DataContextAndConnection();
@@ -53,7 +37,7 @@ public class MultiStatementQueryTests
         var customerActions = contextAndConnection.DataContext.GetTable<CustomerAction>();
         var queryExpression = contextAndConnection.DataContext
             .GetTable<Customer>().Where(c => c.TempPasswordEmail == "123").Expression;
-        var query = SqlQueryConverter.Analyze(queryExpression);
+        var query = SqlQueryTranslator.Transalate(queryExpression);
 
         // Assert
         Assert.AreEqual("""
@@ -64,7 +48,7 @@ public class MultiStatementQueryTests
     }
 
     [TestMethod]
-    public void Analyze_TopLevelFilterAgainstVariable_Success()
+    public void Translate_TopLevelFilterAgainstVariable_Success()
     {
         // Arrange
         using var contextAndConnection = new DataContextAndConnection();
@@ -74,7 +58,7 @@ public class MultiStatementQueryTests
         var someEmail = "123";
         var queryExpression = contextAndConnection.DataContext
             .GetTable<Customer>().Where(c => c.TempPasswordEmail == someEmail).Expression;
-        var query = SqlQueryConverter.Analyze(queryExpression);
+        var query = SqlQueryTranslator.Transalate(queryExpression);
 
         // Assert
         Assert.AreEqual("""
@@ -85,7 +69,7 @@ public class MultiStatementQueryTests
     }
 
     [TestMethod]
-    public void Analyze_TopLevelFilterAgainstBooleanField_Success()
+    public void Translate_TopLevelFilterAgainstBooleanField_Success()
     {
         // Arrange
         using var contextAndConnection = new DataContextAndConnection();
@@ -94,7 +78,7 @@ public class MultiStatementQueryTests
         var customerActions = contextAndConnection.DataContext.GetTable<CustomerAction>();
         var queryExpression = contextAndConnection.DataContext
             .GetTable<Customer>().Where(c => c.IsDeleted).Expression;
-        var query = SqlQueryConverter.Analyze(queryExpression);
+        var query = SqlQueryTranslator.Transalate(queryExpression);
 
         // Assert
         Assert.AreEqual("""
@@ -105,7 +89,7 @@ public class MultiStatementQueryTests
     }
 
     [TestMethod]
-    public void Analyze_TopLevelFilterAgainstNotBooleanField_Success()
+    public void Translate_TopLevelFilterAgainstNotBooleanField_Success()
     {
         // Arrange
         using var contextAndConnection = new DataContextAndConnection();
@@ -114,7 +98,7 @@ public class MultiStatementQueryTests
         var customerActions = contextAndConnection.DataContext.GetTable<CustomerAction>();
         var queryExpression = contextAndConnection.DataContext
             .GetTable<Customer>().Where(c => !c.IsDeleted).Expression;
-        var query = SqlQueryConverter.Analyze(queryExpression);
+        var query = SqlQueryTranslator.Transalate(queryExpression);
 
         // Assert
         Assert.AreEqual("""
@@ -125,7 +109,7 @@ public class MultiStatementQueryTests
     }
 
     [TestMethod]
-    public void Analyze_TopLevelMultipleSimleFilters_Success()
+    public void Translate_TopLevelMultipleSimleFilters_Success()
     {
         // Arrange
         using var contextAndConnection = new DataContextAndConnection();
@@ -135,7 +119,7 @@ public class MultiStatementQueryTests
         var someEmail = "123";
         var queryExpression = contextAndConnection.DataContext
             .GetTable<Customer>().Where(c => c.TempPasswordEmail == someEmail && c.Id > 10 && !c.IsDeleted).Expression;
-        var query = SqlQueryConverter.Analyze(queryExpression);
+        var query = SqlQueryTranslator.Transalate(queryExpression);
 
         // Assert
         Assert.AreEqual("""
@@ -146,7 +130,7 @@ public class MultiStatementQueryTests
     }
 
     [TestMethod]
-    public void Analyze_TopLevelMultipleSimleFiltersOnSeveralWhereBlocks_Success()
+    public void Translate_TopLevelMultipleSimleFiltersOnSeveralWhereBlocks_Success()
     {
         // Arrange
         using var contextAndConnection = new DataContextAndConnection();
@@ -156,7 +140,7 @@ public class MultiStatementQueryTests
         var someEmail = "123";
         var queryExpression = contextAndConnection.DataContext
             .GetTable<Customer>().Where(c => c.TempPasswordEmail == someEmail).Where(c => c.Id > 10).Where(c => c.Id > 10 && !c.IsDeleted).Expression;
-        var query = SqlQueryConverter.Analyze(queryExpression);
+        var query = SqlQueryTranslator.Transalate(queryExpression);
 
         // Assert
         Assert.AreEqual("""
@@ -168,7 +152,7 @@ public class MultiStatementQueryTests
 
 
     [TestMethod]
-    public void Analyze_TableLinkedViaReferenceAssociation_Success()
+    public void Translate_TableLinkedViaReferenceAssociation_Success()
     {
         // Arrange
         using var contextAndConnection = new DataContextAndConnection();
@@ -177,7 +161,7 @@ public class MultiStatementQueryTests
         var customerActions = contextAndConnection.DataContext.GetTable<CustomerAction>();
         var queryExpression = contextAndConnection.DataContext
             .GetTable<Customer>().Where(c => c.Area.Name == "SomeArea").Expression;
-        var query = SqlQueryConverter.Analyze(queryExpression);
+        var query = SqlQueryTranslator.Transalate(queryExpression);
 
         // Assert
         Assert.AreEqual("""
