@@ -37,45 +37,31 @@ class SqlQueryTranslator
 
         static IEnumerable<IExpressionEnumeratorItem> GetExpressionsCore(List<Expression> stack, Expression expression, bool reorderedChain = false)
         {
-            if (expression.NodeType == ExpressionType.Call)
+            if (expression.NodeType == ExpressionType.Call && !reorderedChain)
             {
                 var callExpression = (MethodCallExpression)expression;
-                if (!reorderedChain)
-                {
-                    if (callExpression.Method.DeclaringType == typeof(Queryable) || callExpression.Method.DeclaringType == typeof(Enumerable))
-                    {
-                        var chainItems = GetOrderedQuerableChainCall(expression).ToArray();
-                        foreach (var chainItem in chainItems)
-                        {
-                            foreach (var item in GetExpressionsCore(stack, chainItem, true))
-                                yield return item;
-                            stack.Add(chainItem);
-                        }
-                        stack.RemoveRange(stack.Count - chainItems.Length, chainItems.Length);
 
-                        //foreach (var item in GetExpressionsCore(stack, callExpression.Arguments.First()))
-                        //    yield return item;
-                        //using (new StackPusher(stack, callExpression.Arguments.First()))
-                        //using (new StackPusher(stack, expression))
-                        //    foreach (var argExpression in callExpression.Arguments.Skip(1))
-                        //        foreach (var item in GetExpressionsCore(stack, argExpression))
-                        //            yield return item;
+                if (callExpression.Method.DeclaringType == typeof(Queryable) || callExpression.Method.DeclaringType == typeof(Enumerable))
+                {
+                    var chainItems = GetOrderedQuerableChainCall(expression).ToArray();
+                    foreach (var chainItem in chainItems)
+                    {
+                        foreach (var item in GetExpressionsCore(stack, chainItem, true))
+                            yield return item;
+                        stack.Add(chainItem);
                     }
-                    else
-                        throw new NotSupportedException();
+                    stack.RemoveRange(stack.Count - chainItems.Length, chainItems.Length);
+
+                    //foreach (var item in GetExpressionsCore(stack, callExpression.Arguments.First()))
+                    //    yield return item;
+                    //using (new StackPusher(stack, callExpression.Arguments.First()))
+                    //using (new StackPusher(stack, expression))
+                    //    foreach (var argExpression in callExpression.Arguments.Skip(1))
+                    //        foreach (var item in GetExpressionsCore(stack, argExpression))
+                    //            yield return item;
                 }
                 else
-                {
-                    if (callExpression.Method.DeclaringType == typeof(Queryable) || callExpression.Method.DeclaringType == typeof(Enumerable))
-                    {
-                        using (new StackPusher(stack, expression))
-                            foreach (var argExpression in callExpression.Arguments.Skip(1))
-                                foreach (var item in GetExpressionsCore(stack, argExpression))
-                                    yield return item;
-                    }
-                    else
-                        throw new NotSupportedException();
-                }
+                    throw new NotSupportedException();
                 yield break;
             }
 
@@ -106,6 +92,17 @@ class SqlQueryTranslator
                         var memberExpression = (MemberExpression)expression;
                         foreach (var item in GetExpressionsCore(stack, memberExpression.Expression))
                             yield return item;
+                        break;
+                    case ExpressionType.Call:
+                        var callExpression = (MethodCallExpression)expression;
+                        if (callExpression.Method.DeclaringType == typeof(Queryable) || callExpression.Method.DeclaringType == typeof(Enumerable))
+                        {
+                            foreach (var argExpression in callExpression.Arguments.Skip(1))
+                                foreach (var item in GetExpressionsCore(stack, argExpression))
+                                    yield return item;
+                        }
+                        else
+                            throw new NotSupportedException();
                         break;
                     case ExpressionType.Add:
                     case ExpressionType.AddChecked:
@@ -186,7 +183,6 @@ class SqlQueryTranslator
                     case ExpressionType.IsTrue:
                     case ExpressionType.IsFalse:
                         throw new NotSupportedException();
-                    case ExpressionType.Call: // Handled above
                     default:
                         throw new NotSupportedException();
                 }
