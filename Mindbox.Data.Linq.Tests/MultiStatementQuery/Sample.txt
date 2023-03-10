@@ -1,0 +1,56 @@
+item =>
+    (item != null)
+    &&  (((((pointOfContactSubscriptions.Where(csm => csm.Customer == item).Any(csm => csm.IsSubscribed == subscriptionStatus)
+            ||
+            (!pointOfContactSubscriptions.Where(csm => csm.Customer == item).Any(csm => (csm.IsSubscribed == oppositeSubscriptionStatus)
+            || (csm.IsSubscribed == null))
+        && brandSubscriptions.Where(csm => csm.Customer == item).Any(csm => csm.IsSubscribed == subscriptionStatus)))
+    && Items
+        .Where(retailOrder => retailOrder.CurrentCustomer == item)
+        .SelectMany(retailOrder => retailOrder.History.Single(retailOrderHistoryItem => retailOrderHistoryItem.IsCurrentOtherwiseNull != null).Purchases)
+        .Where(item =>(item.Offer != null && item.Offer.ProductInfo.Description != null && item.Offer.ProductInfo.Description == concreteValue)
+        .Any()) 
+    && Items
+        .Where(item => item.Customer == item)
+        .Where(item => item.Customer != null && item.Customer.LastName != null && item.Customer.LastName == concreteValue)
+        .Any()) 
+    && Items
+        .Where(retailOrder => retailOrder.CurrentCustomer == item)
+        .SelectMany(retailOrder => retailOrder.History.Single(retailOrderHistoryItem => retailOrderHistoryItem.IsCurrentOtherwiseNull != null).Purchases)
+        .Where(item => item.PriceForCustomerOfLine / item.Count != null && item.PriceForCustomerOfLine / item.Count >= value)
+        .Any()) 
+    && (orders
+            .Where(x => x.CurrentCustomer == item)
+            .Join(
+                histories,
+                order => order.Id,
+                history => history.OrderId,
+                (order, history) => new RetailOrderCurrentHistoryItemData
+                {
+                    RetailOrder = order,
+                    RetailOrderHistoryItem = history
+                })
+            .Where(x => x.RetailOrderHistoryItem.IsCurrentOtherwiseNull != null)
+            .Where(item => item.RetailOrderHistoryItem.Payments.Where(item => item.Amount != null && item.Amount >= value).Any())
+        .Any() 
+    && _dataContext
+        .ValueAsQueryableNullableDecimal(
+            orders
+                .Where(x => x.CurrentCustomer == item)
+                .Join(
+                    histories,
+                    order => order.Id,
+                    history => history.OrderId,
+                    (order, history) => new RetailOrderCurrentHistoryItemData
+                    {
+                        RetailOrder = order,
+                        RetailOrderHistoryItem = history
+                    })
+                .Where(x => x.RetailOrderHistoryItem.IsCurrentOtherwiseNull != null)
+                .Where(
+                    item => item.RetailOrderHistoryItem.Payments.Where(item => (item.Amount != null) && (item.Amount >= value)).Any())
+                .Select(entity => (decimal?)entity.RetailOrderHistoryItem.EffectivePayedAmount)
+                .Average())
+        .Select(dto => dto.Value)
+        .Any(
+            nullableValue => (nullableValue.HasValue && (nullableValue.Value.CompareTo(ExpressionRange<decimal>.Start) >= 0)) && (nullableValue.Value.CompareTo(ExpressionRange<decimal>.End) < 0))))

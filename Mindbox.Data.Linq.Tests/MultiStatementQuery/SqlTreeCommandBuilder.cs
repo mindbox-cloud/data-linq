@@ -6,7 +6,7 @@ namespace Mindbox.Data.Linq.Tests.MultiStatementQuery;
 
 internal class SqlTreeCommandBuilder
 {
-    public static string Build(SqlTree sqlTree)
+    public static string Build(SqlQueryTranslator2.SqlTree sqlTree)
     {
         var context = new BuilderContext();
 
@@ -25,7 +25,7 @@ internal class SqlTreeCommandBuilder
         return context.StringBuilder.ToString();
     }
 
-    private static void BuildCore(BuilderContext context, string previosTableVariable, SqlTableLink tableLink)
+    private static void BuildCore(BuilderContext context, string previosTableVariable, SqlQueryTranslator2.SqlTableLink tableLink)
     {
         var table = tableLink.RightTable;
         var tableVariable = context.GenerateIntermediateTableVariableName(table.Name);

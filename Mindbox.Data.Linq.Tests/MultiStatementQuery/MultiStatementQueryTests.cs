@@ -36,7 +36,7 @@ public class MultiStatementQueryTests
         // Act
         var customerActions = contextAndConnection.DataContext.GetTable<CustomerAction>();
         var queryExpression = contextAndConnection.DataContext
-            .GetTable<Customer>().Where(c => c.TempPasswordEmail == "123").Expression;
+            .GetTable<Customer>().Where(c1 => c1.IsDeleted).Where(c2 => c2.TempPasswordEmail == "123").Expression;
         var query = SqlQueryTranslator.Transalate(queryExpression);
 
         // Assert
