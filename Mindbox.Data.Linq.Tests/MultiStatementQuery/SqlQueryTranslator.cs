@@ -141,14 +141,15 @@ class SqlQueryTranslator
     {
         return GetExpressionsCore(new List<Expression>(), node);
 
-        static IEnumerable<IExpressionEnumeratorItem> GetExpressionsCore(List<Expression> stack, Expression expression, bool reorderedChain = false)
+        static IEnumerable<IExpressionEnumeratorItem> GetExpressionsCore(List<Expression> stack, Expression expression, bool? isLastInChain = null)
         {
-            if ((expression.NodeType == ExpressionType.Call || expression.NodeType == ExpressionType.MemberAccess) && !reorderedChain)
+            if ((expression.NodeType == ExpressionType.Call || expression.NodeType == ExpressionType.MemberAccess) && isLastInChain is null)
             {
                 var chainItems = GetReorderedChainCall(expression).ToArray();
-                foreach (var chainItem in chainItems)
+                for (int i = 0; i < chainItems.Length; i++)
                 {
-                    foreach (var item in GetExpressionsCore(stack, chainItem, true))
+                    var chainItem = chainItems[i];
+                    foreach (var item in GetExpressionsCore(stack, chainItem, chainItems.Length - 1 == i))
                         yield return item;
                     stack.Add(chainItem);
                 }
@@ -157,13 +158,20 @@ class SqlQueryTranslator
                 yield break;
             }
 
+            switch (expression.NodeType)
+            {
+                case ExpressionType.MemberAccess:
+                case ExpressionType.Parameter:
+                case ExpressionType.Constant:
+                    if (isLastInChain is true or null)
+                        yield return new ExpressionEnumeratorItem(stack.ToList(), expression);
+                    yield break;
+            }
+
+
             using (new StackPusher(stack, expression))
                 switch (expression.NodeType)
                 {
-                    case ExpressionType.MemberAccess:
-                    case ExpressionType.Parameter:
-                    case ExpressionType.Constant:
-                        break;
                     case ExpressionType.Quote:
                         var quoteExpression = (UnaryExpression)expression;
                         foreach (var item in GetExpressionsCore(stack, quoteExpression.Operand))
@@ -268,11 +276,15 @@ class SqlQueryTranslator
                     case ExpressionType.OnesComplement:
                     case ExpressionType.IsTrue:
                     case ExpressionType.IsFalse:
+                        throw new NotSupportedException();
+                    case ExpressionType.MemberAccess:
+                    case ExpressionType.Parameter:
+                    case ExpressionType.Constant:
                     default:
                         throw new NotSupportedException();
                 }
 
-            yield return new ExpressionEnumeratorItem(stack.ToList(), expression);
+            // yield return new ExpressionEnumeratorItem(stack.ToList(), expression);
         }
     }
 
