@@ -26,26 +26,40 @@ class SqlQueryTranslator
         // return new SqlQueryTranslatorResult(command);
     }
 
-    private static void TransalateCore(TranslationContext context, Expression node)
+    private static void TransalateCore(TranslationContext context, Expression expression)
     {
-        var items = GetExpressionChains(node).ToArray();
+        var items = GetExpressionChains(expression).ToArray();
         foreach (var item in items)
-            MapExpressions(context, item);
+        {
+            var fullStack = new List<Expression>(item.Stack) { item.Expression };
+            for (int i = 0; i < fullStack.Count; i++)
+            {
+                if (context.Mapping.ContainsKey(fullStack[i]))
+                    continue;
+                var node = MapExpressions(context, new ExpressionToMap(fullStack, i));
+                context.AddMapping(fullStack[i], node);
+            }
+        }
     }
 
-    private static void MapExpressions(TranslationContext context, IExpressionEnumeratorItem itemAndStack)
+    record ExpressionToMap(List<Expression> Stack, int Index)
     {
-        var expression = itemAndStack.Expression;
-        if (context.Mapping.ContainsKey(expression))
-            return;
-        switch (itemAndStack.Expression.NodeType)
+        public Expression Expression => Stack[Index];
+
+        public bool IsFirst => Index == 0;
+
+        public Expression Upper => Index == 0 ? null : Stack[Index - 1];
+    }
+
+    private static SqlNode MapExpressions(TranslationContext context, ExpressionToMap toMap)
+    {
+        switch (toMap.Expression.NodeType)
         {
             case ExpressionType.Constant:
-                var tableName = GetTableName((ConstantExpression)expression);
+                var tableName = GetTableName((ConstantExpression)toMap.Expression);
                 if (!string.IsNullOrEmpty(tableName))
-                    throw new NotSupportedException();
-                context.AddMapping(expression, new SqlTableNode(tableName));
-                break;
+                    return new SqlNoOpNode();
+                return new SqlTableNode(tableName);
             case ExpressionType.Parameter:
             case ExpressionType.Quote:
             case ExpressionType.Lambda:
@@ -133,8 +147,6 @@ class SqlQueryTranslator
             default:
                 throw new NotSupportedException();
         }
-
-
     }
 
     private static IEnumerable<IExpressionEnumeratorItem> GetExpressionChains(Expression node)
