@@ -48,6 +48,26 @@ public class MultiStatementQueryTests
     }
 
     [TestMethod]
+    public void Translate_ChainedWhere_Success()
+    {
+        // Arrange
+        using var contextAndConnection = new DataContextAndConnection();
+
+        // Act
+        var customerActions = contextAndConnection.DataContext.GetTable<CustomerAction>();
+        var queryExpression = contextAndConnection.DataContext
+            .GetTable<Customer>().Where(c1 => c1.IsDeleted).Where(c2 => c2.TempPasswordEmail == "123").Expression;
+        var query = SqlQueryTranslator.Transalate(queryExpression);
+
+        // Assert
+        Assert.AreEqual("""
+            INSERT INTO @tabledirectcrm_Customers_1
+                SELECT Id, TempPasswordEmail FROM directcrm.Customers WHERE Id = @pKeyId
+            SELECT * FROM @tabledirectcrm_Customers_1
+            """, query.CommandText);
+    }
+
+    [TestMethod]
     public void Translate_TopLevelFilterAgainstVariable_Success()
     {
         // Arrange

@@ -30,7 +30,7 @@ class SqlQueryTranslator2
             TranslateWhere(context, expression);
         context.CallStack.Pop();
 
-        var command = SqlTreeCommandBuilder.Build(context.SqlTree);
+        var command = SqlTreeCommandBuilder2.Build(context.SqlTree);
 
         return new SqlQueryTranslatorResult(command);
     }

@@ -4,7 +4,7 @@ using System.Text;
 
 namespace Mindbox.Data.Linq.Tests.MultiStatementQuery;
 
-internal class SqlTreeCommandBuilder
+internal class SqlTreeCommandBuilder2
 {
     public static string Build(SqlQueryTranslator2.SqlTree sqlTree)
     {
