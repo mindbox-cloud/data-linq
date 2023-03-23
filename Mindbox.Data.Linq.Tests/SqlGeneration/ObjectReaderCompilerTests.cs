@@ -16,6 +16,29 @@ namespace Mindbox.Data.Linq.Tests.SqlGeneration;
 public class ObjectReaderCompilerTests
 {
     [TestMethod]
+    public void DBInt_PropertyInt_Success()
+    {
+        // Arrange
+        var reader = CreateReader(new[]
+        {
+            new Row(1, 10),
+            new Row(2, null),
+        });
+        using var connection = CreateConnection(reader);
+        using var context = new DataContext(connection);
+
+        // Act
+        var rows = context.GetTable<CustomRowWithIntKey>().ToArray();
+
+        // Assert
+        Assert.AreEqual(2, rows.Length);
+        Assert.AreEqual(1, rows[0].Id);
+        Assert.AreEqual(10, rows[0].ValueNullable);
+        Assert.AreEqual(2, rows[1].Id);
+        Assert.IsNull(rows[1].ValueNullable);
+    }
+
+    [TestMethod]
     public void DBBigint_PropertyLong_Success()
     {
         // Arrange
@@ -67,7 +90,7 @@ public class ObjectReaderCompilerTests
         // Arrange
         var reader = CreateReader(new[]
         {
-            new Row(1, 10), // Testing that this (int)10 will not be properly converted
+            new Row(1, 10),
             new Row(2, null),
         });
         using var connection = CreateConnection(reader);
@@ -145,5 +168,15 @@ public class ObjectReaderCompilerTests
 
         [Column]
         public long? ValueNullable { get; set; }
+    }
+
+    [Table(Name = "CustomRowWithIntKey")]
+    public sealed class CustomRowWithIntKey
+    {
+        [Column(IsPrimaryKey = true)]
+        public int Id { get; set; }
+
+        [Column]
+        public int? ValueNullable { get; set; }
     }
 }
