@@ -22,11 +22,9 @@ class SqlQueryTranslator
         var root = TransalateCore(context, node);
         SimplifyTree(root);
 
-        throw new NotImplementedException();
+        var command = SqlTreeCommandBuilder.Build(root);
 
-        // var command = SqlTreeCommandBuilder.Build(context.SqlTree);
-
-        // return new SqlQueryTranslatorResult(command);
+        return new SqlQueryTranslatorResult(command);
     }
 
     private static SqlNode TransalateCore(TranslationContext context, Expression expression)
@@ -111,7 +109,7 @@ class SqlQueryTranslator
         public Expression PreviousExpression => Index == 0 ? null : Stack[Index - 1];
         public Expression PreviousPreviousExpression => Index <= 1 ? null : Stack[Index - 2];
 
-        public SqlFilterNode? GetFilterNodeForParameter(ParameterExpression parameterExpression)
+        public SqlFilterNode GetFilterNodeForParameter(ParameterExpression parameterExpression)
         {
             var current = Previous;
             while (current != null)
@@ -175,7 +173,23 @@ class SqlQueryTranslator
                     if (toMap.PreviousNode is SqlTableAccessNode memberFromTableAccessNode)
                     {
                         if (propertyInfo.CustomAttributes.Any(p => p.AttributeType == typeof(ColumnAttribute)))
-                            return new SqlTableFieldAccessNode(toMap.PreviousNode.TableOwner, propertyInfo.Name);
+                            return new SqlDataFieldNode(toMap.PreviousNode.TableOwner, propertyInfo.Name);
+                        var associationAttribute = propertyInfo.CustomAttributes.SingleOrDefault(p => p.AttributeType == typeof(AssociationAttribute));
+                        if (associationAttribute != null)
+                        {
+                            var nextTableName = propertyInfo.PropertyType.CustomAttributes.Single(c => c.AttributeType == typeof(TableAttribute)).NamedArguments
+                                .Single(a => a.MemberName == nameof(TableAttribute.Name)).TypedValue.Value.ToString();
+                            return new SqlAssociationFieldNode(
+                                new SqlTableNode(nextTableName),
+                                associationAttribute.NamedArguments.Single(a => a.MemberName == nameof(AssociationAttribute.OtherKey)).TypedValue.Value.ToString(),
+                                toMap.PreviousNode.TableOwner,
+                                associationAttribute.NamedArguments.Single(a => a.MemberName == nameof(AssociationAttribute.ThisKey)).TypedValue.Value.ToString());
+                        }
+                    }
+                    else if (toMap.PreviousNode is SqlAssociationFieldNode associationAccessNode)
+                    {
+                        if (propertyInfo.CustomAttributes.Any(p => p.AttributeType == typeof(ColumnAttribute)))
+                            return new SqlDataFieldNode(toMap.PreviousNode.TableOwner, propertyInfo.Name);
                     }
                 }
                 throw new NotSupportedException();
@@ -399,14 +413,14 @@ class SqlQueryTranslator
     [DebuggerDisplay("{Expression}")]
     record ExpressionEnumeratorItem(IReadOnlyList<Expression> Stack, Expression Expression) : IExpressionEnumeratorItem;
 
-    abstract class SqlNode
+    public abstract class SqlNode
     {
         public abstract SqlTableNode TableOwner { get; }
         public List<SqlNode> Children { get; } = new List<SqlNode>();
     }
 
     [DebuggerDisplay("NoOp")]
-    class SqlNoOpNode : SqlNode
+    public class SqlNoOpNode : SqlNode
     {
         private SqlTableNode _tableOwner;
 
@@ -419,7 +433,7 @@ class SqlQueryTranslator
     }
 
     [DebuggerDisplay("Filter")]
-    class SqlFilterNode : SqlNode
+    public class SqlFilterNode : SqlNode
     {
         private SqlTableNode _tableOwner;
 
@@ -432,7 +446,7 @@ class SqlQueryTranslator
     }
 
     [DebuggerDisplay("Table access: {TableOwner.TableName}")]
-    class SqlTableAccessNode : SqlNode
+    public class SqlTableAccessNode : SqlNode
     {
         private SqlTableNode _tableOwner;
 
@@ -444,8 +458,8 @@ class SqlQueryTranslator
         }
     }
 
-    [DebuggerDisplay("Table field access: {TableOwner.TableName,nq}.{ColumnName,nq}")]
-    class SqlTableFieldAccessNode : SqlNode
+    [DebuggerDisplay("Data field: {TableOwner.TableName,nq}.{ColumnName,nq}")]
+    public class SqlDataFieldNode : SqlNode
     {
         private SqlTableNode _tableOwner;
 
@@ -453,15 +467,35 @@ class SqlQueryTranslator
 
         public string ColumnName { get; }
 
-        public SqlTableFieldAccessNode(SqlTableNode tableOwner, string columnName)
+        public SqlDataFieldNode(SqlTableNode tableOwner, string columnName)
         {
             _tableOwner = tableOwner;
             ColumnName = columnName;
         }
     }
 
+    [DebuggerDisplay("Association field: {PreviousTableOwner.TableName,nq}.{PreviousColumnName,nq} = {TableOwner.TableName,nq}.{ColumnName,nq}")]
+    public class SqlAssociationFieldNode : SqlTableNode
+    {
+        private SqlTableNode _tableOwner;
+
+        public override SqlTableNode TableOwner => _tableOwner;
+        public string ColumnName { get; }
+        public SqlTableNode PreviousTableOwner { get; }
+        public string PreviousColumnName { get; }
+
+        public SqlAssociationFieldNode(SqlTableNode tableOwner, string columnName, SqlTableNode previousTableOwner, string previousColumnName)
+            : base(tableOwner.TableName)
+        {
+            _tableOwner = tableOwner;
+            ColumnName = columnName;
+            PreviousTableOwner = previousTableOwner;
+            PreviousColumnName = previousColumnName;
+        }
+    }
+
     [DebuggerDisplay("Table")]
-    class SqlTableNode : SqlNode
+    public class SqlTableNode : SqlNode
     {
         public string TableName { get; private set; }
 
