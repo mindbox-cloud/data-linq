@@ -16,7 +16,7 @@ namespace Mindbox.Data.Linq.Tests.SqlGeneration;
 public class ObjectReaderCompilerTests
 {
     [TestMethod]
-    public void DBInt_PropertyInt_Success()
+    public void DBInt_PropertyIntAndNullableInt_Success()
     {
         // Arrange
         var reader = CreateReader(new[]
@@ -39,7 +39,7 @@ public class ObjectReaderCompilerTests
     }
 
     [TestMethod]
-    public void DBBigint_PropertyLong_Success()
+    public void DBBigint_PropertyLongAndNullableLong_Success()
     {
         // Arrange
         var reader = CreateReader(new[]
@@ -85,7 +85,7 @@ public class ObjectReaderCompilerTests
     }
 
     [TestMethod]
-    public void DBHasInt_PropertyNullableLong_Success()
+    public void DBHasInt_PropertyLongAndNullableLong_Success()
     {
         // Arrange
         var reader = CreateReader(new[]
