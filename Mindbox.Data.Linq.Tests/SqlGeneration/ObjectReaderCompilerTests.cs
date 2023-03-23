@@ -62,7 +62,7 @@ public class ObjectReaderCompilerTests
     }
 
     [TestMethod]
-    public void DBHasInt_PropertyLong_Success()
+    public void DBInt_PropertyLong_Success()
     {
         // Arrange
         var reader = CreateReader(new[]
