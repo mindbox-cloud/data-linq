@@ -2191,7 +2191,8 @@ namespace System.Data.Linq.SqlClient
                 gen.Emit(OpCodes.Brtrue, labIsNull);
 
                 // Special case handling. Allow to read Int32 value if cType is Int64 or Int64?
-                // That effectively brings support to following "readings":
+                // This effectively brings support to following reading possibilities:
+                //  - db long -> property long (was already supported by original code)
                 //  - db int -> property long
                 //  - db int -> property long?
                 //  - db null -> property long? (was already supported by original code)
@@ -2265,7 +2266,7 @@ namespace System.Data.Linq.SqlClient
                 gen.Emit(GetMethodCallOpCode(compiler.miBRisDBNull), compiler.miBRisDBNull);
                 gen.Emit(OpCodes.Brtrue, labIsNull);
 
-                // Special case handling. Allow to read Int32 value if cType is Int64
+                // Special case handling. See comments above
                 if (cType == typeof(long) || cType == typeof(long?))
                 {
                     var labBufferUseGetInt32 = gen.DefineLabel();
