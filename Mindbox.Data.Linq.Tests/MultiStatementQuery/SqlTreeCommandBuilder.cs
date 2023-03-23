@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.IO;
 using System.Linq;
 using System.Text;
 
@@ -8,46 +9,90 @@ namespace Mindbox.Data.Linq.Tests.MultiStatementQuery;
 
 internal class SqlTreeCommandBuilder
 {
-    public static string Build(SqlQueryTranslator.SqlNode root)
+    public static string Build(SqlQueryTranslator.SqlNode root, IDbColumnTypeProvider columntTypeProvider)
     {
-        var context = new BuilderContext();
-
         var paths = CollectPaths(root).ToList();
-
         var sets = GroupPaths(paths).Order().ToList();
 
-        throw new NotImplementedException();
-        /*
-        var parts = new List<string>();
-        var tables = GetTables(root).ToArray();
+        var context = new BuilderContext();
 
-        var firstTable = (SqlQueryTranslator.SqlTableNode)tables[0];
-        var firstTableVariable = context.GetVariableName(firstTable);
-        var firstTableFields = GetUsedFields(firstTable).Concat(new string[] { "Id" }).Distinct().Order().ToArray();
-        var query = $$"""
-                INSERT INTO {{firstTableVariable}}
-                    SELECT {{string.Join(", ", firstTableFields)}} FROM {{firstTable.TableName}} WHERE Id = @pKeyId
-                SELECT * FROM {{firstTableVariable}}
-                """;
-        parts.Add(query);
-
-
-        foreach (var node in tables.Skip(1))
+        List<string> queryParts = new();
+        List<string> variableDefinitionParts = new();
+        foreach (var set in sets)
         {
-            if (node is SqlQueryTranslator.SqlTableNode tableNode)
-            {
-                throw new NotSupportedException();
-            }
-            else if (node is SqlQueryTranslator.SqlAssociationFieldNode associationNode)
-            {
+            var variableName = context.GetVariableName(set.Path.Table);
+            variableDefinitionParts.Add(BuildTableVariableDefinition(variableName, set, columntTypeProvider));
+            var columnNames = string.Join(", ", set.ColumnNames.Select(c => $"current.{c}"));
 
+            List<string> querySubparts = new()
+            {
+$$"""
+INSERT INTO {{variableName}}
+    SELECT {{columnNames}} 
+        FROM {{set.Path.Table.TableName}} AS current
+"""
+            };
+
+            // Joint to parent
+            if (set.Path.Parent != null)
+            {
+                var connections = set.Path.Parent.Children.Single(c => c.Item == set.Path).NextConnections;
+                var joinConditionParts = connections
+                    .Select(c => $"previous.{c.PreviousColumnName} = current.{c.NextColumnName}")
+                    .ToArray();
+                if (!IsPKJoin(set.Path.Parent.Table.TableName, connections.Select(c => c.PreviousColumnName), columntTypeProvider) &&
+                    !IsPKJoin(set.Path.Table.TableName, connections.Select(c => c.NextColumnName), columntTypeProvider))
+                {
+                    throw new NotSupportedException("At least one part of join must point to PK.");
+                }
+                string previousSource;
+                if (IsPKJoin(set.Path.Table.TableName, connections.Select(c => c.NextColumnName), columntTypeProvider))
+                    previousSource = $"(SELECT DISTINCT {string.Join(", ", connections.Select(c => c.PreviousColumnName))} FROM {context.GetVariableName(set.Path.Parent.Table)})";
+                else
+                    previousSource = context.GetVariableName(set.Path.Parent.Table);
+                var joinPart =
+$$"""
+            INNER JOIN {{previousSource}} AS previous ON
+                {{string.Join(" AND\r\n                ", joinConditionParts)}}
+""";
+                querySubparts.Add(joinPart);
             }
             else
-                throw new NotSupportedException();
+                querySubparts.Add(
+"""
+        WHERE Id = @pKeyId
+""");
+
+            querySubparts.Add(
+$$"""
+SELECT * FROM {{variableName}}
+""");
+
+            var query = string.Join("\r\n", querySubparts);
+            queryParts.Add(query);
         }
 
-        return string.Join("\r\n\r\n", parts);
-        */
+        var variableDefinitions = string.Join("\r\n", variableDefinitionParts);
+        var queries = string.Join("\r\n\r\n", queryParts);
+        return string.Join("\r\n\r\n", new[] { variableDefinitions, queries });
+    }
+
+    private static string BuildTableVariableDefinition(string variableName, ColumpPathSet set,
+        IDbColumnTypeProvider columntTypeProvider)
+    {
+        var columnsWithTypes = set.ColumnNames.Select(c => $"{c} {columntTypeProvider.GetSqlType(set.Path.Table.TableName, c)}").ToArray();
+        return
+$"""
+DECLARE {variableName} TABLE(
+    {string.Join(",\r\n    ", columnsWithTypes)}
+)
+""";
+    }
+
+    private static bool IsPKJoin(string tableName, IEnumerable<string> joinFields, IDbColumnTypeProvider columntTypeProvider)
+    {
+        var pkFields = columntTypeProvider.GetPKFields(tableName);
+        return joinFields.Intersect(pkFields).Count() == pkFields.Length;
     }
 
     private static IEnumerable<ColumpPathSet> GroupPaths(IEnumerable<ColumnPath> paths)
@@ -146,7 +191,7 @@ internal class SqlTreeCommandBuilder
         }
     }
 
-    [DebuggerDisplay("{Path.AsString,nq}, {ColumnNamesAsString,nq}")]
+    [DebuggerDisplay("{Path.AsString,nq}: {ColumnNamesAsString,nq}")]
     private record ColumpPathSet(TablePathItem Path, IReadOnlyList<string> ColumnNames) : IComparable<ColumpPathSet>
     {
         public string ColumnNamesAsString => string.Join(", ", ColumnNames);

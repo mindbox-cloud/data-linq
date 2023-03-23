@@ -17,12 +17,18 @@ public class MultiStatementQueryTests
         var customerActions = contextAndConnection.DataContext.GetTable<CustomerAction>();
         var queryExpression = contextAndConnection.DataContext
             .GetTable<Customer>().AsQueryable().Expression;
-        var query = SqlQueryTranslator.Transalate(queryExpression);
+        var query = SqlQueryTranslator.Transalate(queryExpression, new DbColumnTypeProvider());
 
         // Assert
         Assert.AreEqual("""
+            DECLARE @tabledirectcrm_Customers_1 TABLE(
+                Id int not null
+            )
+
             INSERT INTO @tabledirectcrm_Customers_1
-                SELECT Id FROM directcrm.Customers WHERE Id = @pKeyId
+                SELECT current.Id 
+                    FROM directcrm.Customers AS current
+                    WHERE Id = @pKeyId
             SELECT * FROM @tabledirectcrm_Customers_1
             """, query.CommandText);
     }
@@ -37,12 +43,19 @@ public class MultiStatementQueryTests
         var customerActions = contextAndConnection.DataContext.GetTable<CustomerAction>();
         var queryExpression = contextAndConnection.DataContext
             .GetTable<Customer>().Where(c2 => c2.TempPasswordEmail == "123").Expression;
-        var query = SqlQueryTranslator.Transalate(queryExpression);
+        var query = SqlQueryTranslator.Transalate(queryExpression, new DbColumnTypeProvider());
 
         // Assert
         Assert.AreEqual("""
+            DECLARE @tabledirectcrm_Customers_1 TABLE(
+                Id int not null,
+                TempPasswordEmail nvarchar(256) not null
+            )
+
             INSERT INTO @tabledirectcrm_Customers_1
-                SELECT Id, TempPasswordEmail FROM directcrm.Customers WHERE Id = @pKeyId
+                SELECT current.Id, current.TempPasswordEmail 
+                    FROM directcrm.Customers AS current
+                    WHERE Id = @pKeyId
             SELECT * FROM @tabledirectcrm_Customers_1
             """, query.CommandText);
     }
@@ -57,12 +70,19 @@ public class MultiStatementQueryTests
         var customerActions = contextAndConnection.DataContext.GetTable<CustomerAction>();
         var queryExpression = contextAndConnection.DataContext
             .GetTable<Customer>().Where(c2 => c2.TempPasswordEmail == "123").Expression;
-        var query = SqlQueryTranslator.Transalate(queryExpression);
+        var query = SqlQueryTranslator.Transalate(queryExpression, new DbColumnTypeProvider());
 
         // Assert
         Assert.AreEqual("""
+            DECLARE @tabledirectcrm_Customers_1 TABLE(
+                Id int not null,
+                TempPasswordEmail nvarchar(256) not null
+            )
+
             INSERT INTO @tabledirectcrm_Customers_1
-                SELECT Id, TempPasswordEmail FROM directcrm.Customers WHERE Id = @pKeyId
+                SELECT current.Id, current.TempPasswordEmail 
+                    FROM directcrm.Customers AS current
+                    WHERE Id = @pKeyId
             SELECT * FROM @tabledirectcrm_Customers_1
             """, query.CommandText);
     }
@@ -78,7 +98,7 @@ public class MultiStatementQueryTests
         var someEmail = "123";
         var queryExpression = contextAndConnection.DataContext
             .GetTable<Customer>().Where(c => c.TempPasswordEmail == someEmail).Expression;
-        var query = SqlQueryTranslator.Transalate(queryExpression);
+        var query = SqlQueryTranslator.Transalate(queryExpression, new DbColumnTypeProvider());
 
         // Assert
         Assert.AreEqual("""
@@ -98,12 +118,19 @@ public class MultiStatementQueryTests
         var customerActions = contextAndConnection.DataContext.GetTable<CustomerAction>();
         var queryExpression = contextAndConnection.DataContext
             .GetTable<Customer>().Where(c => c.IsDeleted).Expression;
-        var query = SqlQueryTranslator.Transalate(queryExpression);
+        var query = SqlQueryTranslator.Transalate(queryExpression, new DbColumnTypeProvider());
 
         // Assert
         Assert.AreEqual("""
+            DECLARE @tabledirectcrm_Customers_1 TABLE(
+                Id int not null,
+                IsDeleted bit not null
+            )
+
             INSERT INTO @tabledirectcrm_Customers_1
-                SELECT Id, IsDeleted FROM directcrm.Customers WHERE Id = @pKeyId
+                SELECT current.Id, current.IsDeleted 
+                    FROM directcrm.Customers AS current
+                    WHERE Id = @pKeyId
             SELECT * FROM @tabledirectcrm_Customers_1
             """, query.CommandText);
     }
@@ -118,7 +145,7 @@ public class MultiStatementQueryTests
         var customerActions = contextAndConnection.DataContext.GetTable<CustomerAction>();
         var queryExpression = contextAndConnection.DataContext
             .GetTable<Customer>().Where(c => !c.IsDeleted).Expression;
-        var query = SqlQueryTranslator.Transalate(queryExpression);
+        var query = SqlQueryTranslator.Transalate(queryExpression, new DbColumnTypeProvider());
 
         // Assert
         Assert.AreEqual("""
@@ -139,7 +166,7 @@ public class MultiStatementQueryTests
         var someEmail = "123";
         var queryExpression = contextAndConnection.DataContext
             .GetTable<Customer>().Where(c => c.TempPasswordEmail == someEmail && c.Id > 10 && !c.IsDeleted).Expression;
-        var query = SqlQueryTranslator.Transalate(queryExpression);
+        var query = SqlQueryTranslator.Transalate(queryExpression, new DbColumnTypeProvider());
 
         // Assert
         Assert.AreEqual("""
@@ -160,7 +187,7 @@ public class MultiStatementQueryTests
         var someEmail = "123";
         var queryExpression = contextAndConnection.DataContext
             .GetTable<Customer>().Where(c => c.TempPasswordEmail == someEmail).Where(c => c.Id > 10).Where(c => c.Id > 10 && !c.IsDeleted).Expression;
-        var query = SqlQueryTranslator.Transalate(queryExpression);
+        var query = SqlQueryTranslator.Transalate(queryExpression, new DbColumnTypeProvider());
 
         // Assert
         Assert.AreEqual("""
@@ -180,13 +207,31 @@ public class MultiStatementQueryTests
         var customerActions = contextAndConnection.DataContext.GetTable<CustomerAction>();
         var queryExpression = contextAndConnection.DataContext
             .GetTable<Customer>().Where(c => c.Area.Name == "SomeArea").Expression;
-        var query = SqlQueryTranslator.Transalate(queryExpression);
+        var query = SqlQueryTranslator.Transalate(queryExpression, new DbColumnTypeProvider());
 
         // Assert
         Assert.AreEqual("""
+            DECLARE @tabledirectcrm_Customers_1 TABLE(
+                AreaId int not null,
+                Id int not null
+            )
+            DECLARE @tabledirectcrm_Areas_2 TABLE(
+                Id int not null,
+                Name nvarchar(32) not null
+            )
+
             INSERT INTO @tabledirectcrm_Customers_1
-                SELECT  FROM directcrm.Customers WHERE Id = @pKeyId
+                SELECT current.AreaId, current.Id 
+                    FROM directcrm.Customers AS current
+                    WHERE Id = @pKeyId
             SELECT * FROM @tabledirectcrm_Customers_1
+
+            INSERT INTO @tabledirectcrm_Areas_2
+                SELECT current.Id, current.Name 
+                    FROM directcrm.Areas AS current
+                        INNER JOIN (SELECT DISTINCT AreaId FROM @tabledirectcrm_Customers_1) AS previous ON
+                            previous.AreaId = current.Id
+            SELECT * FROM @tabledirectcrm_Areas_2
             """, query.CommandText);
     }
 }

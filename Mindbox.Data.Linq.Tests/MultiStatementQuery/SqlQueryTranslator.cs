@@ -16,13 +16,13 @@ namespace Mindbox.Data.Linq.Tests.MultiStatementQuery;
 
 class SqlQueryTranslator
 {
-    public static SqlQueryTranslatorResult Transalate(Expression node)
+    public static SqlQueryTranslatorResult Transalate(Expression node, IDbColumnTypeProvider columntTypeProvider)
     {
         var context = new TranslationContext();
         var root = TransalateCore(context, node);
         SimplifyTree(root);
 
-        var command = SqlTreeCommandBuilder.Build(root);
+        var command = SqlTreeCommandBuilder.Build(root, columntTypeProvider);
 
         return new SqlQueryTranslatorResult(command);
     }
@@ -522,5 +522,59 @@ class SqlQueryTranslator
         {
             _stack.RemoveAt(_stack.Count - 1);
         }
+    }
+}
+
+public interface IDbColumnTypeProvider
+{
+    public string[] GetPKFields(string tableName);
+
+    public string GetSqlType(string tableName, string columnName);
+}
+
+public class DbColumnTypeProvider : IDbColumnTypeProvider
+{
+    public string[] GetPKFields(string tableName)
+    {
+        return tableName switch
+        {
+            "directcrm.Customers" => new[] { "Id" },
+            "directcrm.CustomerActions" => new[] { "Id" },
+            "directcrm.CustomFieldValues" => new[] { "Id" },
+            "directcrm.Areas" => new[] { "Id" },
+            _ => throw new NotSupportedException()
+        };
+    }
+
+    public string GetSqlType(string tableName, string columnName)
+    {
+        return (tableName, columnName) switch
+        {
+            ("directcrm.Customers", "Id") => "int not null",
+            ("directcrm.Customers", "PasswordHash") => "nvarchar(32) not null",
+            ("directcrm.Customers", "PasswordHashSalt") => "varbinary(16) null",
+            ("directcrm.Customers", "TempPasswordHash") => "nvarchar(32) not null",
+            ("directcrm.Customers", "TempPasswordHashSalt") => "varbinary(16) null",
+            ("directcrm.Customers", "IsDeleted") => "bit not null",
+            ("directcrm.Customers", "TempPasswordEmail") => "nvarchar(256) not null",
+            ("directcrm.Customers", "TempPasswordMobilePhone") => "bigint null",
+            ("directcrm.Customers", "AreaId") => "int not null",
+            ("directcrm.CustomerActions", "Id") => "bigint not null",
+            ("directcrm.CustomerActions", "DateTimeUtc") => "datetime2(7) not null",
+            ("directcrm.CustomerActions", "CreationDateTimeUtc") => "datetime2(7) not null",
+            ("directcrm.CustomerActions", "PointOfContactId") => "int not null",
+            ("directcrm.CustomerActions", "ActionTemplateId") => "int not null",
+            ("directcrm.CustomerActions", "CustomerId") => "int not null",
+            ("directcrm.CustomerActions", "StaffId") => "int null",
+            ("directcrm.CustomerActions", "OriginalCustomerId") => "int not null",
+            ("directcrm.CustomerActions", "TransactionalId") => "bigint null",
+            ("directcrm.CustomFieldValues", "Id") => "int not null",
+            ("directcrm.CustomFieldValues", "CustomerId") => "bigint not null",
+            ("directcrm.CustomFieldValues", "FieldName") => "nvarchar(32) not null",
+            ("directcrm.CustomFieldValues", "FieldValue") => "nvarchar(32) not null",
+            ("directcrm.Areas", "Id") => "int not null",
+            ("directcrm.Areas", "Name") => "nvarchar(32) not null",
+            _ => throw new NotSupportedException()
+        };
     }
 }
