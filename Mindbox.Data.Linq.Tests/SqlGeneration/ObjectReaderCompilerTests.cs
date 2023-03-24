@@ -16,7 +16,30 @@ namespace Mindbox.Data.Linq.Tests.SqlGeneration;
 public class ObjectReaderCompilerTests
 {
     [TestMethod]
-    public void DBBigint_PropertyLong_Success()
+    public void DBInt_PropertyIntAndNullableInt_Success()
+    {
+        // Arrange
+        var reader = CreateReader(new[]
+        {
+            new Row(1, 10),
+            new Row(2, null),
+        });
+        using var connection = CreateConnection(reader);
+        using var context = new DataContext(connection);
+
+        // Act
+        var rows = context.GetTable<CustomRowWithIntKey>().ToArray();
+
+        // Assert
+        Assert.AreEqual(2, rows.Length);
+        Assert.AreEqual(1, rows[0].Id);
+        Assert.AreEqual(10, rows[0].ValueNullable);
+        Assert.AreEqual(2, rows[1].Id);
+        Assert.IsNull(rows[1].ValueNullable);
+    }
+
+    [TestMethod]
+    public void DBBigint_PropertyLongAndNullableLong_Success()
     {
         // Arrange
         var reader = CreateReader(new[]
@@ -39,7 +62,7 @@ public class ObjectReaderCompilerTests
     }
 
     [TestMethod]
-    public void DBHasInt_PropertyLong_Success()
+    public void DBInt_PropertyLong_Success()
     {
         // Arrange
         var reader = CreateReader(new[]
@@ -62,23 +85,26 @@ public class ObjectReaderCompilerTests
     }
 
     [TestMethod]
-    public void DBHasInt_PropertyNullableLong_NotSupported()
+    public void DBInt_PropertyLongAndNullableLong_Success()
     {
         // Arrange
         var reader = CreateReader(new[]
         {
-            new Row(1, 10), // Testing that this (int)10 will not be properly converted
+            new Row(1, 10),
             new Row(2, null),
         });
         using var connection = CreateConnection(reader);
         using var context = new DataContext(connection);
 
         // Act
-        var ex = Assert.ThrowsException<InvalidOperationException>(
-            () => context.GetTable<CustomRowWithBigintKey>().ToArray());
+        var rows = context.GetTable<CustomRowWithBigintKey>().ToArray();
 
         // Assert
-        Assert.AreEqual("Value is not of type Int64.", ex.Message);
+        Assert.AreEqual(2, rows.Length);
+        Assert.AreEqual(1L, rows[0].Id);
+        Assert.AreEqual(10, rows[0].ValueNullable);
+        Assert.AreEqual(2L, rows[1].Id);
+        Assert.IsNull(rows[1].ValueNullable);
     }
 
     private DbDataReader CreateReader(IEnumerable<Row> rows)
@@ -142,5 +168,15 @@ public class ObjectReaderCompilerTests
 
         [Column]
         public long? ValueNullable { get; set; }
+    }
+
+    [Table(Name = "CustomRowWithIntKey")]
+    public sealed class CustomRowWithIntKey
+    {
+        [Column(IsPrimaryKey = true)]
+        public int Id { get; set; }
+
+        [Column]
+        public int? ValueNullable { get; set; }
     }
 }

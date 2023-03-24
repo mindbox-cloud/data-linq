@@ -2190,8 +2190,15 @@ namespace System.Data.Linq.SqlClient
                 gen.Emit(GetMethodCallOpCode(this.compiler.miDRisDBNull), this.compiler.miDRisDBNull);
                 gen.Emit(OpCodes.Brtrue, labIsNull);
 
-                // Special case handling. Allow to read Int32 value if cType is Int64
-                if (cType == typeof(long))
+                // Special case handling. Allow to read Int32 value if cType is Int64 or Int64?
+                // This effectively brings support to following reading possibilities:
+                //  - db long -> property long (was already supported by original code)
+                //  - db int -> property long
+                //  - db int -> property long?
+                //  - db null -> property long? (was already supported by original code)
+                //  - db int -> property int (was already supported by original code)
+                //  - db null -> property int? (was already supported by original code)
+                if (cType == typeof(long) || cType == typeof(long?))
                 {
                     var labUseGetInt32 = gen.DefineLabel();
                     var fieldTypeMethod = GetFieldTypeMethod(compiler.dataReaderType);
@@ -2230,6 +2237,8 @@ namespace System.Data.Linq.SqlClient
                         GenerateConstInt(ordinal);
                     gen.Emit(GetMethodCallOpCode(readerInt32Method), readerInt32Method);
                     gen.Emit(OpCodes.Conv_I8); // (long)%value%
+                    if (cType == typeof(long?))   // new long?(%value%)                
+                        gen.Emit(OpCodes.Newobj, typeof(long?).GetConstructor(new[] { typeof(long) }));
                     gen.Emit(OpCodes.Br, labExit);
                 }
                 else
@@ -2257,8 +2266,8 @@ namespace System.Data.Linq.SqlClient
                 gen.Emit(GetMethodCallOpCode(compiler.miBRisDBNull), compiler.miBRisDBNull);
                 gen.Emit(OpCodes.Brtrue, labIsNull);
 
-                // Special case handling. Allow to read Int32 value if cType is Int64
-                if (cType == typeof(long))
+                // Special case handling. See comments above
+                if (cType == typeof(long) || cType == typeof(long?))
                 {
                     var labBufferUseGetInt32 = gen.DefineLabel();
                     var bufferFieldTypeMethod = GetFieldTypeMethod(typeof(DbDataReader));
@@ -2297,6 +2306,8 @@ namespace System.Data.Linq.SqlClient
                         GenerateConstInt(ordinal);
                     gen.Emit(GetMethodCallOpCode(bufferReaderInt32Method), bufferReaderInt32Method);
                     gen.Emit(OpCodes.Conv_I8); // (long)%value%
+                    if (cType == typeof(long?))   // new long?(%value%)                
+                        gen.Emit(OpCodes.Newobj, typeof(long?).GetConstructor(new[] { typeof(long) }));
                     gen.Emit(OpCodes.Br, labExit);
                 }
                 else
