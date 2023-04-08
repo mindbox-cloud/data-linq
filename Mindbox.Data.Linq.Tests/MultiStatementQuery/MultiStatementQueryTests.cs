@@ -21,17 +21,7 @@ public class MultiStatementQueryTests
         var query = SqlQueryTranslator.Transalate(queryExpression, new DbColumnTypeProvider());
 
         // Assert
-        Assert.AreEqual("""
-            DECLARE @tabledirectcrm_Customers_1 TABLE(
-                Id int not null
-            )
-
-            INSERT INTO @tabledirectcrm_Customers_1
-                SELECT current.Id 
-                    FROM directcrm.Customers AS current
-                    WHERE Id = @pKeyId
-            SELECT * FROM @tabledirectcrm_Customers_1
-            """, query.CommandText);
+        query.MatchSnapshot();
     }
 
     [TestMethod]
@@ -47,18 +37,7 @@ public class MultiStatementQueryTests
         var query = SqlQueryTranslator.Transalate(queryExpression, new DbColumnTypeProvider());
 
         // Assert
-        Assert.AreEqual("""
-            DECLARE @tabledirectcrm_Customers_1 TABLE(
-                Id int not null,
-                TempPasswordEmail nvarchar(256) not null
-            )
-
-            INSERT INTO @tabledirectcrm_Customers_1
-                SELECT current.Id, current.TempPasswordEmail 
-                    FROM directcrm.Customers AS current
-                    WHERE Id = @pKeyId
-            SELECT * FROM @tabledirectcrm_Customers_1
-            """, query.CommandText);
+        query.MatchSnapshot();
     }
 
     [TestMethod]
@@ -74,18 +53,7 @@ public class MultiStatementQueryTests
         var query = SqlQueryTranslator.Transalate(queryExpression, new DbColumnTypeProvider());
 
         // Assert
-        Assert.AreEqual("""
-            DECLARE @tabledirectcrm_Customers_1 TABLE(
-                Id int not null,
-                TempPasswordEmail nvarchar(256) not null
-            )
-
-            INSERT INTO @tabledirectcrm_Customers_1
-                SELECT current.Id, current.TempPasswordEmail 
-                    FROM directcrm.Customers AS current
-                    WHERE Id = @pKeyId
-            SELECT * FROM @tabledirectcrm_Customers_1
-            """, query.CommandText);
+        query.MatchSnapshot();
     }
 
     [TestMethod]
@@ -122,18 +90,7 @@ public class MultiStatementQueryTests
         var query = SqlQueryTranslator.Transalate(queryExpression, new DbColumnTypeProvider());
 
         // Assert
-        Assert.AreEqual("""
-            DECLARE @tabledirectcrm_Customers_1 TABLE(
-                Id int not null,
-                IsDeleted bit not null
-            )
-
-            INSERT INTO @tabledirectcrm_Customers_1
-                SELECT current.Id, current.IsDeleted 
-                    FROM directcrm.Customers AS current
-                    WHERE Id = @pKeyId
-            SELECT * FROM @tabledirectcrm_Customers_1
-            """, query.CommandText);
+        query.MatchSnapshot();
     }
 
     [TestMethod]
@@ -191,6 +148,7 @@ public class MultiStatementQueryTests
         var query = SqlQueryTranslator.Transalate(queryExpression, new DbColumnTypeProvider());
 
         // Assert
+
         Assert.AreEqual("""
             INSERT INTO @tabledirectcrm_Customers_1
                 SELECT Id, TempPasswordEmail, IsDeleted FROM directcrm.Customers WHERE Id = @pKeyId
