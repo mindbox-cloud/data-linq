@@ -1,6 +1,7 @@
 ﻿using System.Data;
 using System.Linq;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
+using Snapshooter.MSTest;
 
 namespace Mindbox.Data.Linq.Tests.MultiStatementQuery;
 
@@ -210,28 +211,6 @@ public class MultiStatementQueryTests
         var query = SqlQueryTranslator.Transalate(queryExpression, new DbColumnTypeProvider());
 
         // Assert
-        Assert.AreEqual("""
-            DECLARE @tabledirectcrm_Customers_1 TABLE(
-                AreaId int not null,
-                Id int not null
-            )
-            DECLARE @tabledirectcrm_Areas_2 TABLE(
-                Id int not null,
-                Name nvarchar(32) not null
-            )
-
-            INSERT INTO @tabledirectcrm_Customers_1
-                SELECT current.AreaId, current.Id 
-                    FROM directcrm.Customers AS current
-                    WHERE Id = @pKeyId
-            SELECT * FROM @tabledirectcrm_Customers_1
-
-            INSERT INTO @tabledirectcrm_Areas_2
-                SELECT current.Id, current.Name 
-                    FROM directcrm.Areas AS current
-                        INNER JOIN (SELECT DISTINCT AreaId FROM @tabledirectcrm_Customers_1) AS previous ON
-                            previous.AreaId = current.Id
-            SELECT * FROM @tabledirectcrm_Areas_2
-            """, query.CommandText);
+        query.CommandText.MatchSnapshot();
     }
 }
