@@ -1,3 +1,9 @@
-﻿{
-  "CommandText": "DECLARE @tabledirectcrm_Customers_1 TABLE(\n    Id int not null\n)\n\nINSERT INTO @tabledirectcrm_Customers_1\n    SELECT current.Id \n        FROM directcrm.Customers AS current\n        WHERE Id = @pKeyId\nSELECT * FROM @tabledirectcrm_Customers_1"
-}
+﻿DECLARE @tabledirectcrm_Customers_1 TABLE(
+    Id int not null
+)
+
+INSERT INTO @tabledirectcrm_Customers_1
+    SELECT current.Id 
+        FROM directcrm.Customers AS current
+        WHERE Id = @pKeyId
+SELECT * FROM @tabledirectcrm_Customers_1

@@ -192,6 +192,8 @@ class SqlQueryTranslator
                             return new SqlDataFieldNode(toMap.PreviousNode.TableOwner, propertyInfo.Name);
                     }
                 }
+                else if (memberExpression.Expression is ConstantExpression) // Some invocation of constant
+                    return new SqlNoOpNode(toMap.PreviousNode.TableOwner);  
                 throw new NotSupportedException();
             case ExpressionType.And:
             case ExpressionType.AndAlso:
