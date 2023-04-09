@@ -102,11 +102,7 @@ public class MultiStatementQueryTests
         var query = SqlQueryTranslator.Transalate(queryExpression, new DbColumnTypeProvider());
 
         // Assert
-        Assert.AreEqual("""
-            INSERT INTO @tabledirectcrm_Customers_1
-                SELECT Id, IsDeleted FROM directcrm.Customers WHERE Id = @pKeyId
-            SELECT * FROM @tabledirectcrm_Customers_1
-            """, query.CommandText);
+        query.CommandText.MatchSnapshot();
     }
 
     [TestMethod]

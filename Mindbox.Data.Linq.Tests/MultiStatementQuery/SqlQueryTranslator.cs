@@ -193,7 +193,7 @@ class SqlQueryTranslator
                     }
                 }
                 else if (memberExpression.Expression is ConstantExpression) // Some invocation of constant
-                    return new SqlNoOpNode(toMap.PreviousNode.TableOwner);  
+                    return new SqlNoOpNode(toMap.PreviousNode.TableOwner);
                 throw new NotSupportedException();
             case ExpressionType.And:
             case ExpressionType.AndAlso:
@@ -204,6 +204,11 @@ class SqlQueryTranslator
             case ExpressionType.Equal:
             case ExpressionType.GreaterThan:
             case ExpressionType.GreaterThanOrEqual:
+                return new SqlNoOpNode(toMap.PreviousNode.TableOwner);
+            case ExpressionType.Not:
+                var notExpression = (UnaryExpression)expression;
+                if (notExpression.IsLifted || notExpression.IsLiftedToNull || notExpression.Method != null)
+                    throw new NotSupportedException();
                 return new SqlNoOpNode(toMap.PreviousNode.TableOwner);
             case ExpressionType.Add:
             case ExpressionType.AddChecked:
@@ -228,7 +233,6 @@ class SqlQueryTranslator
             case ExpressionType.New:
             case ExpressionType.NewArrayInit:
             case ExpressionType.NewArrayBounds:
-            case ExpressionType.Not:
             case ExpressionType.NotEqual:
             case ExpressionType.Power:
             case ExpressionType.RightShift:
@@ -340,6 +344,13 @@ class SqlQueryTranslator
                                     yield return item;
                         else
                             throw new NotSupportedException();
+                        break;
+                    case ExpressionType.Not:
+                        var notExpression = (UnaryExpression)expression;
+                        if (notExpression.IsLifted || notExpression.IsLiftedToNull || notExpression.Method != null)
+                            throw new NotSupportedException();
+                        foreach (var item in GetExpressionsCore(stack, notExpression.Operand))
+                            yield return item;
                         break;
                     default:
                         throw new NotSupportedException();
