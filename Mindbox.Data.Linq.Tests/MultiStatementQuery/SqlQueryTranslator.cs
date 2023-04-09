@@ -329,6 +329,14 @@ class SqlQueryTranslator
                         foreach (var item in GetExpressionsCore(stack, lambdaExpression.Body))
                             yield return item;
                         break;
+                    case ExpressionType.And:
+                    case ExpressionType.AndAlso:
+                    case ExpressionType.Or:
+                    case ExpressionType.OrElse:
+                    case ExpressionType.LessThan:
+                    case ExpressionType.LessThanOrEqual:
+                    case ExpressionType.GreaterThan:
+                    case ExpressionType.GreaterThanOrEqual:
                     case ExpressionType.Equal:
                         var binaryExpression = (BinaryExpression)expression;
                         foreach (var item in GetExpressionsCore(stack, binaryExpression.Left))

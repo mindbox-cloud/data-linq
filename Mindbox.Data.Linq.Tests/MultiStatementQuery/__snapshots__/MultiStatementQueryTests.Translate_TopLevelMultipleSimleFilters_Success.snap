@@ -1,0 +1,11 @@
+﻿DECLARE @tabledirectcrm_Customers_1 TABLE(
+    Id int not null,
+    IsDeleted bit not null,
+    TempPasswordEmail nvarchar(256) not null
+)
+
+INSERT INTO @tabledirectcrm_Customers_1
+    SELECT current.Id, current.IsDeleted, current.TempPasswordEmail 
+        FROM directcrm.Customers AS current
+        WHERE Id = @pKeyId
+SELECT * FROM @tabledirectcrm_Customers_1
