@@ -56,6 +56,53 @@ class SqlQueryTranslator
     {
         RemoveNoOps(null, node);
         MergeFilters(node);
+        MergeTableAccessOnSameLevel(node);
+        RemoveDuplicatedAssociationFields(node);
+
+        void RemoveDuplicatedAssociationFields(SqlNode node)
+        {
+            for (int i = 0; i < node.Children.Count; i++)
+            {
+                if (node.Children[i] is SqlAssociationFieldNode associationField)
+                {
+                    var sameNode = node.Children.Where(c => c != associationField).OfType<SqlAssociationFieldNode>()
+                        .Where(o => o.TableName == associationField.TableName && o.ColumnName == associationField.ColumnName).FirstOrDefault();
+                    if (sameNode != null)
+                    {
+                        RewriteTableOwner(associationField, associationField.TableOwner, sameNode.TableOwner);
+                        sameNode.Children.InsertRange(0, associationField.Children);
+                        node.Children.RemoveAt(i);
+                        i--;
+                    }
+                }
+            }
+
+            foreach (var child in node.Children.ToArray())
+                RemoveDuplicatedAssociationFields(child);
+        }
+
+        void RewriteTableOwner(SqlNode node, SqlTableNode currentOwner, SqlTableNode newOwner)
+        {
+            if (node.TableOwner == currentOwner)
+                node.TryRewriteTableOwner(newOwner);
+            foreach (var child in node.Children)
+                RewriteTableOwner(child, currentOwner, newOwner);
+        }
+
+        void MergeTableAccessOnSameLevel(SqlNode node)
+        {
+            for (int i = 1; i < node.Children.Count; i++)
+                if (node.Children[i - 1] is SqlTableAccessNode tableAccessPrevious && node.Children[i] is SqlTableAccessNode tableAccessCurrent
+                    && tableAccessPrevious.TableOwner == tableAccessCurrent.TableOwner)
+                {
+                    node.Children[i - 1].Children.AddRange(node.Children[i].Children);
+                    node.Children.RemoveAt(i);
+                    i--;
+                }
+
+            foreach (var child in node.Children.ToArray())
+                MergeTableAccessOnSameLevel(child);
+        }
 
         void MergeFilters(SqlNode node)
         {
@@ -449,6 +496,8 @@ class SqlQueryTranslator
     {
         public abstract SqlTableNode TableOwner { get; }
         public List<SqlNode> Children { get; } = new List<SqlNode>();
+
+        public abstract void TryRewriteTableOwner(SqlTableNode newOwner);
     }
 
     [DebuggerDisplay("NoOp")]
@@ -462,6 +511,9 @@ class SqlQueryTranslator
         {
             _tableOwner = tableOwner;
         }
+
+        public override void TryRewriteTableOwner(SqlTableNode newOwner)
+            => _tableOwner = newOwner;
     }
 
     [DebuggerDisplay("Filter")]
@@ -475,6 +527,9 @@ class SqlQueryTranslator
         {
             _tableOwner = tableOwner;
         }
+
+        public override void TryRewriteTableOwner(SqlTableNode newOwner)
+            => _tableOwner = newOwner;
     }
 
     [DebuggerDisplay("Table access: {TableOwner.TableName}")]
@@ -488,6 +543,10 @@ class SqlQueryTranslator
         {
             _tableOwner = tableOwner;
         }
+
+
+        public override void TryRewriteTableOwner(SqlTableNode newOwner)
+            => _tableOwner = newOwner;
     }
 
     [DebuggerDisplay("Data field: {TableOwner.TableName,nq}.{ColumnName,nq}")]
@@ -504,6 +563,9 @@ class SqlQueryTranslator
             _tableOwner = tableOwner;
             ColumnName = columnName;
         }
+
+        public override void TryRewriteTableOwner(SqlTableNode newOwner)
+            => _tableOwner = newOwner;
     }
 
     [DebuggerDisplay("Association field: {PreviousTableOwner.TableName,nq}.{PreviousColumnName,nq} = {TableOwner.TableName,nq}.{ColumnName,nq}")]
@@ -524,6 +586,9 @@ class SqlQueryTranslator
             PreviousTableOwner = previousTableOwner;
             PreviousColumnName = previousColumnName;
         }
+
+        public override void TryRewriteTableOwner(SqlTableNode newOwner)
+            => _tableOwner = newOwner;
     }
 
     [DebuggerDisplay("Table")]
@@ -537,6 +602,9 @@ class SqlQueryTranslator
         {
             TableName = tableName;
         }
+
+        public override void TryRewriteTableOwner(SqlTableNode newOwner)
+            => throw new NotSupportedException();
     }
 
     struct StackPusher : IDisposable
