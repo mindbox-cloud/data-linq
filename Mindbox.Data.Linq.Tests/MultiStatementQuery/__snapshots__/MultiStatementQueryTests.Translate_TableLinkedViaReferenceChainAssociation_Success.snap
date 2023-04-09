@@ -1,0 +1,32 @@
+﻿DECLARE @tabledirectcrm_Customers_1 TABLE(
+    AreaId int not null,
+    Id int not null
+)
+DECLARE @tabledirectcrm_Areas_2 TABLE(
+    Id int not null,
+    SubAreaId int null
+)
+DECLARE @tabledirectcrm_SubAreas_3 TABLE(
+    Id int not null,
+    Name nvarchar(64) not null
+)
+
+INSERT INTO @tabledirectcrm_Customers_1
+    SELECT current.AreaId, current.Id 
+        FROM directcrm.Customers AS current
+        WHERE Id = @pKeyId
+SELECT * FROM @tabledirectcrm_Customers_1
+
+INSERT INTO @tabledirectcrm_Areas_2
+    SELECT current.Id, current.SubAreaId 
+        FROM directcrm.Areas AS current
+            INNER JOIN (SELECT DISTINCT AreaId FROM @tabledirectcrm_Customers_1) AS previous ON
+                previous.AreaId = current.Id
+SELECT * FROM @tabledirectcrm_Areas_2
+
+INSERT INTO @tabledirectcrm_SubAreas_3
+    SELECT current.Id, current.Name 
+        FROM directcrm.SubAreas AS current
+            INNER JOIN (SELECT DISTINCT SubAreaId FROM @tabledirectcrm_Areas_2) AS previous ON
+                previous.SubAreaId = current.Id
+SELECT * FROM @tabledirectcrm_SubAreas_3

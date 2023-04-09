@@ -101,4 +101,20 @@ public sealed class Area
 
     [Column]
     public string Name { get; set; }
+
+    [Column]
+    public int SubAreaId { get; set; }
+
+    [Association(ThisKey = nameof(SubAreaId), OtherKey = nameof(MultiStatementQuery.SubArea.Id))]
+    public SubArea SubArea { get; set; }
+}
+
+[Table(Name = "directcrm.SubAreas")]
+public sealed class SubArea
+{
+    [Column(IsPrimaryKey = true)]
+    public int Id { get; set; }
+
+    [Column]
+    public string Name { get; set; }
 }

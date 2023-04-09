@@ -190,6 +190,17 @@ class SqlQueryTranslator
                     {
                         if (propertyInfo.CustomAttributes.Any(p => p.AttributeType == typeof(ColumnAttribute)))
                             return new SqlDataFieldNode(toMap.PreviousNode.TableOwner, propertyInfo.Name);
+                        var associationAttribute = propertyInfo.CustomAttributes.SingleOrDefault(p => p.AttributeType == typeof(AssociationAttribute));
+                        if (associationAttribute != null)
+                        {
+                            var nextTableName = propertyInfo.PropertyType.CustomAttributes.Single(c => c.AttributeType == typeof(TableAttribute)).NamedArguments
+                                .Single(a => a.MemberName == nameof(TableAttribute.Name)).TypedValue.Value.ToString();
+                            return new SqlAssociationFieldNode(
+                                new SqlTableNode(nextTableName),
+                                associationAttribute.NamedArguments.Single(a => a.MemberName == nameof(AssociationAttribute.OtherKey)).TypedValue.Value.ToString(),
+                                toMap.PreviousNode.TableOwner,
+                                associationAttribute.NamedArguments.Single(a => a.MemberName == nameof(AssociationAttribute.ThisKey)).TypedValue.Value.ToString());
+                        }
                     }
                 }
                 else if (memberExpression.Expression is ConstantExpression) // Some invocation of constant
@@ -563,6 +574,7 @@ public class DbColumnTypeProvider : IDbColumnTypeProvider
             "directcrm.CustomerActions" => new[] { "Id" },
             "directcrm.CustomFieldValues" => new[] { "Id" },
             "directcrm.Areas" => new[] { "Id" },
+            "directcrm.SubAreas" => new[] { "Id" },
             _ => throw new NotSupportedException()
         };
     }
@@ -595,6 +607,9 @@ public class DbColumnTypeProvider : IDbColumnTypeProvider
             ("directcrm.CustomFieldValues", "FieldValue") => "nvarchar(32) not null",
             ("directcrm.Areas", "Id") => "int not null",
             ("directcrm.Areas", "Name") => "nvarchar(32) not null",
+            ("directcrm.Areas", "SubAreaId") => "int null",
+            ("directcrm.SubAreas", "Id") => "int not null",
+            ("directcrm.SubAreas", "Name") => "nvarchar(64) not null",
             _ => throw new NotSupportedException()
         };
     }

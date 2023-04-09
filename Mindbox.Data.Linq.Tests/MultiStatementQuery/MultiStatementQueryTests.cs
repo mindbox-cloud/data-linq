@@ -154,4 +154,38 @@ public class MultiStatementQueryTests
         // Assert
         query.CommandText.MatchSnapshot();
     }
+
+    [TestMethod]
+    public void Translate_TableLinkedViaReferenceChainAssociation_Success()
+    {
+        // Arrange
+        using var contextAndConnection = new DataContextAndConnection();
+
+        // Act
+        var customerActions = contextAndConnection.DataContext.GetTable<CustomerAction>();
+        var queryExpression = contextAndConnection.DataContext
+            .GetTable<Customer>().Where(c => c.Area.SubArea.Name == "SomeSubArea").Expression;
+        var query = SqlQueryTranslator.Transalate(queryExpression, new DbColumnTypeProvider());
+
+        // Assert
+        query.CommandText.MatchSnapshot();
+    }
+
+    [TestMethod]
+    public void Translate_TableLinkedViaReferenceChainAssociationAndFilterOnAllAssociations_Success()
+    {
+        // Arrange
+        using var contextAndConnection = new DataContextAndConnection();
+
+        // Act
+        var customerActions = contextAndConnection.DataContext.GetTable<CustomerAction>();
+        var queryExpression = contextAndConnection.DataContext
+            .GetTable<Customer>()
+            .Where(c => c.Area.Name == "SomeArea")
+            .Where(c => c.Area.SubArea.Name == "SomeSubArea").Expression;
+        var query = SqlQueryTranslator.Transalate(queryExpression, new DbColumnTypeProvider());
+
+        // Assert
+        query.CommandText.MatchSnapshot();
+    }
 }
