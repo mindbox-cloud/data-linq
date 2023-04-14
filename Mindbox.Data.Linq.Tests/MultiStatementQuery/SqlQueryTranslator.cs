@@ -1,10 +1,12 @@
 ﻿using Azure;
 using Castle.Components.DictionaryAdapter.Xml;
+using Newtonsoft.Json.Linq;
 using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.ComponentModel.Design.Serialization;
 using System.Data.Linq.Mapping;
+using System.Data.Linq.SqlClient;
 using System.Diagnostics;
 using System.Linq;
 using System.Linq.Expressions;
@@ -169,6 +171,7 @@ class SqlQueryTranslator
                     var lambdaFilterParameterExpression = lambdaCallExpression.Method switch
                     {
                         { Name: "Where" } => lambda.Parameters[0],
+                        { Name: "Any" } => lambda.Parameters[0],
                         _ => throw new NotSupportedException()
                     };
                     if (lambdaFilterParameterExpression == parameterExpression)
@@ -251,7 +254,13 @@ class SqlQueryTranslator
                     }
                 }
                 else if (memberExpression.Expression is ConstantExpression) // Some invocation of constant
+                {
+                    var memberConstantValue = Expression.Lambda(memberExpression).Compile().DynamicInvoke();
+                    var memberTableName = GetTableName(memberConstantValue);
+                    if (!string.IsNullOrEmpty(memberTableName))
+                        return new SqlTableNode(memberTableName);
                     return new SqlNoOpNode(toMap.PreviousNode.TableOwner);
+                }
                 throw new NotSupportedException();
             case ExpressionType.And:
             case ExpressionType.AndAlso:
@@ -259,13 +268,22 @@ class SqlQueryTranslator
             case ExpressionType.OrElse:
             case ExpressionType.LessThan:
             case ExpressionType.LessThanOrEqual:
-            case ExpressionType.Equal:
             case ExpressionType.GreaterThan:
             case ExpressionType.GreaterThanOrEqual:
+                return new SqlNoOpNode(toMap.PreviousNode.TableOwner);
+            case ExpressionType.Equal:
+                var joinConditioNode = TryExtractJoinConition(toMap);
+                if (joinConditioNode != null)
+                    return joinConditioNode;
                 return new SqlNoOpNode(toMap.PreviousNode.TableOwner);
             case ExpressionType.Not:
                 var notExpression = (UnaryExpression)expression;
                 if (notExpression.IsLifted || notExpression.IsLiftedToNull || notExpression.Method != null)
+                    throw new NotSupportedException();
+                return new SqlNoOpNode(toMap.PreviousNode.TableOwner);
+            case ExpressionType.Convert:
+                var convertExpression = (UnaryExpression)expression;
+                if (convertExpression.IsLifted || convertExpression.IsLiftedToNull || convertExpression.Method != null)
                     throw new NotSupportedException();
                 return new SqlNoOpNode(toMap.PreviousNode.TableOwner);
             case ExpressionType.Add:
@@ -274,7 +292,6 @@ class SqlQueryTranslator
             case ExpressionType.ArrayIndex:
             case ExpressionType.Coalesce:
             case ExpressionType.Conditional:
-            case ExpressionType.Convert:
             case ExpressionType.ConvertChecked:
             case ExpressionType.Divide:
             case ExpressionType.ExclusiveOr:
@@ -339,6 +356,54 @@ class SqlQueryTranslator
             case ExpressionType.IsFalse:
             default:
                 throw new NotSupportedException();
+        }
+    }
+
+    private static SqlJoinConditionFieldNode TryExtractJoinConition(ExpressionToMap toMap)
+    {
+        var binaryExpression = toMap.Expression as BinaryExpression;
+        if (binaryExpression == null)
+            return null;
+
+        // Unwrap
+        var left = Unwrap(binaryExpression.Left);
+        var right = Unwrap(binaryExpression.Right);
+
+        // Extract field
+        var fieldLeft = ExtractField(left);
+        var fieldRight = ExtractField(right);
+
+        if (!fieldLeft.HasValue || !fieldRight.HasValue)
+            return null;
+
+        var previousTable = toMap.PreviousNode.TableOwner;
+        if (previousTable == fieldRight.Value.Table)
+        {
+            var temp = fieldLeft;
+            fieldLeft = fieldRight;
+            fieldRight = temp;
+        }
+
+        return new SqlJoinConditionFieldNode(fieldLeft.Value.Table, fieldLeft.Value.Column, fieldRight.Value.Table, fieldRight.Value.Column);
+
+        static (SqlTableNode Table, string Column)? ExtractField(Expression expression)
+        {
+            throw new NotImplementedException();
+            //turn null;
+        }
+
+        static Expression Unwrap(Expression expression)
+        {
+            while (true)
+            {
+                if (expression is UnaryExpression unaryExpression && unaryExpression.NodeType == ExpressionType.Convert)
+                    if (unaryExpression.IsLifted || unaryExpression.IsLiftedToNull || unaryExpression.Method != null)
+                    {
+                        expression = unaryExpression.Operand;
+                        continue;
+                    }
+                return expression;
+            }
         }
     }
 
@@ -418,6 +483,13 @@ class SqlQueryTranslator
                         foreach (var item in GetExpressionsCore(stack, notExpression.Operand))
                             yield return item;
                         break;
+                    case ExpressionType.Convert:
+                        var convertExpression = (UnaryExpression)expression;
+                        if (convertExpression.IsLifted || convertExpression.IsLiftedToNull || convertExpression.Method != null)
+                            throw new NotSupportedException();
+                        foreach (var item in GetExpressionsCore(stack, convertExpression.Operand))
+                            yield return item;
+                        break;
                     default:
                         throw new NotSupportedException();
                 }
@@ -429,6 +501,11 @@ class SqlQueryTranslator
     public static string GetTableName(ConstantExpression constantExpression)
     {
         var constantValue = constantExpression.Value;
+        return GetTableName(constantValue);
+    }
+
+    private static string GetTableName(object constantValue)
+    {
         if (!constantValue.GetType().IsGenericType || constantValue.GetType().GetGenericTypeDefinition() != typeof(System.Data.Linq.Table<>))
             return null;
         var genericParameterType = constantValue.GetType().GenericTypeArguments[0];
@@ -436,7 +513,6 @@ class SqlQueryTranslator
         var tableName = attribute.NamedArguments.Single(a => a.MemberName == nameof(TableAttribute.Name)).TypedValue.Value.ToString()!;
         return tableName;
     }
-
 
     private static IEnumerable<Expression> GetReorderedChainCall(Expression expression)
     {
@@ -579,6 +655,29 @@ class SqlQueryTranslator
         public string PreviousColumnName { get; }
 
         public SqlAssociationFieldNode(SqlTableNode tableOwner, string columnName, SqlTableNode previousTableOwner, string previousColumnName)
+            : base(tableOwner.TableName)
+        {
+            _tableOwner = tableOwner;
+            ColumnName = columnName;
+            PreviousTableOwner = previousTableOwner;
+            PreviousColumnName = previousColumnName;
+        }
+
+        public override void TryRewriteTableOwner(SqlTableNode newOwner)
+            => _tableOwner = newOwner;
+    }
+
+    [DebuggerDisplay("SqlJoinConditionFieldNode : {PreviousTableOwner.TableName,nq}.{PreviousColumnName,nq} = {TableOwner.TableName,nq}.{ColumnName,nq}")]
+    public class SqlJoinConditionFieldNode : SqlTableNode
+    {
+        private SqlTableNode _tableOwner;
+
+        public override SqlTableNode TableOwner => _tableOwner;
+        public string ColumnName { get; }
+        public SqlTableNode PreviousTableOwner { get; }
+        public string PreviousColumnName { get; }
+
+        public SqlJoinConditionFieldNode(SqlTableNode tableOwner, string columnName, SqlTableNode previousTableOwner, string previousColumnName)
             : base(tableOwner.TableName)
         {
             _tableOwner = tableOwner;

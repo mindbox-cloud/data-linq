@@ -15,7 +15,6 @@ public class MultiStatementQueryTests
         using var contextAndConnection = new DataContextAndConnection();
 
         // Act
-        var customerActions = contextAndConnection.DataContext.GetTable<CustomerAction>();
         var queryExpression = contextAndConnection.DataContext
             .GetTable<Customer>().AsQueryable().Expression;
         var query = SqlQueryTranslator.Transalate(queryExpression, new DbColumnTypeProvider());
@@ -31,7 +30,6 @@ public class MultiStatementQueryTests
         using var contextAndConnection = new DataContextAndConnection();
 
         // Act
-        var customerActions = contextAndConnection.DataContext.GetTable<CustomerAction>();
         var queryExpression = contextAndConnection.DataContext
             .GetTable<Customer>().Where(c2 => c2.TempPasswordEmail == "123").Expression;
         var query = SqlQueryTranslator.Transalate(queryExpression, new DbColumnTypeProvider());
@@ -47,7 +45,6 @@ public class MultiStatementQueryTests
         using var contextAndConnection = new DataContextAndConnection();
 
         // Act
-        var customerActions = contextAndConnection.DataContext.GetTable<CustomerAction>();
         var queryExpression = contextAndConnection.DataContext
             .GetTable<Customer>().Where(c2 => c2.TempPasswordEmail == "123").Expression;
         var query = SqlQueryTranslator.Transalate(queryExpression, new DbColumnTypeProvider());
@@ -63,7 +60,6 @@ public class MultiStatementQueryTests
         using var contextAndConnection = new DataContextAndConnection();
 
         // Act
-        var customerActions = contextAndConnection.DataContext.GetTable<CustomerAction>();
         var someEmail = "123";
         var queryExpression = contextAndConnection.DataContext
             .GetTable<Customer>().Where(c => c.TempPasswordEmail == someEmail).Expression;
@@ -80,7 +76,6 @@ public class MultiStatementQueryTests
         using var contextAndConnection = new DataContextAndConnection();
 
         // Act
-        var customerActions = contextAndConnection.DataContext.GetTable<CustomerAction>();
         var queryExpression = contextAndConnection.DataContext
             .GetTable<Customer>().Where(c => c.IsDeleted).Expression;
         var query = SqlQueryTranslator.Transalate(queryExpression, new DbColumnTypeProvider());
@@ -96,7 +91,6 @@ public class MultiStatementQueryTests
         using var contextAndConnection = new DataContextAndConnection();
 
         // Act
-        var customerActions = contextAndConnection.DataContext.GetTable<CustomerAction>();
         var queryExpression = contextAndConnection.DataContext
             .GetTable<Customer>().Where(c => !c.IsDeleted).Expression;
         var query = SqlQueryTranslator.Transalate(queryExpression, new DbColumnTypeProvider());
@@ -112,7 +106,6 @@ public class MultiStatementQueryTests
         using var contextAndConnection = new DataContextAndConnection();
 
         // Act
-        var customerActions = contextAndConnection.DataContext.GetTable<CustomerAction>();
         var someEmail = "123";
         var queryExpression = contextAndConnection.DataContext
             .GetTable<Customer>().Where(c => c.TempPasswordEmail == someEmail && c.Id > 10 && !c.IsDeleted).Expression;
@@ -129,7 +122,6 @@ public class MultiStatementQueryTests
         using var contextAndConnection = new DataContextAndConnection();
 
         // Act
-        var customerActions = contextAndConnection.DataContext.GetTable<CustomerAction>();
         var someEmail = "123";
         var queryExpression = contextAndConnection.DataContext
             .GetTable<Customer>().Where(c => c.TempPasswordEmail == someEmail).Where(c => c.Id > 10).Where(c => c.Id > 10 && !c.IsDeleted).Expression;
@@ -146,7 +138,6 @@ public class MultiStatementQueryTests
         using var contextAndConnection = new DataContextAndConnection();
 
         // Act
-        var customerActions = contextAndConnection.DataContext.GetTable<CustomerAction>();
         var queryExpression = contextAndConnection.DataContext
             .GetTable<Customer>().Where(c => c.Area.Name == "SomeArea").Expression;
         var query = SqlQueryTranslator.Transalate(queryExpression, new DbColumnTypeProvider());
@@ -162,7 +153,6 @@ public class MultiStatementQueryTests
         using var contextAndConnection = new DataContextAndConnection();
 
         // Act
-        var customerActions = contextAndConnection.DataContext.GetTable<CustomerAction>();
         var queryExpression = contextAndConnection.DataContext
             .GetTable<Customer>().Where(c => c.Area.SubArea.Name == "SomeSubArea").Expression;
         var query = SqlQueryTranslator.Transalate(queryExpression, new DbColumnTypeProvider());
@@ -178,7 +168,6 @@ public class MultiStatementQueryTests
         using var contextAndConnection = new DataContextAndConnection();
 
         // Act
-        var customerActions = contextAndConnection.DataContext.GetTable<CustomerAction>();
         var queryExpression = contextAndConnection.DataContext
             .GetTable<Customer>()
             .Where(c => c.Area.Name == "SomeArea")
@@ -188,4 +177,26 @@ public class MultiStatementQueryTests
         // Assert
         query.CommandText.MatchSnapshot();
     }
+
+    [TestMethod]
+    public void Translate_TableJoinByDataFieldViaWhere_Success()
+    {
+        // Arrange
+        using var contextAndConnection = new DataContextAndConnection();
+
+        // Act
+        var customerActions = contextAndConnection.DataContext.GetTable<CustomerAction>();
+        var queryExpression = contextAndConnection.DataContext
+            .GetTable<Customer>()
+            .Where(c => customerActions.Where(ca => ca.CustomerId == ca.Id).Any(ca => ca.ActionTemplateId == 10))
+            .Expression;
+        var query = SqlQueryTranslator.Transalate(queryExpression, new DbColumnTypeProvider());
+
+        // Assert
+        query.CommandText.MatchSnapshot();
+    }
+
+    // Nested joint
+    // Querable join
+    // Select with anonympus types
 }

@@ -4,6 +4,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Text;
+using static System.Net.Mime.MediaTypeNames;
 
 namespace Mindbox.Data.Linq.Tests.MultiStatementQuery;
 
@@ -223,7 +224,7 @@ DECLARE {variableName} TABLE(
             {
                 if (child is SqlQueryTranslator.SqlDataFieldNode fieldAccessNode)
                     yield return new ColumnPath(path.GetAt(fieldAccessNode.TableOwner), fieldAccessNode.ColumnName);
-                if (child is SqlQueryTranslator.SqlAssociationFieldNode associationFieldNode)
+                else if (child is SqlQueryTranslator.SqlAssociationFieldNode associationFieldNode)
                 {
                     yield return new ColumnPath(path.GetAt(associationFieldNode.PreviousTableOwner), associationFieldNode.PreviousColumnName);
                     var associationConnection = new List<TablePathConnection>() { new TablePathConnection(associationFieldNode.PreviousColumnName, associationFieldNode.ColumnName) };
@@ -233,6 +234,11 @@ DECLARE {variableName} TABLE(
                         yield return associationPath;
                     yield return new ColumnPath(next, associationFieldNode.ColumnName);
                 }
+                /*
+                else if (child is SqlQueryTranslator.SqlTableNode tableNode)
+                {
+                    //yield return new ColumnPath(next, associationFieldNode.ColumnName);
+                }*/
                 else
                     foreach (var childPath in CollectPathsCore(path, child))
                         yield return childPath;
