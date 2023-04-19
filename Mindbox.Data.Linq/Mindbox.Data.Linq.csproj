@@ -12,7 +12,7 @@
     <PublishRepositoryUrl>true</PublishRepositoryUrl>
     <IncludeSymbols>true</IncludeSymbols>
     <SymbolPackageFormat>snupkg</SymbolPackageFormat>
-    <PackageVersion>10.4.0</PackageVersion>
+    <PackageVersion>10.5.0</PackageVersion>
   </PropertyGroup>
 
   <ItemGroup>
