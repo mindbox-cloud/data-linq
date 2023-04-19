@@ -16,7 +16,7 @@ namespace Mindbox.Data.Linq.Tests
 
 		public TestEntity19()
 		{
-			others = new EntitySet<TestEntity18>(AttachOther, DetachOther);
+			others = EntitySet<TestEntity18>.Create(AttachOther, DetachOther);
 		}
 
 

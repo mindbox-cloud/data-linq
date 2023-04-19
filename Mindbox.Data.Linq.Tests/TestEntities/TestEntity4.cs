@@ -43,7 +43,7 @@ namespace Mindbox.Data.Linq.Tests
 
 		public TestEntity4()
 		{
-			personalPermissions = new EntitySet<TestEntity5>(AttachPersonalPermission, DetachPersonalPermission);
+			personalPermissions = EntitySet<TestEntity5>.Create(AttachPersonalPermission, DetachPersonalPermission);
 		}
 
 

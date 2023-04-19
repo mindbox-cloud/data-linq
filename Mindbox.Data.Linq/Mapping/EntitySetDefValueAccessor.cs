@@ -15,7 +15,7 @@ namespace System.Data.Linq.Mapping
 		public override void SetValue(ref T instance, IEnumerable<V> value) {
 			EntitySet<V> eset = this.acc.GetValue(instance);
 			if (eset == null) {
-				eset = new EntitySet<V>();
+				eset = EntitySet<V>.Create();
 				this.acc.SetValue(ref instance, eset);
 			}
 			eset.Assign(value);
