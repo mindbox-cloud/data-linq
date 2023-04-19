@@ -20,7 +20,7 @@ namespace Mindbox.Data.Linq.Tests
 
 		public TestEntity6()
 		{
-			personalPermissions = new EntitySet<EntityWithoutInheritanceMapping>(AttachPersonalPermission, DetachPersonalPermission);
+			personalPermissions = EntitySet<EntityWithoutInheritanceMapping>.Create(AttachPersonalPermission, DetachPersonalPermission);
 		}
 
 

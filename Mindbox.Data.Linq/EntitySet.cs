@@ -26,17 +26,28 @@ namespace System.Data.Linq
 	    private EventHandler listChanging;
 
 
+	    [Obsolete("Non compatible API with EntityFramework")]
         public EntitySet() 
 		{
         }
 
+        [Obsolete("Non compatible API with EntityFramework")]
         public EntitySet(Action<TEntity> onAdd, Action<TEntity> onRemove) 
 		{
             this.onAdd = onAdd;
             this.onRemove = onRemove;
         }
 
-
+        internal static EntitySet<TEntity> Create(Action<TEntity> onAdd, Action<TEntity> onRemove) 
+#pragma warning disable CS0618
+	        => new(onAdd, onRemove);
+#pragma warning restore CS0618
+        
+        internal static EntitySet<TEntity> Create() 
+#pragma warning disable CS0618
+	        => new();
+#pragma warning restore CS0618
+  
         internal EntitySet(EntitySet<TEntity> sourceEntitySet, bool copyNotifications) 
 		{
             source = sourceEntitySet.source;
