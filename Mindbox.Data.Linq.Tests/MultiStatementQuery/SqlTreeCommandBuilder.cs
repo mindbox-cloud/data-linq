@@ -9,7 +9,7 @@ namespace Mindbox.Data.Linq.Tests.MultiStatementQuery;
 
 internal class SqlTreeCommandBuilder
 {
-    public static string Build(TableAccessSqlNode root, IDbColumnTypeProvider columntTypeProvider)
+    public static string Build(TableNode root, IDbColumnTypeProvider columntTypeProvider)
     {
         return string.Empty;
 //        var paths = CollectPaths(root).ToList();

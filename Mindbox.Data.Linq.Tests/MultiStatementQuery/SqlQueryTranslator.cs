@@ -27,124 +27,117 @@ class SqlQueryTranslator
         return new SqlQueryTranslatorResult(command);
     }
 
-    private static TableAccessSqlNode TransalateCore(Expression expression)
+    private static TableNode TransalateCore(Expression expression)
     {
-        TableAccessSqlNode root = null;
+        var context = new TranslationContext();
         var chains = ExpressionOrderFixer.GetExpressionChains(expression).ToArray();
-
-
         foreach (var chain in chains)
-        {
-            var sqlNodes = new List<SqlNode>();
             for (int i = 0; i < chain.Items.Count; i++)
-            {
-                var mapped = MapToSqlNode(new ExpressionChainItem(chain, i));
-                if (mapped == null)
-                    continue;
-                sqlNodes.Add(mapped);
+                MapToSqlNode(new ExpressionChainItem(chain, i), context);
 
-                // context.AddMapping(fullStack[i], node);
-            }
-        }
-
-        return root;
+        return context.RootTable;
     }
 
-    private static SqlNode MapToSqlNode(ExpressionChainItem chainItem)
+    private static void MapToSqlNode(ExpressionChainItem chainItem, TranslationContext context)
     {
         switch (chainItem.Expression.NodeType)
         {
             case ExpressionType.Constant:
                 var tableName = ExpressionHelpers.GetTableName((ConstantExpression)chainItem.Expression);
                 if (string.IsNullOrEmpty(tableName))
-                    return null;
-                return new TableAccessSqlNode(tableName);
+                {
+                    if (context.CurrentTable == null)
+                        throw new InvalidOperationException();
+                    return;
+                }
+                context.PushTable(new TableNode(tableName));
+                return;
             case ExpressionType.Call:
                 var callExpression = (MethodCallExpression)chainItem.Expression;
                 if (callExpression.Method.DeclaringType == typeof(Queryable) || callExpression.Method.DeclaringType == typeof(Enumerable))
-                    return null;
+                    return;
                 throw new NotSupportedException();
-
             case ExpressionType.Quote:
                 var quoteExpression = (UnaryExpression)chainItem.Expression;
                 if (quoteExpression.Method == null)
-                    return null;
+                    return;
                 throw new NotSupportedException();
-
             case ExpressionType.Lambda:
                 var lambdaExpression = (LambdaExpression)chainItem.Expression;
                 if (lambdaExpression.ReturnType == typeof(bool) && chainItem.PreviousPreviousExpression is MethodCallExpression lambdCallExpression &&
-                    (lambdCallExpression.Method.DeclaringType == typeof(Queryable) || lambdCallExpression.Method.DeclaringType == typeof(Enumerable)))
+                        (lambdCallExpression.Method.DeclaringType == typeof(Queryable) || lambdCallExpression.Method.DeclaringType == typeof(Enumerable)))
                 {
-                    return null;
-                    //return new SqlFilterNode(toMap.PreviousNode.TableOwner);
+                    var filterParameterExpression = lambdCallExpression.Method switch
+                    {
+                        { Name: "Where" } when lambdCallExpression.Method.DeclaringType == typeof(Queryable) &&  lambdCallExpression.Method.GetParameters().Length == 2
+                                => lambdaExpression.Parameters[0],
+                        _ => throw new NotSupportedException()
+                    };
+                    context.MapParameterToTable(filterParameterExpression);
+                    return;
                 }
                 throw new NotSupportedException();
+            case ExpressionType.And:
+            case ExpressionType.AndAlso:
+            case ExpressionType.Or:
+            case ExpressionType.OrElse:
+            case ExpressionType.LessThan:
+            case ExpressionType.LessThanOrEqual:
+            case ExpressionType.GreaterThan:
+            case ExpressionType.GreaterThanOrEqual:
+            case ExpressionType.Equal:
+                return;
+            case ExpressionType.Parameter:
+                context.PushTable(context.GetTableFromParameter((ParameterExpression)chainItem.Expression));
+                return;
+            case ExpressionType.MemberAccess:
+                var memberExpression = (MemberExpression)chainItem.Expression;
+                if (memberExpression.Member is PropertyInfo propertyInfo)
+                {
+                    if (toMap.PreviousNode is SqlTableAccessNode memberFromTableAccessNode)
+                    {
+                        if (propertyInfo.CustomAttributes.Any(p => p.AttributeType == typeof(ColumnAttribute)))
+                            return new SqlDataFieldNode(toMap.PreviousNode.TableOwner, propertyInfo.Name);
+                        var associationAttribute = propertyInfo.CustomAttributes.SingleOrDefault(p => p.AttributeType == typeof(AssociationAttribute));
+                        if (associationAttribute != null)
+                        {
+                            var nextTableName = propertyInfo.PropertyType.CustomAttributes.Single(c => c.AttributeType == typeof(TableAttribute)).NamedArguments
+                                .Single(a => a.MemberName == nameof(TableAttribute.Name)).TypedValue.Value.ToString();
+                            return new SqlAssociationFieldNode(
+                                new SqlTableNode(nextTableName),
+                                associationAttribute.NamedArguments.Single(a => a.MemberName == nameof(AssociationAttribute.OtherKey)).TypedValue.Value.ToString(),
+                                toMap.PreviousNode.TableOwner,
+                                associationAttribute.NamedArguments.Single(a => a.MemberName == nameof(AssociationAttribute.ThisKey)).TypedValue.Value.ToString());
+                        }
+                    }
+                    else if (toMap.PreviousNode is SqlAssociationFieldNode associationAccessNode)
+                    {
+                        if (propertyInfo.CustomAttributes.Any(p => p.AttributeType == typeof(ColumnAttribute)))
+                            return new SqlDataFieldNode(toMap.PreviousNode.TableOwner, propertyInfo.Name);
+                        var associationAttribute = propertyInfo.CustomAttributes.SingleOrDefault(p => p.AttributeType == typeof(AssociationAttribute));
+                        if (associationAttribute != null)
+                        {
+                            var nextTableName = propertyInfo.PropertyType.CustomAttributes.Single(c => c.AttributeType == typeof(TableAttribute)).NamedArguments
+                                .Single(a => a.MemberName == nameof(TableAttribute.Name)).TypedValue.Value.ToString();
+                            return new SqlAssociationFieldNode(
+                                new SqlTableNode(nextTableName),
+                                associationAttribute.NamedArguments.Single(a => a.MemberName == nameof(AssociationAttribute.OtherKey)).TypedValue.Value.ToString(),
+                                toMap.PreviousNode.TableOwner,
+                                associationAttribute.NamedArguments.Single(a => a.MemberName == nameof(AssociationAttribute.ThisKey)).TypedValue.Value.ToString());
+                        }
+                    }
+                }
+                //else if (memberExpression.Expression is ConstantExpression) // Some invocation of constant
+                //{
+                //    var memberConstantValue = Expression.Lambda(memberExpression).Compile().DynamicInvoke();
+                //    var memberTableName = GetTableName(memberConstantValue);
+                //    if (!string.IsNullOrEmpty(memberTableName))
+                //        return new SqlTableNode(memberTableName);
+                //    return new SqlNoOpNode(toMap.PreviousNode.TableOwner);
+                //}
+                throw new NotSupportedException();
+
             /*
- case ExpressionType.Parameter:
-     var filterNodeForParameter = toMap.GetFilterNodeForParameter((ParameterExpression)expression)
-         ?? throw new NotSupportedException("Filter node not found but was expected.");
-     return new SqlTableAccessNode(filterNodeForParameter.TableOwner);
- case ExpressionType.MemberAccess:
-     var memberExpression = (MemberExpression)expression;
-     if (memberExpression.Member is PropertyInfo propertyInfo)
-     {
-         if (toMap.PreviousNode is SqlTableAccessNode memberFromTableAccessNode)
-         {
-             if (propertyInfo.CustomAttributes.Any(p => p.AttributeType == typeof(ColumnAttribute)))
-                 return new SqlDataFieldNode(toMap.PreviousNode.TableOwner, propertyInfo.Name);
-             var associationAttribute = propertyInfo.CustomAttributes.SingleOrDefault(p => p.AttributeType == typeof(AssociationAttribute));
-             if (associationAttribute != null)
-             {
-                 var nextTableName = propertyInfo.PropertyType.CustomAttributes.Single(c => c.AttributeType == typeof(TableAttribute)).NamedArguments
-                     .Single(a => a.MemberName == nameof(TableAttribute.Name)).TypedValue.Value.ToString();
-                 return new SqlAssociationFieldNode(
-                     new SqlTableNode(nextTableName),
-                     associationAttribute.NamedArguments.Single(a => a.MemberName == nameof(AssociationAttribute.OtherKey)).TypedValue.Value.ToString(),
-                     toMap.PreviousNode.TableOwner,
-                     associationAttribute.NamedArguments.Single(a => a.MemberName == nameof(AssociationAttribute.ThisKey)).TypedValue.Value.ToString());
-             }
-         }
-         else if (toMap.PreviousNode is SqlAssociationFieldNode associationAccessNode)
-         {
-             if (propertyInfo.CustomAttributes.Any(p => p.AttributeType == typeof(ColumnAttribute)))
-                 return new SqlDataFieldNode(toMap.PreviousNode.TableOwner, propertyInfo.Name);
-             var associationAttribute = propertyInfo.CustomAttributes.SingleOrDefault(p => p.AttributeType == typeof(AssociationAttribute));
-             if (associationAttribute != null)
-             {
-                 var nextTableName = propertyInfo.PropertyType.CustomAttributes.Single(c => c.AttributeType == typeof(TableAttribute)).NamedArguments
-                     .Single(a => a.MemberName == nameof(TableAttribute.Name)).TypedValue.Value.ToString();
-                 return new SqlAssociationFieldNode(
-                     new SqlTableNode(nextTableName),
-                     associationAttribute.NamedArguments.Single(a => a.MemberName == nameof(AssociationAttribute.OtherKey)).TypedValue.Value.ToString(),
-                     toMap.PreviousNode.TableOwner,
-                     associationAttribute.NamedArguments.Single(a => a.MemberName == nameof(AssociationAttribute.ThisKey)).TypedValue.Value.ToString());
-             }
-         }
-     }
-     else if (memberExpression.Expression is ConstantExpression) // Some invocation of constant
-     {
-         var memberConstantValue = Expression.Lambda(memberExpression).Compile().DynamicInvoke();
-         var memberTableName = GetTableName(memberConstantValue);
-         if (!string.IsNullOrEmpty(memberTableName))
-             return new SqlTableNode(memberTableName);
-         return new SqlNoOpNode(toMap.PreviousNode.TableOwner);
-     }
-     throw new NotSupportedException();
- case ExpressionType.And:
- case ExpressionType.AndAlso:
- case ExpressionType.Or:
- case ExpressionType.OrElse:
- case ExpressionType.LessThan:
- case ExpressionType.LessThanOrEqual:
- case ExpressionType.GreaterThan:
- case ExpressionType.GreaterThanOrEqual:
-     return new SqlNoOpNode(toMap.PreviousNode.TableOwner);
- case ExpressionType.Equal:
-     var joinConditioNode = TryExtractJoinConition(toMap);
-     if (joinConditioNode != null)
-         return joinConditioNode;
-     return new SqlNoOpNode(toMap.PreviousNode.TableOwner);
  case ExpressionType.Not:
      var notExpression = (UnaryExpression)expression;
      if (notExpression.IsLifted || notExpression.IsLiftedToNull || notExpression.Method != null)
@@ -745,26 +738,40 @@ class SqlNode
 
 }
 
-class TableAccessSqlNode : SqlNode
+class TableNode : SqlNode
 {
     public string TableName { get; private set; }
 
-    public TableAccessSqlNode(string tableName)
+    public TableNode(string tableName)
     {
         TableName = tableName;
     }
 }
 
-//class TranslationContext
-//{
-//    private Dictionary<Expression, SqlNode> _mapping = new();
+class TranslationContext
+{
+    private Dictionary<ParameterExpression, TableNode> _parameterToTableMapping = new();
 
-//    public Stack<Expression> Stack { get; private set; } = new();
-//    public IReadOnlyDictionary<Expression, SqlNode> Mapping => _mapping;
+    public TableNode RootTable { get; private set; }
+    public TableNode CurrentTable { get; private set; }
 
-//    public void AddMapping(Expression expression, SqlNode node)
-//        => _mapping.Add(expression, node);
-//}
+    public void PushTable(TableNode tableNode)
+    {
+        RootTable = RootTable ?? tableNode;
+        CurrentTable = tableNode;
+    }
+
+    public void MapParameterToTable(ParameterExpression parameterExpression)
+    {
+        if (CurrentTable == null)
+            throw new ArgumentException();
+        _parameterToTableMapping.Add(parameterExpression, CurrentTable);
+    }
+
+    public TableNode GetTableFromParameter(ParameterExpression parameterExpression)
+        => _parameterToTableMapping[parameterExpression];
+
+}
 
 public interface IDbColumnTypeProvider
 {
