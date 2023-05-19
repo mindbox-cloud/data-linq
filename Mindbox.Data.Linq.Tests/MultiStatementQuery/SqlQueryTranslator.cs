@@ -1,5 +1,4 @@
 ﻿using Azure;
-using Castle.Components.DictionaryAdapter.Xml;
 using Newtonsoft.Json.Linq;
 using System;
 using System.Collections;
@@ -20,40 +19,224 @@ class SqlQueryTranslator
 {
     public static SqlQueryTranslatorResult Transalate(Expression node, IDbColumnTypeProvider columntTypeProvider)
     {
-        var context = new TranslationContext();
-        var root = TransalateCore(context, node);
-        SimplifyTree(root);
+        var root = TransalateCore(node);
+        // SimplifyTree(root);
 
         var command = SqlTreeCommandBuilder.Build(root, columntTypeProvider);
 
         return new SqlQueryTranslatorResult(command);
     }
 
-    private static SqlNode TransalateCore(TranslationContext context, Expression expression)
+    private static TableAccessSqlNode TransalateCore(Expression expression)
     {
-        SqlNode root = null;
-        var items = GetExpressionChains(expression).ToArray();
-        foreach (var item in items)
+        TableAccessSqlNode root = null;
+        var chains = ExpressionOrderFixer.GetExpressionChains(expression).ToArray();
+
+
+        foreach (var chain in chains)
         {
-            var fullStack = new List<Expression>(item.Stack) { item.Expression };
-            for (int i = 0; i < fullStack.Count; i++)
+            var sqlNodes = new List<SqlNode>();
+            for (int i = 0; i < chain.Items.Count; i++)
             {
-                if (context.Mapping.ContainsKey(fullStack[i]))
+                var mapped = MapToSqlNode(new ExpressionChainItem(chain, i));
+                if (mapped == null)
                     continue;
-                var toMap = new ExpressionToMap(context, fullStack, i);
-                var node = MapExpressions(toMap);
-                if (root == null)
-                    root = node;
+                sqlNodes.Add(mapped);
 
-                if (toMap.PreviousNode != null)
-                    toMap.PreviousNode.Children.Add(node);
-
-                context.AddMapping(fullStack[i], node);
+                // context.AddMapping(fullStack[i], node);
             }
         }
+
         return root;
     }
 
+    private static SqlNode MapToSqlNode(ExpressionChainItem chainItem)
+    {
+        switch (chainItem.Expression.NodeType)
+        {
+            case ExpressionType.Constant:
+                var tableName = ExpressionHelpers.GetTableName((ConstantExpression)chainItem.Expression);
+                if (string.IsNullOrEmpty(tableName))
+                    return null;
+                return new TableAccessSqlNode(tableName);
+            case ExpressionType.Call:
+                var callExpression = (MethodCallExpression)chainItem.Expression;
+                if (callExpression.Method.DeclaringType == typeof(Queryable) || callExpression.Method.DeclaringType == typeof(Enumerable))
+                    return null;
+                throw new NotSupportedException();
+
+            case ExpressionType.Quote:
+                var quoteExpression = (UnaryExpression)chainItem.Expression;
+                if (quoteExpression.Method == null)
+                    return null;
+                throw new NotSupportedException();
+
+            case ExpressionType.Lambda:
+                var lambdaExpression = (LambdaExpression)chainItem.Expression;
+                if (lambdaExpression.ReturnType == typeof(bool) && chainItem.PreviousPreviousExpression is MethodCallExpression lambdCallExpression &&
+                    (lambdCallExpression.Method.DeclaringType == typeof(Queryable) || lambdCallExpression.Method.DeclaringType == typeof(Enumerable)))
+                {
+                    return null;
+                    //return new SqlFilterNode(toMap.PreviousNode.TableOwner);
+                }
+                throw new NotSupportedException();
+            /*
+ case ExpressionType.Parameter:
+     var filterNodeForParameter = toMap.GetFilterNodeForParameter((ParameterExpression)expression)
+         ?? throw new NotSupportedException("Filter node not found but was expected.");
+     return new SqlTableAccessNode(filterNodeForParameter.TableOwner);
+ case ExpressionType.MemberAccess:
+     var memberExpression = (MemberExpression)expression;
+     if (memberExpression.Member is PropertyInfo propertyInfo)
+     {
+         if (toMap.PreviousNode is SqlTableAccessNode memberFromTableAccessNode)
+         {
+             if (propertyInfo.CustomAttributes.Any(p => p.AttributeType == typeof(ColumnAttribute)))
+                 return new SqlDataFieldNode(toMap.PreviousNode.TableOwner, propertyInfo.Name);
+             var associationAttribute = propertyInfo.CustomAttributes.SingleOrDefault(p => p.AttributeType == typeof(AssociationAttribute));
+             if (associationAttribute != null)
+             {
+                 var nextTableName = propertyInfo.PropertyType.CustomAttributes.Single(c => c.AttributeType == typeof(TableAttribute)).NamedArguments
+                     .Single(a => a.MemberName == nameof(TableAttribute.Name)).TypedValue.Value.ToString();
+                 return new SqlAssociationFieldNode(
+                     new SqlTableNode(nextTableName),
+                     associationAttribute.NamedArguments.Single(a => a.MemberName == nameof(AssociationAttribute.OtherKey)).TypedValue.Value.ToString(),
+                     toMap.PreviousNode.TableOwner,
+                     associationAttribute.NamedArguments.Single(a => a.MemberName == nameof(AssociationAttribute.ThisKey)).TypedValue.Value.ToString());
+             }
+         }
+         else if (toMap.PreviousNode is SqlAssociationFieldNode associationAccessNode)
+         {
+             if (propertyInfo.CustomAttributes.Any(p => p.AttributeType == typeof(ColumnAttribute)))
+                 return new SqlDataFieldNode(toMap.PreviousNode.TableOwner, propertyInfo.Name);
+             var associationAttribute = propertyInfo.CustomAttributes.SingleOrDefault(p => p.AttributeType == typeof(AssociationAttribute));
+             if (associationAttribute != null)
+             {
+                 var nextTableName = propertyInfo.PropertyType.CustomAttributes.Single(c => c.AttributeType == typeof(TableAttribute)).NamedArguments
+                     .Single(a => a.MemberName == nameof(TableAttribute.Name)).TypedValue.Value.ToString();
+                 return new SqlAssociationFieldNode(
+                     new SqlTableNode(nextTableName),
+                     associationAttribute.NamedArguments.Single(a => a.MemberName == nameof(AssociationAttribute.OtherKey)).TypedValue.Value.ToString(),
+                     toMap.PreviousNode.TableOwner,
+                     associationAttribute.NamedArguments.Single(a => a.MemberName == nameof(AssociationAttribute.ThisKey)).TypedValue.Value.ToString());
+             }
+         }
+     }
+     else if (memberExpression.Expression is ConstantExpression) // Some invocation of constant
+     {
+         var memberConstantValue = Expression.Lambda(memberExpression).Compile().DynamicInvoke();
+         var memberTableName = GetTableName(memberConstantValue);
+         if (!string.IsNullOrEmpty(memberTableName))
+             return new SqlTableNode(memberTableName);
+         return new SqlNoOpNode(toMap.PreviousNode.TableOwner);
+     }
+     throw new NotSupportedException();
+ case ExpressionType.And:
+ case ExpressionType.AndAlso:
+ case ExpressionType.Or:
+ case ExpressionType.OrElse:
+ case ExpressionType.LessThan:
+ case ExpressionType.LessThanOrEqual:
+ case ExpressionType.GreaterThan:
+ case ExpressionType.GreaterThanOrEqual:
+     return new SqlNoOpNode(toMap.PreviousNode.TableOwner);
+ case ExpressionType.Equal:
+     var joinConditioNode = TryExtractJoinConition(toMap);
+     if (joinConditioNode != null)
+         return joinConditioNode;
+     return new SqlNoOpNode(toMap.PreviousNode.TableOwner);
+ case ExpressionType.Not:
+     var notExpression = (UnaryExpression)expression;
+     if (notExpression.IsLifted || notExpression.IsLiftedToNull || notExpression.Method != null)
+         throw new NotSupportedException();
+     return new SqlNoOpNode(toMap.PreviousNode.TableOwner);
+ case ExpressionType.Convert:
+     var convertExpression = (UnaryExpression)expression;
+     if (convertExpression.IsLifted || convertExpression.IsLiftedToNull || convertExpression.Method != null)
+         throw new NotSupportedException();
+     return new SqlNoOpNode(toMap.PreviousNode.TableOwner);
+ */
+            case ExpressionType.Add:
+            case ExpressionType.AddChecked:
+            case ExpressionType.ArrayLength:
+            case ExpressionType.ArrayIndex:
+            case ExpressionType.Coalesce:
+            case ExpressionType.Conditional:
+            case ExpressionType.ConvertChecked:
+            case ExpressionType.Divide:
+            case ExpressionType.ExclusiveOr:
+            case ExpressionType.Invoke:
+            case ExpressionType.LeftShift:
+            case ExpressionType.ListInit:
+            case ExpressionType.MemberInit:
+            case ExpressionType.Modulo:
+            case ExpressionType.Multiply:
+            case ExpressionType.MultiplyChecked:
+            case ExpressionType.Negate:
+            case ExpressionType.UnaryPlus:
+            case ExpressionType.NegateChecked:
+            case ExpressionType.New:
+            case ExpressionType.NewArrayInit:
+            case ExpressionType.NewArrayBounds:
+            case ExpressionType.NotEqual:
+            case ExpressionType.Power:
+            case ExpressionType.RightShift:
+            case ExpressionType.Subtract:
+            case ExpressionType.SubtractChecked:
+            case ExpressionType.TypeAs:
+            case ExpressionType.TypeIs:
+            case ExpressionType.Assign:
+            case ExpressionType.Block:
+            case ExpressionType.DebugInfo:
+            case ExpressionType.Decrement:
+            case ExpressionType.Dynamic:
+            case ExpressionType.Default:
+            case ExpressionType.Extension:
+            case ExpressionType.Goto:
+            case ExpressionType.Increment:
+            case ExpressionType.Index:
+            case ExpressionType.Label:
+            case ExpressionType.RuntimeVariables:
+            case ExpressionType.Loop:
+            case ExpressionType.Switch:
+            case ExpressionType.Throw:
+            case ExpressionType.Try:
+            case ExpressionType.Unbox:
+            case ExpressionType.AddAssign:
+            case ExpressionType.AndAssign:
+            case ExpressionType.DivideAssign:
+            case ExpressionType.ExclusiveOrAssign:
+            case ExpressionType.LeftShiftAssign:
+            case ExpressionType.ModuloAssign:
+            case ExpressionType.MultiplyAssign:
+            case ExpressionType.OrAssign:
+            case ExpressionType.PowerAssign:
+            case ExpressionType.RightShiftAssign:
+            case ExpressionType.SubtractAssign:
+            case ExpressionType.AddAssignChecked:
+            case ExpressionType.MultiplyAssignChecked:
+            case ExpressionType.SubtractAssignChecked:
+            case ExpressionType.PreIncrementAssign:
+            case ExpressionType.PreDecrementAssign:
+            case ExpressionType.PostIncrementAssign:
+            case ExpressionType.PostDecrementAssign:
+            case ExpressionType.TypeEqual:
+            case ExpressionType.OnesComplement:
+            case ExpressionType.IsTrue:
+            case ExpressionType.IsFalse:
+            default:
+                throw new NotSupportedException();
+        }
+    }
+
+    public record ExpressionChainItem(ExpressionChain Chain, int Index)
+    {
+        public Expression Expression => Chain.Items[Index];
+        public ExpressionChainItem PreviousChainItem => new ExpressionChainItem(Chain, Index - 1);
+        public Expression PreviousPreviousExpression => PreviousChainItem.PreviousChainItem.Expression;
+    }
+
+    /*
     private static void SimplifyTree(SqlNode node)
     {
         RemoveNoOps(null, node);
@@ -407,158 +590,6 @@ class SqlQueryTranslator
         }
     }
 
-    private static IEnumerable<IExpressionEnumeratorItem> GetExpressionChains(Expression node)
-    {
-        return GetExpressionsCore(new List<Expression>(), node);
-
-        static IEnumerable<IExpressionEnumeratorItem> GetExpressionsCore(List<Expression> stack, Expression expression, bool? isLastInChain = null)
-        {
-            if ((expression.NodeType == ExpressionType.Call || expression.NodeType == ExpressionType.MemberAccess) && isLastInChain is null)
-            {
-                var chainItems = GetReorderedChainCall(expression).ToArray();
-                for (int i = 0; i < chainItems.Length; i++)
-                {
-                    var chainItem = chainItems[i];
-                    foreach (var item in GetExpressionsCore(stack, chainItem, chainItems.Length - 1 == i))
-                        yield return item;
-                    stack.Add(chainItem);
-                }
-                stack.RemoveRange(stack.Count - chainItems.Length, chainItems.Length);
-
-                yield break;
-            }
-
-            switch (expression.NodeType)
-            {
-                case ExpressionType.MemberAccess:
-                case ExpressionType.Parameter:
-                case ExpressionType.Constant:
-                    if (isLastInChain is true or null)
-                        yield return new ExpressionEnumeratorItem(stack.ToList(), expression);
-                    yield break;
-            }
-
-
-            using (new StackPusher(stack, expression))
-                switch (expression.NodeType)
-                {
-                    case ExpressionType.Quote:
-                        var quoteExpression = (UnaryExpression)expression;
-                        foreach (var item in GetExpressionsCore(stack, quoteExpression.Operand))
-                            yield return item;
-                        break;
-                    case ExpressionType.Lambda:
-                        var lambdaExpression = (LambdaExpression)expression;
-                        foreach (var item in GetExpressionsCore(stack, lambdaExpression.Body))
-                            yield return item;
-                        break;
-                    case ExpressionType.And:
-                    case ExpressionType.AndAlso:
-                    case ExpressionType.Or:
-                    case ExpressionType.OrElse:
-                    case ExpressionType.LessThan:
-                    case ExpressionType.LessThanOrEqual:
-                    case ExpressionType.GreaterThan:
-                    case ExpressionType.GreaterThanOrEqual:
-                    case ExpressionType.Equal:
-                        var binaryExpression = (BinaryExpression)expression;
-                        foreach (var item in GetExpressionsCore(stack, binaryExpression.Left))
-                            yield return item;
-                        foreach (var item in GetExpressionsCore(stack, binaryExpression.Right))
-                            yield return item;
-                        break;
-                    case ExpressionType.Call:
-                        var callExpression = (MethodCallExpression)expression;
-                        if (callExpression.Method.DeclaringType == typeof(Queryable) || callExpression.Method.DeclaringType == typeof(Enumerable))
-                            foreach (var argExpression in callExpression.Arguments.Skip(1))
-                                foreach (var item in GetExpressionsCore(stack, argExpression))
-                                    yield return item;
-                        else
-                            throw new NotSupportedException();
-                        break;
-                    case ExpressionType.Not:
-                        var notExpression = (UnaryExpression)expression;
-                        if (notExpression.IsLifted || notExpression.IsLiftedToNull || notExpression.Method != null)
-                            throw new NotSupportedException();
-                        foreach (var item in GetExpressionsCore(stack, notExpression.Operand))
-                            yield return item;
-                        break;
-                    case ExpressionType.Convert:
-                        var convertExpression = (UnaryExpression)expression;
-                        if (convertExpression.IsLifted || convertExpression.IsLiftedToNull || convertExpression.Method != null)
-                            throw new NotSupportedException();
-                        foreach (var item in GetExpressionsCore(stack, convertExpression.Operand))
-                            yield return item;
-                        break;
-                    default:
-                        throw new NotSupportedException();
-                }
-
-            // yield return new ExpressionEnumeratorItem(stack.ToList(), expression);
-        }
-    }
-
-    public static string GetTableName(ConstantExpression constantExpression)
-    {
-        var constantValue = constantExpression.Value;
-        return GetTableName(constantValue);
-    }
-
-    private static string GetTableName(object constantValue)
-    {
-        if (!constantValue.GetType().IsGenericType || constantValue.GetType().GetGenericTypeDefinition() != typeof(System.Data.Linq.Table<>))
-            return null;
-        var genericParameterType = constantValue.GetType().GenericTypeArguments[0];
-        var attribute = genericParameterType.CustomAttributes.Single(c => c.AttributeType == typeof(TableAttribute));
-        var tableName = attribute.NamedArguments.Single(a => a.MemberName == nameof(TableAttribute.Name)).TypedValue.Value.ToString()!;
-        return tableName;
-    }
-
-    private static IEnumerable<Expression> GetReorderedChainCall(Expression expression)
-    {
-        List<Expression> toReturn = new List<Expression>();
-        while (true)
-        {
-            switch (expression.NodeType)
-            {
-                case ExpressionType.Parameter:
-                case ExpressionType.Constant:
-                    toReturn.Add(expression);
-                    toReturn.Reverse();
-                    return toReturn;
-                case ExpressionType.Call:
-                    var callExpression = (MethodCallExpression)expression;
-                    if (callExpression.Method.DeclaringType == typeof(Queryable) || callExpression.Method.DeclaringType == typeof(Enumerable))
-                    {
-                        toReturn.Add(expression);
-                        expression = callExpression.Arguments[0];
-                    }
-                    else
-                        throw new NotSupportedException();
-                    break;
-                case ExpressionType.MemberAccess:
-                    var memberExpression = (MemberExpression)expression;
-                    toReturn.Add(expression);
-                    expression = memberExpression.Expression;
-                    break;
-                default:
-                    throw new NotSupportedException();
-            }
-
-        }
-    }
-
-    class TranslationContext
-    {
-        private Dictionary<Expression, SqlNode> _mapping = new();
-
-        public Stack<Expression> Stack { get; private set; } = new();
-        public IReadOnlyDictionary<Expression, SqlNode> Mapping => _mapping;
-
-        public void AddMapping(Expression expression, SqlNode node)
-            => _mapping.Add(expression, node);
-    }
-
     interface IExpressionEnumeratorItem
     {
         IReadOnlyList<Expression> Stack { get; }
@@ -705,24 +736,35 @@ class SqlQueryTranslator
         public override void TryRewriteTableOwner(SqlTableNode newOwner)
             => throw new NotSupportedException();
     }
+    */
+}
 
-    struct StackPusher : IDisposable
+
+class SqlNode
+{
+
+}
+
+class TableAccessSqlNode : SqlNode
+{
+    public string TableName { get; private set; }
+
+    public TableAccessSqlNode(string tableName)
     {
-        private readonly List<Expression> _stack;
-
-        public StackPusher(List<Expression> stack, Expression expression)
-        {
-            _stack = stack;
-            _stack.Add(expression);
-        }
-
-
-        public void Dispose()
-        {
-            _stack.RemoveAt(_stack.Count - 1);
-        }
+        TableName = tableName;
     }
 }
+
+//class TranslationContext
+//{
+//    private Dictionary<Expression, SqlNode> _mapping = new();
+
+//    public Stack<Expression> Stack { get; private set; } = new();
+//    public IReadOnlyDictionary<Expression, SqlNode> Mapping => _mapping;
+
+//    public void AddMapping(Expression expression, SqlNode node)
+//        => _mapping.Add(expression, node);
+//}
 
 public interface IDbColumnTypeProvider
 {
