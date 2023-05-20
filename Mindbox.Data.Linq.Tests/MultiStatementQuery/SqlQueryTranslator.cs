@@ -1,4 +1,5 @@
-﻿using System;
+﻿using Snapshooter.MSTest;
+using System;
 using System.Collections.Generic;
 using System.Data.Linq.Mapping;
 using System.Linq;
@@ -96,23 +97,19 @@ class SqlQueryTranslator
                         context.CurrentTable.AddUsedField(propertyInfo.Name);
                         return;
                     }
+                    // Association access
+                    if (propertyInfo.CustomAttributes.Any(p => p.AttributeType == typeof(AssociationAttribute)))
+                    {
+                        var associationAttribute = propertyInfo.CustomAttributes.SingleOrDefault(p => p.AttributeType == typeof(AssociationAttribute));
+                        var nextTableName = propertyInfo.PropertyType.CustomAttributes.Single(c => c.AttributeType == typeof(TableAttribute)).NamedArguments
+                            .Single(a => a.MemberName == nameof(TableAttribute.Name)).TypedValue.Value.ToString();
+                        var currentTableField = associationAttribute.NamedArguments.Single(a => a.MemberName == nameof(AssociationAttribute.ThisKey)).TypedValue.Value.ToString();
+                        var associationTableField = associationAttribute.NamedArguments.Single(a => a.MemberName == nameof(AssociationAttribute.OtherKey)).TypedValue.Value.ToString();
 
-                    //if (toMap.PreviousNode is SqlTableAccessNode memberFromTableAccessNode)
-                    //{
-                    //    if (propertyInfo.CustomAttributes.Any(p => p.AttributeType == typeof(ColumnAttribute)))
-                    //        return new SqlDataFieldNode(toMap.PreviousNode.TableOwner, propertyInfo.Name);
-                    //    var associationAttribute = propertyInfo.CustomAttributes.SingleOrDefault(p => p.AttributeType == typeof(AssociationAttribute));
-                    //    if (associationAttribute != null)
-                    //    {
-                    //        var nextTableName = propertyInfo.PropertyType.CustomAttributes.Single(c => c.AttributeType == typeof(TableAttribute)).NamedArguments
-                    //            .Single(a => a.MemberName == nameof(TableAttribute.Name)).TypedValue.Value.ToString();
-                    //        return new SqlAssociationFieldNode(
-                    //            new SqlTableNode(nextTableName),
-                    //            associationAttribute.NamedArguments.Single(a => a.MemberName == nameof(AssociationAttribute.OtherKey)).TypedValue.Value.ToString(),
-                    //            toMap.PreviousNode.TableOwner,
-                    //            associationAttribute.NamedArguments.Single(a => a.MemberName == nameof(AssociationAttribute.ThisKey)).TypedValue.Value.ToString());
-                    //    }
-                    //}
+                        var associationTable = context.CurrentTable.AddJoinTable(nextTableName, new[] { new JoinCondition(currentTableField, associationTableField) });
+                        context.SetCurrentTable(associationTable);
+                        return;
+                    }
                     //else if (toMap.PreviousNode is SqlAssociationFieldNode associationAccessNode)
                     //{
                     //    if (propertyInfo.CustomAttributes.Any(p => p.AttributeType == typeof(ColumnAttribute)))
@@ -737,18 +734,14 @@ class SqlQueryTranslator
     */
 }
 
-
-class SqlNode
-{
-
-}
-
-class TableNode : SqlNode
+class TableNode
 {
     private List<string> _usedColumns = new();
+    private List<JoinedTable> _joinedTables = new();
 
     public string TableName { get; private set; }
     public IReadOnlyList<string> UsedColumns => _usedColumns;
+    public IReadOnlyList<JoinedTable> JoinedTables => _joinedTables;
 
     public TableNode(string tableName)
     {
@@ -761,7 +754,60 @@ class TableNode : SqlNode
             return;
         _usedColumns.Add(name);
     }
+
+    public TableNode AddJoinTable(string rightTableName, IEnumerable<JoinCondition> conditions)
+    {
+        var conditionsArray = conditions.ToArray();
+        foreach (var matchingTable in _joinedTables)
+        {
+            if (matchingTable.RighTable.TableName != rightTableName)
+                continue;
+
+            if (conditionsArray.Length != matchingTable.Conditions.Count)
+                continue;
+
+            bool hasMisMatch = false;
+            foreach (var condition in conditions)
+                if (matchingTable.Conditions.Count(m => m == condition) != 1)
+                {
+                    hasMisMatch = true;
+                    break;
+                }
+
+            if (hasMisMatch)
+                continue;
+
+            return matchingTable.RighTable;
+        }
+
+        var joinedTable = new JoinedTable(new TableNode(rightTableName), conditionsArray);
+        _joinedTables.Add(joinedTable);
+
+        foreach (var condition in conditions)
+        {
+            AddUsedField(condition.FieldLeft);
+            joinedTable.RighTable.AddUsedField(condition.FieldRight);
+        }
+
+        return joinedTable.RighTable;
+    }
 }
+
+class JoinedTable
+{
+    public TableNode RighTable { get; private set; }
+    public IReadOnlyList<JoinCondition> Conditions { get; private set; }
+
+    public JoinedTable(TableNode righTable, IEnumerable<JoinCondition> conditions)
+    {
+        Conditions = conditions.ToList();
+        if (Conditions.Count == 0)
+            throw new ArgumentException("No conditions provided");
+        RighTable = righTable;
+    }
+}
+
+record JoinCondition(string FieldLeft, string FieldRight);
 
 class TranslationContext
 {

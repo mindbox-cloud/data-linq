@@ -5,6 +5,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Text;
+using static System.Net.Mime.MediaTypeNames;
 
 namespace Mindbox.Data.Linq.Tests.MultiStatementQuery;
 
@@ -162,15 +163,15 @@ $"""
             throw new NotSupportedException();
         }
 
-        //public TablePathItem AddNext(SqlQueryTranslator.SqlTableNode table, List<TablePathConnection> connection)
-        //{
-        //    var toReturn = new TablePathItem();
-        //    toReturn.Table = table;
-        //    toReturn.Parent = this;
-        //    var child = new TablePathItemChild(toReturn, connection.ToList());
-        //    Children.Add(child);
-        //    return toReturn;
-        //}
+        public TablePathItem AddNext(TableNode table, IEnumerable<TablePathConnection> connection)
+        {
+            var toReturn = new TablePathItem();
+            toReturn.Table = table;
+            toReturn.Parent = this;
+            var child = new TablePathItemChild(toReturn, connection.ToList());
+            Children.Add(child);
+            return toReturn;
+        }
     }
 
     private record TablePathItemChild(TablePathItem Item, List<TablePathConnection> NextConnections);
@@ -241,6 +242,17 @@ $"""
                         yield return childPath;
                 */
             }
+            foreach (var joinedTable in node.JoinedTables)
+            {
+                foreach (var innerPath in CollectPathsCore(path.GetAt(node).AddNext(joinedTable.RighTable, ConnectionFromJoinCondition(joinedTable.Conditions)), joinedTable.RighTable))
+                    yield return innerPath;
+            }
+        }
+
+        static IEnumerable<TablePathConnection> ConnectionFromJoinCondition(IEnumerable<JoinCondition> joinConditions)
+        {
+            foreach (var joinCondtion in joinConditions)
+                yield return new TablePathConnection(joinCondtion.FieldLeft, joinCondtion.FieldRight);
         }
     }
 
