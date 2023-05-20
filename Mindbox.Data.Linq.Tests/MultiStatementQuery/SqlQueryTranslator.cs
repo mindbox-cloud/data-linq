@@ -1,16 +1,9 @@
-﻿using Azure;
-using Newtonsoft.Json.Linq;
-using System;
-using System.Collections;
+﻿using System;
 using System.Collections.Generic;
-using System.ComponentModel.Design.Serialization;
 using System.Data.Linq.Mapping;
-using System.Data.Linq.SqlClient;
-using System.Diagnostics;
 using System.Linq;
 using System.Linq.Expressions;
 using System.Reflection;
-using System.Threading.Tasks;
 
 namespace Mindbox.Data.Linq.Tests.MultiStatementQuery;
 
@@ -19,7 +12,7 @@ class SqlQueryTranslator
 {
     public static SqlQueryTranslatorResult Transalate(Expression node, IDbColumnTypeProvider columntTypeProvider)
     {
-        var root = TransalateCore(node);
+        var root = TranslateCore(node);
         // SimplifyTree(root);
 
         var command = SqlTreeCommandBuilder.Build(root, columntTypeProvider);
@@ -27,13 +20,16 @@ class SqlQueryTranslator
         return new SqlQueryTranslatorResult(command);
     }
 
-    private static TableNode TransalateCore(Expression expression)
+    private static TableNode TranslateCore(Expression expression)
     {
         var context = new TranslationContext();
         var chains = ExpressionOrderFixer.GetExpressionChains(expression).ToArray();
         foreach (var chain in chains)
+        {
+            context.ResetCurrentTable();
             for (int i = 0; i < chain.Items.Count; i++)
                 MapToSqlNode(new ExpressionChainItem(chain, i), context);
+        }
 
         return context.RootTable;
     }
@@ -50,7 +46,7 @@ class SqlQueryTranslator
                         throw new InvalidOperationException();
                     return;
                 }
-                context.PushTable(new TableNode(tableName));
+                context.AddChainStartTable(tableName);
                 return;
             case ExpressionType.Call:
                 var callExpression = (MethodCallExpression)chainItem.Expression;
@@ -69,7 +65,7 @@ class SqlQueryTranslator
                 {
                     var filterParameterExpression = lambdCallExpression.Method switch
                     {
-                        { Name: "Where" } when lambdCallExpression.Method.DeclaringType == typeof(Queryable) &&  lambdCallExpression.Method.GetParameters().Length == 2
+                        { Name: "Where" } when lambdCallExpression.Method.DeclaringType == typeof(Queryable) && lambdCallExpression.Method.GetParameters().Length == 2
                                 => lambdaExpression.Parameters[0],
                         _ => throw new NotSupportedException()
                     };
@@ -88,61 +84,70 @@ class SqlQueryTranslator
             case ExpressionType.Equal:
                 return;
             case ExpressionType.Parameter:
-                context.PushTable(context.GetTableFromParameter((ParameterExpression)chainItem.Expression));
+                context.SetCurrentTable(context.GetTableFromParameter((ParameterExpression)chainItem.Expression));
                 return;
             case ExpressionType.MemberAccess:
                 var memberExpression = (MemberExpression)chainItem.Expression;
                 if (memberExpression.Member is PropertyInfo propertyInfo)
                 {
-                    if (toMap.PreviousNode is SqlTableAccessNode memberFromTableAccessNode)
+                    // Column access. Like User.Name
+                    if (propertyInfo.CustomAttributes.Any(p => p.AttributeType == typeof(ColumnAttribute)))
                     {
-                        if (propertyInfo.CustomAttributes.Any(p => p.AttributeType == typeof(ColumnAttribute)))
-                            return new SqlDataFieldNode(toMap.PreviousNode.TableOwner, propertyInfo.Name);
-                        var associationAttribute = propertyInfo.CustomAttributes.SingleOrDefault(p => p.AttributeType == typeof(AssociationAttribute));
-                        if (associationAttribute != null)
-                        {
-                            var nextTableName = propertyInfo.PropertyType.CustomAttributes.Single(c => c.AttributeType == typeof(TableAttribute)).NamedArguments
-                                .Single(a => a.MemberName == nameof(TableAttribute.Name)).TypedValue.Value.ToString();
-                            return new SqlAssociationFieldNode(
-                                new SqlTableNode(nextTableName),
-                                associationAttribute.NamedArguments.Single(a => a.MemberName == nameof(AssociationAttribute.OtherKey)).TypedValue.Value.ToString(),
-                                toMap.PreviousNode.TableOwner,
-                                associationAttribute.NamedArguments.Single(a => a.MemberName == nameof(AssociationAttribute.ThisKey)).TypedValue.Value.ToString());
-                        }
+                        context.CurrentTable.AddUsedField(propertyInfo.Name);
+                        return;
                     }
-                    else if (toMap.PreviousNode is SqlAssociationFieldNode associationAccessNode)
-                    {
-                        if (propertyInfo.CustomAttributes.Any(p => p.AttributeType == typeof(ColumnAttribute)))
-                            return new SqlDataFieldNode(toMap.PreviousNode.TableOwner, propertyInfo.Name);
-                        var associationAttribute = propertyInfo.CustomAttributes.SingleOrDefault(p => p.AttributeType == typeof(AssociationAttribute));
-                        if (associationAttribute != null)
-                        {
-                            var nextTableName = propertyInfo.PropertyType.CustomAttributes.Single(c => c.AttributeType == typeof(TableAttribute)).NamedArguments
-                                .Single(a => a.MemberName == nameof(TableAttribute.Name)).TypedValue.Value.ToString();
-                            return new SqlAssociationFieldNode(
-                                new SqlTableNode(nextTableName),
-                                associationAttribute.NamedArguments.Single(a => a.MemberName == nameof(AssociationAttribute.OtherKey)).TypedValue.Value.ToString(),
-                                toMap.PreviousNode.TableOwner,
-                                associationAttribute.NamedArguments.Single(a => a.MemberName == nameof(AssociationAttribute.ThisKey)).TypedValue.Value.ToString());
-                        }
-                    }
-                }
-                //else if (memberExpression.Expression is ConstantExpression) // Some invocation of constant
-                //{
-                //    var memberConstantValue = Expression.Lambda(memberExpression).Compile().DynamicInvoke();
-                //    var memberTableName = GetTableName(memberConstantValue);
-                //    if (!string.IsNullOrEmpty(memberTableName))
-                //        return new SqlTableNode(memberTableName);
-                //    return new SqlNoOpNode(toMap.PreviousNode.TableOwner);
-                //}
-                throw new NotSupportedException();
 
+                    //if (toMap.PreviousNode is SqlTableAccessNode memberFromTableAccessNode)
+                    //{
+                    //    if (propertyInfo.CustomAttributes.Any(p => p.AttributeType == typeof(ColumnAttribute)))
+                    //        return new SqlDataFieldNode(toMap.PreviousNode.TableOwner, propertyInfo.Name);
+                    //    var associationAttribute = propertyInfo.CustomAttributes.SingleOrDefault(p => p.AttributeType == typeof(AssociationAttribute));
+                    //    if (associationAttribute != null)
+                    //    {
+                    //        var nextTableName = propertyInfo.PropertyType.CustomAttributes.Single(c => c.AttributeType == typeof(TableAttribute)).NamedArguments
+                    //            .Single(a => a.MemberName == nameof(TableAttribute.Name)).TypedValue.Value.ToString();
+                    //        return new SqlAssociationFieldNode(
+                    //            new SqlTableNode(nextTableName),
+                    //            associationAttribute.NamedArguments.Single(a => a.MemberName == nameof(AssociationAttribute.OtherKey)).TypedValue.Value.ToString(),
+                    //            toMap.PreviousNode.TableOwner,
+                    //            associationAttribute.NamedArguments.Single(a => a.MemberName == nameof(AssociationAttribute.ThisKey)).TypedValue.Value.ToString());
+                    //    }
+                    //}
+                    //else if (toMap.PreviousNode is SqlAssociationFieldNode associationAccessNode)
+                    //{
+                    //    if (propertyInfo.CustomAttributes.Any(p => p.AttributeType == typeof(ColumnAttribute)))
+                    //        return new SqlDataFieldNode(toMap.PreviousNode.TableOwner, propertyInfo.Name);
+                    //    var associationAttribute = propertyInfo.CustomAttributes.SingleOrDefault(p => p.AttributeType == typeof(AssociationAttribute));
+                    //    if (associationAttribute != null)
+                    //    {
+                    //        var nextTableName = propertyInfo.PropertyType.CustomAttributes.Single(c => c.AttributeType == typeof(TableAttribute)).NamedArguments
+                    //            .Single(a => a.MemberName == nameof(TableAttribute.Name)).TypedValue.Value.ToString();
+                    //        return new SqlAssociationFieldNode(
+                    //            new SqlTableNode(nextTableName),
+                    //            associationAttribute.NamedArguments.Single(a => a.MemberName == nameof(AssociationAttribute.OtherKey)).TypedValue.Value.ToString(),
+                    //            toMap.PreviousNode.TableOwner,
+                    //            associationAttribute.NamedArguments.Single(a => a.MemberName == nameof(AssociationAttribute.ThisKey)).TypedValue.Value.ToString());
+                    //    }
+                    //}
+                }
+                else if (memberExpression.Expression is ConstantExpression)// Invocation of constant
+                {
+                    var memberConstantValue = Expression.Lambda(memberExpression).Compile().DynamicInvoke();
+                    if (memberConstantValue == null || memberConstantValue.GetType() == typeof(string))
+                        return;
+                    //var memberTableName = GetTableName(memberConstantValue);
+                    //if (!string.IsNullOrEmpty(memberTableName))
+                    //    return new SqlTableNode(memberTableName);
+                    //return new SqlNoOpNode(toMap.PreviousNode.TableOwner);
+                }
+                throw new NotSupportedException();
+            case ExpressionType.Not:
+                var notExpression = (UnaryExpression)chainItem.Expression;
+                if (notExpression.IsLifted || notExpression.IsLiftedToNull || notExpression.Method != null)
+                    throw new NotSupportedException();
+                return;
             /*
- case ExpressionType.Not:
-     var notExpression = (UnaryExpression)expression;
-     if (notExpression.IsLifted || notExpression.IsLiftedToNull || notExpression.Method != null)
-         throw new NotSupportedException();
-     return new SqlNoOpNode(toMap.PreviousNode.TableOwner);
+
  case ExpressionType.Convert:
      var convertExpression = (UnaryExpression)expression;
      if (convertExpression.IsLifted || convertExpression.IsLiftedToNull || convertExpression.Method != null)
@@ -740,11 +745,21 @@ class SqlNode
 
 class TableNode : SqlNode
 {
+    private List<string> _usedColumns = new();
+
     public string TableName { get; private set; }
+    public IReadOnlyList<string> UsedColumns => _usedColumns;
 
     public TableNode(string tableName)
     {
         TableName = tableName;
+    }
+
+    public void AddUsedField(string name)
+    {
+        if (_usedColumns.Contains(name))
+            return;
+        _usedColumns.Add(name);
     }
 }
 
@@ -755,9 +770,26 @@ class TranslationContext
     public TableNode RootTable { get; private set; }
     public TableNode CurrentTable { get; private set; }
 
-    public void PushTable(TableNode tableNode)
+    public void AddChainStartTable(string tableName)
     {
+        TableNode tableNode;
+        if (CurrentTable != null || RootTable == null)
+            tableNode = new TableNode(tableName);
+        else
+        {
+            if (RootTable.TableName != tableName)
+                throw new NotSupportedException("New chain is analyzed but root table doesn't match.");
+            tableNode = RootTable;
+        }
+
         RootTable = RootTable ?? tableNode;
+        CurrentTable = tableNode;
+    }
+
+    public void SetCurrentTable(TableNode tableNode)
+    {
+        if (RootTable == null)
+            throw new NotSupportedException("Root table is not defined.");
         CurrentTable = tableNode;
     }
 
@@ -765,12 +797,19 @@ class TranslationContext
     {
         if (CurrentTable == null)
             throw new ArgumentException();
+        if (_parameterToTableMapping.TryGetValue(parameterExpression, out var tableMapping))
+        {
+            if (tableMapping != CurrentTable)
+                throw new InvalidOperationException("Same paramater mapped to different tables. Error in implementation.");
+            return;
+        }
         _parameterToTableMapping.Add(parameterExpression, CurrentTable);
     }
 
     public TableNode GetTableFromParameter(ParameterExpression parameterExpression)
         => _parameterToTableMapping[parameterExpression];
 
+    public void ResetCurrentTable() => CurrentTable = null;
 }
 
 public interface IDbColumnTypeProvider
