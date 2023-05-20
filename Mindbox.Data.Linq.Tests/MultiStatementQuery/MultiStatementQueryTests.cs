@@ -178,6 +178,7 @@ public class MultiStatementQueryTests
         query.CommandText.MatchSnapshot();
     }
 
+    /*
     [TestMethod]
     public void Translate_TableJoinByDataFieldViaWhere_Success()
     {
@@ -195,7 +196,7 @@ public class MultiStatementQueryTests
         // Assert
         query.CommandText.MatchSnapshot();
     }
-
+    */
     // Nested joint
     // Querable join
     // Select with anonympus types

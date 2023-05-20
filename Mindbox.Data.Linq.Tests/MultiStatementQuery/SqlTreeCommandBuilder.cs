@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Data.Linq.SqlClient;
 using System.Diagnostics;
+using System.Diagnostics.Metrics;
 using System.IO;
 using System.Linq;
 using System.Text;
@@ -259,14 +260,23 @@ $"""
     private class BuilderContext
     {
         private Dictionary<TableNode, string> _variableNames = new();
-        private int _counter;
         public StringBuilder StringBuilder { get; } = new StringBuilder();
 
         public string GetVariableName(TableNode table)
         {
             if (!_variableNames.TryGetValue(table, out var name))
             {
-                name = $"@table{table.TableName.Replace('.', '_')}_{++_counter}";
+                name = $"@table{table.TableName.Replace('.', '_')}";
+                if (_variableNames.Values.Contains(name))
+                {
+                    int counter = 2;
+                    while (true)
+                    {
+                        name = $"@table{table.TableName.Replace('.', '_')}_{counter++}";
+                        if (!_variableNames.Values.Contains(name))
+                            break;
+                    }
+                }
                 _variableNames.Add(table, name);
             }
             return name;

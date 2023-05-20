@@ -1,10 +1,10 @@
-﻿DECLARE @tabledirectcrm_Customers_1 TABLE(
+﻿DECLARE @tabledirectcrm_Customers TABLE(
     Id int not null,
     IsDeleted bit not null
 )
 
-INSERT INTO @tabledirectcrm_Customers_1
+INSERT INTO @tabledirectcrm_Customers
     SELECT current.Id, current.IsDeleted 
         FROM directcrm.Customers AS current
         WHERE Id = @pKeyId
-SELECT * FROM @tabledirectcrm_Customers_1
+SELECT * FROM @tabledirectcrm_Customers
