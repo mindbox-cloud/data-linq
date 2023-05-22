@@ -127,14 +127,16 @@ class SqlQueryTranslator
                     //    }
                     //}
                 }
-                else if (memberExpression.Expression is ConstantExpression)// Invocation of constant
+                else if (memberExpression.Expression is ConstantExpression memberConstantExpression)// Invocation of constant
                 {
                     var memberConstantValue = Expression.Lambda(memberExpression).Compile().DynamicInvoke();
                     if (memberConstantValue == null || memberConstantValue.GetType() == typeof(string))
                         return;
-                    //var memberTableName = GetTableName(memberConstantValue);
-                    //if (!string.IsNullOrEmpty(memberTableName))
-                    //    return new SqlTableNode(memberTableName);
+                    var memberTableName = ExpressionHelpers.GetTableName(memberConstantExpression);
+                    if (!string.IsNullOrEmpty(memberTableName))
+                    {
+                        return new SqlTableNode(memberTableName);
+                    }
                     //return new SqlNoOpNode(toMap.PreviousNode.TableOwner);
                 }
                 throw new NotSupportedException();
