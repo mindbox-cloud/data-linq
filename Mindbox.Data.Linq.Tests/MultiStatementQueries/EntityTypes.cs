@@ -1,7 +1,7 @@
 ﻿using System;
 using System.Data.Linq.Mapping;
 
-namespace Mindbox.Data.Linq.Tests.MultiStatementQuery;
+namespace Mindbox.Data.Linq.Tests.MultiStatementQueries;
 
 [Table(Name = "directcrm.Customers")]
 public sealed class Customer
@@ -36,7 +36,7 @@ public sealed class Customer
     [Column]
     public int AreaId { get; set; }
 
-    [Association(ThisKey = nameof(AreaId), OtherKey = nameof(MultiStatementQuery.Area.Id))]
+    [Association(ThisKey = nameof(AreaId), OtherKey = nameof(MultiStatementQueries.Area.Id))]
     public Area Area { get; set; }
 }
 
@@ -63,7 +63,7 @@ public sealed class CustomerAction
     [Column]
     public int CustomerId { get; set; }
 
-    [Association(ThisKey = nameof(CustomerId), OtherKey = nameof(MultiStatementQuery.Customer.Id))]
+    [Association(ThisKey = nameof(CustomerId), OtherKey = nameof(MultiStatementQueries.Customer.Id))]
     public Customer Customer { get; set; }
 
     [Column]
@@ -105,7 +105,7 @@ public sealed class Area
     [Column]
     public int SubAreaId { get; set; }
 
-    [Association(ThisKey = nameof(SubAreaId), OtherKey = nameof(MultiStatementQuery.SubArea.Id))]
+    [Association(ThisKey = nameof(SubAreaId), OtherKey = nameof(MultiStatementQueries.SubArea.Id))]
     public SubArea SubArea { get; set; }
 }
 

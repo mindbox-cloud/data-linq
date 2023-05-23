@@ -1,4 +1,5 @@
-﻿using Snapshooter.MSTest;
+﻿using Castle.Components.DictionaryAdapter;
+using Snapshooter.MSTest;
 using System;
 using System.Collections.Generic;
 using System.Data.Linq.Mapping;
@@ -6,7 +7,7 @@ using System.Linq;
 using System.Linq.Expressions;
 using System.Reflection;
 
-namespace Mindbox.Data.Linq.Tests.MultiStatementQuery;
+namespace Mindbox.Data.Linq.Tests.MultiStatementQueries;
 
 
 class SqlQueryTranslator
@@ -106,9 +107,9 @@ class SqlQueryTranslator
                             .Single(a => a.MemberName == nameof(TableAttribute.Name)).TypedValue.Value.ToString();
                         var currentTableField = associationAttribute.NamedArguments.Single(a => a.MemberName == nameof(AssociationAttribute.ThisKey)).TypedValue.Value.ToString();
                         var associationTableField = associationAttribute.NamedArguments.Single(a => a.MemberName == nameof(AssociationAttribute.OtherKey)).TypedValue.Value.ToString();
-
-                        var associationTable = context.CurrentTable.AddJoinTable(nextTableName, new[] { new JoinCondition(currentTableField, associationTableField) });
-                        context.SetCurrentTable(associationTable);
+                        var currentTable = context.CurrentTable;
+                        var associationTable = context.AddTable(nextTableName);
+                        associationTable.AddJoinConitoin(new JoinCondition(associationTableField, currentTable, currentTableField));
                         return;
                     }
                     //else if (toMap.PreviousNode is SqlAssociationFieldNode associationAccessNode)
@@ -751,6 +752,47 @@ class MultiStatementQuery
 
     public IEnumerable<(TableNode Removed, TableNode ReplacedBy)> OptmizeQuery()
     {
+        List<(TableNode Removed, TableNode ReplacedBy)> toReturn = new();
+        while (true)
+        {
+            var toRemoveInfo = GetToRemove();
+            if (!toRemoveInfo.HasValue)
+                break;
+            foreach (var usedColumn in toRemoveInfo.Value.ToRemove.UsedColumns)
+                toRemoveInfo.Value.Replacement.AddUsedField(usedColumn);
+            _tables.Remove(toRemoveInfo.Value.ToRemove);
+            foreach (var table in _tables)
+                table.ReplaceTable(toRemoveInfo.Value.ToRemove, toRemoveInfo.Value.Replacement);
+
+            toReturn.Add(toRemoveInfo.Value);
+        }
+
+        return toReturn;
+
+
+        (TableNode ToRemove, TableNode Replacement)? GetToRemove()
+        {
+            for (int i = _tables.Count - 1; i > 0; i--)
+            {
+                var toRemoveTable = _tables[i];
+                for (int j = 0; j < i; j++)
+                {
+                    var replacementTable = _tables[i];
+                    if (toRemoveTable.TableName != replacementTable.TableName)
+                        continue;
+                    if (toRemoveTable.JoinConditions.Count != replacementTable.JoinConditions.Count)
+                        continue;
+                    if (toRemoveTable.JoinConditions.Except(replacementTable.JoinConditions).Any() ||
+                        replacementTable.JoinConditions.Except(toRemoveTable.JoinConditions).Any())
+                        continue;
+                    return (toRemoveTable, replacementTable);
+                }
+            }
+            return null;
+        }
+
+
+
         throw new NotSupportedException();
         /*
         var conditionsArray = conditions.ToArray();
@@ -820,6 +862,13 @@ class TableNode
             throw new ArgumentException("LeftTable is same as right table in join.");
         _joinConditions.Add(conition);
     }
+
+    internal void ReplaceTable(TableNode toReplace, TableNode replacement)
+    {
+        for (int i = 0; i < _joinConditions.Count; i++)
+            if (_joinConditions[i].LeftTable == toReplace)
+                _joinConditions[i] = new JoinCondition(_joinConditions[i].FieldRight, replacement, _joinConditions[i].FieldLeft);
+    }
 }
 
 record JoinCondition(string FieldRight, TableNode LeftTable, string FieldLeft);
@@ -831,12 +880,17 @@ class TranslationContext
     public MultiStatementQuery Query { get; } = new();
     public TableNode CurrentTable { get; private set; }
 
-    public void AddTable(string tableName)
+    public TableNode AddTable(string tableName)
     {
-        if (Query != null)
-            throw new InvalidOperationException("Query already constructed.");
-        Query.AddTable(tableName);
         CurrentTable = Query.AddTable(tableName);
+        return CurrentTable;
+    }
+
+    public void SetCurrentTable(TableNode table)
+    {
+        if (Query == null)
+            throw new InvalidOperationException("Query not yet constructed.");
+        CurrentTable = table;
     }
 
     public void MapParameterToTable(ParameterExpression parameterExpression)

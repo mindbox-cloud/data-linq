@@ -22,7 +22,6 @@
     <PackageReference Include="Snapshooter.MSTest" Version="0.13.0" />
   </ItemGroup>
   <ItemGroup>
-    <Folder Include="MultiStatementQuery\__snapshots__\" />
-    <Folder Include="MultiStatementQuery\__snapshots__\__mismatch__\" />
+    <Folder Include="MultiStatementQueries\__snapshots__\__mismatch__\" />
   </ItemGroup>
 </Project>

@@ -3,7 +3,7 @@ using System.Linq;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Snapshooter.MSTest;
 
-namespace Mindbox.Data.Linq.Tests.MultiStatementQuery;
+namespace Mindbox.Data.Linq.Tests.MultiStatementQueries;
 
 [TestClass]
 public class MultiStatementQueryTests

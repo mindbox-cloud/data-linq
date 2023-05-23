@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Linq.Expressions;
 
-namespace Mindbox.Data.Linq.Tests.MultiStatementQuery;
+namespace Mindbox.Data.Linq.Tests.MultiStatementQueries;
 
 internal static class ExpressionOrderFixer
 {

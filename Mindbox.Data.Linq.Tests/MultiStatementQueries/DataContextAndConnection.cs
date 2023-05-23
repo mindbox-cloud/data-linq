@@ -6,7 +6,7 @@ using System.Data;
 using System.Data.Linq;
 using Moq.Protected;
 
-namespace Mindbox.Data.Linq.Tests.MultiStatementQuery;
+namespace Mindbox.Data.Linq.Tests.MultiStatementQueries;
 
 
 class DataContextAndConnection : IDisposable

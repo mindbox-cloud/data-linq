@@ -4,7 +4,7 @@ using System.Diagnostics;
 using System.Linq;
 using System.Text;
 
-namespace Mindbox.Data.Linq.Tests.MultiStatementQuery;
+namespace Mindbox.Data.Linq.Tests.MultiStatementQueries;
 
 internal class SqlTreeCommandBuilder
 {
@@ -30,8 +30,8 @@ INSERT INTO {{variableName}}
 """
             };
 
-            // Joint to parent
-            if (table.JoinConditions != null)
+            // Joined table
+            if (table.JoinConditions.Count != 0)
             {
                 var parentTable = table.JoinConditions.Select(c => c.LeftTable).Distinct().Single();
                 var connections = table.JoinConditions;
