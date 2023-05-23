@@ -18,8 +18,7 @@ internal class SqlTreeCommandBuilder
         {
             var variableName = context.GetVariableName(table);
             variableDefinitionParts.Add(BuildTableVariableDefinition(variableName, table, columntTypeProvider));
-            var columnNames = string.Join(", ", table.UsedColumns.Order().Select(c => $"current.{c}"));
-
+            var columnNames = string.Join(", ", GetUsedColumns(table).Order().Select(c => $"current.{c}"));
 
             List<string> querySubparts = new()
             {
@@ -75,10 +74,17 @@ SELECT * FROM {{variableName}}
         return string.Join("\r\n\r\n", new[] { variableDefinitions, queries });
     }
 
+    private static IEnumerable<string> GetUsedColumns(TableNode table)
+    {
+        if (table.JoinConditions.Count == 0)
+            return table.UsedColumns.Concat(new[] { "Id" }).Distinct();
+        return table.UsedColumns;
+    }
+
 
     private static string BuildTableVariableDefinition(string variableName, TableNode table, IDbColumnTypeProvider columntTypeProvider)
     {
-        var columnsWithTypes = table.UsedColumns.Order().Select(c => $"{c} {columntTypeProvider.GetSqlType(table.TableName, c)}").ToArray();
+        var columnsWithTypes = GetUsedColumns(table).Order().Select(c => $"{c} {columntTypeProvider.GetSqlType(table.TableName, c)}").ToArray();
         return
             $"""
             DECLARE {variableName} TABLE(

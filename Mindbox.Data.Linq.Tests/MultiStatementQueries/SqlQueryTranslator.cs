@@ -49,7 +49,7 @@ class SqlQueryTranslator
                         throw new InvalidOperationException();
                     return;
                 }
-                context.AddTable(tableName);
+                context.AddTable(tableName, chainItem.Expression);
                 return;
             case ExpressionType.Call:
                 var callExpression = (MethodCallExpression)chainItem.Expression;
@@ -87,7 +87,7 @@ class SqlQueryTranslator
             case ExpressionType.Equal:
                 return;
             case ExpressionType.Parameter:
-                context.SetCurrentTable(context.GetTableFromParameter((ParameterExpression)chainItem.Expression));
+                context.SetCurrentTable(context.GetTableFromExpression((ParameterExpression)chainItem.Expression));
                 return;
             case ExpressionType.MemberAccess:
                 var memberExpression = (MemberExpression)chainItem.Expression;
@@ -108,7 +108,7 @@ class SqlQueryTranslator
                         var currentTableField = associationAttribute.NamedArguments.Single(a => a.MemberName == nameof(AssociationAttribute.ThisKey)).TypedValue.Value.ToString();
                         var associationTableField = associationAttribute.NamedArguments.Single(a => a.MemberName == nameof(AssociationAttribute.OtherKey)).TypedValue.Value.ToString();
                         var currentTable = context.CurrentTable;
-                        var associationTable = context.AddTable(nextTableName);
+                        var associationTable = context.AddTable(nextTableName, null);
                         associationTable.AddJoinConitoin(new JoinCondition(associationTableField, currentTable, currentTableField));
                         return;
                     }
@@ -777,7 +777,7 @@ class MultiStatementQuery
                 var toRemoveTable = _tables[i];
                 for (int j = 0; j < i; j++)
                 {
-                    var replacementTable = _tables[i];
+                    var replacementTable = _tables[j];
                     if (toRemoveTable.TableName != replacementTable.TableName)
                         continue;
                     if (toRemoveTable.JoinConditions.Count != replacementTable.JoinConditions.Count)
@@ -854,13 +854,15 @@ class TableNode
         _usedColumns.Add(name);
     }
 
-    public void AddJoinConitoin(JoinCondition conition)
+    public void AddJoinConitoin(JoinCondition condition)
     {
-        if (_joinConditions.Contains(conition))
+        if (_joinConditions.Contains(condition))
             throw new ArgumentException("Condition already added.");
-        if (conition.LeftTable == this)
+        if (condition.LeftTable == this)
             throw new ArgumentException("LeftTable is same as right table in join.");
-        _joinConditions.Add(conition);
+        _joinConditions.Add(condition);
+        condition.LeftTable.AddUsedField(condition.FieldLeft);
+        AddUsedField(condition.FieldRight);
     }
 
     internal void ReplaceTable(TableNode toReplace, TableNode replacement)
@@ -875,14 +877,25 @@ record JoinCondition(string FieldRight, TableNode LeftTable, string FieldLeft);
 
 class TranslationContext
 {
-    private Dictionary<ParameterExpression, TableNode> _parameterToTableMapping = new();
+    private Dictionary<Expression, TableNode> _expressionToTableMapping = new();
 
     public MultiStatementQuery Query { get; } = new();
     public TableNode CurrentTable { get; private set; }
 
-    public TableNode AddTable(string tableName)
+    public TableNode AddTable(string tableName, Expression expression)
     {
-        CurrentTable = Query.AddTable(tableName);
+        if (expression != null && _expressionToTableMapping.TryGetValue(expression, out var table))
+        {
+            if (table.TableName != tableName)
+                throw new InvalidOperationException("Same expression mapped to different tables. Error in implementation.");
+            CurrentTable = table;
+        }
+        else
+        {
+            CurrentTable = Query.AddTable(tableName);
+            if (expression != null)
+                _expressionToTableMapping.Add(expression, CurrentTable);
+        }
         return CurrentTable;
     }
 
@@ -897,27 +910,27 @@ class TranslationContext
     {
         if (CurrentTable == null)
             throw new ArgumentException();
-        if (_parameterToTableMapping.TryGetValue(parameterExpression, out var tableMapping))
+        if (_expressionToTableMapping.TryGetValue(parameterExpression, out var tableMapping))
         {
             if (tableMapping != CurrentTable)
-                throw new InvalidOperationException("Same paramater mapped to different tables. Error in implementation.");
+                throw new InvalidOperationException("Same expression mapped to different tables. Error in implementation.");
             return;
         }
-        _parameterToTableMapping.Add(parameterExpression, CurrentTable);
+        _expressionToTableMapping.Add(parameterExpression, CurrentTable);
     }
 
     public void OptmizeQuery()
     {
         foreach (var entry in Query.OptmizeQuery())
-            foreach (var expression in _parameterToTableMapping.Where(i => i.Value == entry.Removed).Select(s => s.Key).ToArray())
+            foreach (var expression in _expressionToTableMapping.Where(i => i.Value == entry.Removed).Select(s => s.Key).ToArray())
             {
-                _parameterToTableMapping.Remove(expression);
-                _parameterToTableMapping.Add(expression, entry.ReplacedBy);
+                _expressionToTableMapping.Remove(expression);
+                _expressionToTableMapping.Add(expression, entry.ReplacedBy);
             }
     }
 
-    public TableNode GetTableFromParameter(ParameterExpression parameterExpression)
-        => _parameterToTableMapping[parameterExpression];
+    public TableNode GetTableFromExpression(Expression parameterExpression)
+        => _expressionToTableMapping[parameterExpression];
 
     public void ResetCurrentTable() => CurrentTable = null;
 }
