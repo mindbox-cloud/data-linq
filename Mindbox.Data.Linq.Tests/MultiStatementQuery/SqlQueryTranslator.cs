@@ -13,15 +13,15 @@ class SqlQueryTranslator
 {
     public static SqlQueryTranslatorResult Transalate(Expression node, IDbColumnTypeProvider columntTypeProvider)
     {
-        var root = TranslateCore(node);
+        var query = TranslateCore(node);
         // SimplifyTree(root);
 
-        var command = SqlTreeCommandBuilder.Build(root, columntTypeProvider);
+        var command = SqlTreeCommandBuilder.Build(query, columntTypeProvider);
 
         return new SqlQueryTranslatorResult(command);
     }
 
-    private static TableNode TranslateCore(Expression expression)
+    private static MultiStatementQuery TranslateCore(Expression expression)
     {
         var context = new TranslationContext();
         var chains = ExpressionOrderFixer.GetExpressionChains(expression).ToArray();
@@ -32,7 +32,8 @@ class SqlQueryTranslator
                 MapToSqlNode(new ExpressionChainItem(chain, i), context);
         }
 
-        return context.RootTable;
+        context.OptmizeQuery();
+        return context.Query;
     }
 
     private static void MapToSqlNode(ExpressionChainItem chainItem, TranslationContext context)
@@ -47,7 +48,7 @@ class SqlQueryTranslator
                         throw new InvalidOperationException();
                     return;
                 }
-                context.AddChainStartTable(tableName);
+                context.AddTable(tableName);
                 return;
             case ExpressionType.Call:
                 var callExpression = (MethodCallExpression)chainItem.Expression;
@@ -132,11 +133,11 @@ class SqlQueryTranslator
                     var memberConstantValue = Expression.Lambda(memberExpression).Compile().DynamicInvoke();
                     if (memberConstantValue == null || memberConstantValue.GetType() == typeof(string))
                         return;
-                    var memberTableName = ExpressionHelpers.GetTableName(memberConstantExpression);
-                    if (!string.IsNullOrEmpty(memberTableName))
-                    {
-                        return new SqlTableNode(memberTableName);
-                    }
+                    //var memberTableName = ExpressionHelpers.GetTableName(memberConstantExpression);
+                    //if (!string.IsNullOrEmpty(memberTableName))
+                    //{
+                    //    return new SqlTableNode(memberTableName);
+                    //}
                     //return new SqlNoOpNode(toMap.PreviousNode.TableOwner);
                 }
                 throw new NotSupportedException();
@@ -736,14 +737,68 @@ class SqlQueryTranslator
     */
 }
 
+class MultiStatementQuery
+{
+    private List<TableNode> _tables = new();
+
+    public IReadOnlyList<TableNode> Tables => _tables;
+
+    public TableNode AddTable(string rightTableName)
+    {
+        _tables.Add(new TableNode(rightTableName));
+        return _tables.Last();
+    }
+
+    public IEnumerable<(TableNode Removed, TableNode ReplacedBy)> OptmizeQuery()
+    {
+        throw new NotSupportedException();
+        /*
+        var conditionsArray = conditions.ToArray();
+        foreach (var matchingTable in _tables)
+        {
+            if (matchingTable.TableName != rightTableName)
+                continue;
+
+            if (conditionsArray.Length != matchingTable.JoinConditions.Count)
+                continue;
+
+            bool hasMisMatch = false;
+            foreach (var condition in conditions)
+                if (matchingTable.JoinConditions.Count(m => m == condition) != 1)
+                {
+                    hasMisMatch = true;
+                    break;
+                }
+
+            if (hasMisMatch)
+                continue;
+
+            return matchingTable;
+        }
+
+        var joinedTable = new TableNode(rightTableName);
+        foreach (var joinCondition in conditionsArray)
+            joinedTable.AddJoinConitoin(joinCondition);
+
+        foreach (var condition in conditions)
+        {
+            condition.LeftTable.AddUsedField(condition.FieldLeft);
+            joinedTable.AddUsedField(condition.FieldRight);
+        }
+
+        return joinedTable;
+        */
+    }
+}
+
 class TableNode
 {
     private List<string> _usedColumns = new();
-    private List<JoinedTable> _joinedTables = new();
+    private List<JoinCondition> _joinConditions = new();
 
-    public string TableName { get; private set; }
+    public string TableName { get; }
     public IReadOnlyList<string> UsedColumns => _usedColumns;
-    public IReadOnlyList<JoinedTable> JoinedTables => _joinedTables;
+    public IReadOnlyList<JoinCondition> JoinConditions => _joinConditions;
 
     public TableNode(string tableName)
     {
@@ -757,88 +812,31 @@ class TableNode
         _usedColumns.Add(name);
     }
 
-    public TableNode AddJoinTable(string rightTableName, IEnumerable<JoinCondition> conditions)
+    public void AddJoinConitoin(JoinCondition conition)
     {
-        var conditionsArray = conditions.ToArray();
-        foreach (var matchingTable in _joinedTables)
-        {
-            if (matchingTable.RighTable.TableName != rightTableName)
-                continue;
-
-            if (conditionsArray.Length != matchingTable.Conditions.Count)
-                continue;
-
-            bool hasMisMatch = false;
-            foreach (var condition in conditions)
-                if (matchingTable.Conditions.Count(m => m == condition) != 1)
-                {
-                    hasMisMatch = true;
-                    break;
-                }
-
-            if (hasMisMatch)
-                continue;
-
-            return matchingTable.RighTable;
-        }
-
-        var joinedTable = new JoinedTable(new TableNode(rightTableName), conditionsArray);
-        _joinedTables.Add(joinedTable);
-
-        foreach (var condition in conditions)
-        {
-            AddUsedField(condition.FieldLeft);
-            joinedTable.RighTable.AddUsedField(condition.FieldRight);
-        }
-
-        return joinedTable.RighTable;
+        if (_joinConditions.Contains(conition))
+            throw new ArgumentException("Condition already added.");
+        if (conition.LeftTable == this)
+            throw new ArgumentException("LeftTable is same as right table in join.");
+        _joinConditions.Add(conition);
     }
 }
 
-class JoinedTable
-{
-    public TableNode RighTable { get; private set; }
-    public IReadOnlyList<JoinCondition> Conditions { get; private set; }
-
-    public JoinedTable(TableNode righTable, IEnumerable<JoinCondition> conditions)
-    {
-        Conditions = conditions.ToList();
-        if (Conditions.Count == 0)
-            throw new ArgumentException("No conditions provided");
-        RighTable = righTable;
-    }
-}
-
-record JoinCondition(string FieldLeft, string FieldRight);
+record JoinCondition(string FieldRight, TableNode LeftTable, string FieldLeft);
 
 class TranslationContext
 {
     private Dictionary<ParameterExpression, TableNode> _parameterToTableMapping = new();
 
-    public TableNode RootTable { get; private set; }
+    public MultiStatementQuery Query { get; } = new();
     public TableNode CurrentTable { get; private set; }
 
-    public void AddChainStartTable(string tableName)
+    public void AddTable(string tableName)
     {
-        TableNode tableNode;
-        if (CurrentTable != null || RootTable == null)
-            tableNode = new TableNode(tableName);
-        else
-        {
-            if (RootTable.TableName != tableName)
-                throw new NotSupportedException("New chain is analyzed but root table doesn't match.");
-            tableNode = RootTable;
-        }
-
-        RootTable = RootTable ?? tableNode;
-        CurrentTable = tableNode;
-    }
-
-    public void SetCurrentTable(TableNode tableNode)
-    {
-        if (RootTable == null)
-            throw new NotSupportedException("Root table is not defined.");
-        CurrentTable = tableNode;
+        if (Query != null)
+            throw new InvalidOperationException("Query already constructed.");
+        Query.AddTable(tableName);
+        CurrentTable = Query.AddTable(tableName);
     }
 
     public void MapParameterToTable(ParameterExpression parameterExpression)
@@ -852,6 +850,16 @@ class TranslationContext
             return;
         }
         _parameterToTableMapping.Add(parameterExpression, CurrentTable);
+    }
+
+    public void OptmizeQuery()
+    {
+        foreach (var entry in Query.OptmizeQuery())
+            foreach (var expression in _parameterToTableMapping.Where(i => i.Value == entry.Removed).Select(s => s.Key).ToArray())
+            {
+                _parameterToTableMapping.Remove(expression);
+                _parameterToTableMapping.Add(expression, entry.ReplacedBy);
+            }
     }
 
     public TableNode GetTableFromParameter(ParameterExpression parameterExpression)

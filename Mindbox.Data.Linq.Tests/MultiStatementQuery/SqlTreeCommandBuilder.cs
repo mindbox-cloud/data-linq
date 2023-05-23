@@ -1,58 +1,53 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Data.Linq.SqlClient;
 using System.Diagnostics;
-using System.Diagnostics.Metrics;
-using System.IO;
 using System.Linq;
 using System.Text;
-using static System.Net.Mime.MediaTypeNames;
 
 namespace Mindbox.Data.Linq.Tests.MultiStatementQuery;
 
 internal class SqlTreeCommandBuilder
 {
-    public static string Build(TableNode root, IDbColumnTypeProvider columntTypeProvider)
+    public static string Build(MultiStatementQuery query, IDbColumnTypeProvider columntTypeProvider)
     {
-        var paths = CollectPaths(root).ToList();
-        var sets = GroupPaths(paths).Order().ToList();
-
         var context = new BuilderContext();
-
         List<string> queryParts = new();
         List<string> variableDefinitionParts = new();
-        foreach (var set in sets)
+
+        foreach (var table in query.Tables)
         {
-            var variableName = context.GetVariableName(set.Path.Table);
-            variableDefinitionParts.Add(BuildTableVariableDefinition(variableName, set, columntTypeProvider));
-            var columnNames = string.Join(", ", set.ColumnNames.Select(c => $"current.{c}"));
+            var variableName = context.GetVariableName(table);
+            variableDefinitionParts.Add(BuildTableVariableDefinition(variableName, table, columntTypeProvider));
+            var columnNames = string.Join(", ", table.UsedColumns.Order().Select(c => $"current.{c}"));
+
 
             List<string> querySubparts = new()
             {
 $$"""
 INSERT INTO {{variableName}}
     SELECT {{columnNames}} 
-        FROM {{set.Path.Table.TableName}} AS current
+        FROM {{table.TableName}} AS current
 """
             };
 
             // Joint to parent
-            if (set.Path.Parent != null)
+            if (table.JoinConditions != null)
             {
-                var connections = set.Path.Parent.Children.Single(c => c.Item == set.Path).NextConnections;
+                var parentTable = table.JoinConditions.Select(c => c.LeftTable).Distinct().Single();
+                var connections = table.JoinConditions;
                 var joinConditionParts = connections
-                    .Select(c => $"previous.{c.PreviousColumnName} = current.{c.NextColumnName}")
+                    .Select(c => $"previous.{c.FieldLeft} = current.{c.FieldRight}")
                     .ToArray();
-                if (!IsPKJoin(set.Path.Parent.Table.TableName, connections.Select(c => c.PreviousColumnName), columntTypeProvider) &&
-                    !IsPKJoin(set.Path.Table.TableName, connections.Select(c => c.NextColumnName), columntTypeProvider))
+                if (!IsPKJoin(parentTable.TableName, connections.Select(c => c.FieldLeft), columntTypeProvider) &&
+                    !IsPKJoin(table.TableName, connections.Select(c => c.FieldRight), columntTypeProvider))
                 {
                     throw new NotSupportedException("At least one part of join must point to PK.");
                 }
                 string previousSource;
-                if (IsPKJoin(set.Path.Table.TableName, connections.Select(c => c.NextColumnName), columntTypeProvider))
-                    previousSource = $"(SELECT DISTINCT {string.Join(", ", connections.Select(c => c.PreviousColumnName))} FROM {context.GetVariableName(set.Path.Parent.Table)})";
+                if (IsPKJoin(table.TableName, connections.Select(c => c.FieldRight), columntTypeProvider))
+                    previousSource = $"(SELECT DISTINCT {string.Join(", ", connections.Select(c => c.FieldLeft))} FROM {context.GetVariableName(parentTable)})";
                 else
-                    previousSource = context.GetVariableName(set.Path.Parent.Table);
+                    previousSource = context.GetVariableName(parentTable);
                 var joinPart =
 $$"""
             INNER JOIN {{previousSource}} AS previous ON
@@ -71,8 +66,8 @@ $$"""
 SELECT * FROM {{variableName}}
 """);
 
-            var query = string.Join("\r\n", querySubparts);
-            queryParts.Add(query);
+            var constructedQuery = string.Join("\r\n", querySubparts);
+            queryParts.Add(constructedQuery);
         }
 
         var variableDefinitions = string.Join("\r\n", variableDefinitionParts);
@@ -80,16 +75,16 @@ SELECT * FROM {{variableName}}
         return string.Join("\r\n\r\n", new[] { variableDefinitions, queries });
     }
 
-    private static string BuildTableVariableDefinition(string variableName, ColumpPathSet set,
-        IDbColumnTypeProvider columntTypeProvider)
+
+    private static string BuildTableVariableDefinition(string variableName, TableNode table, IDbColumnTypeProvider columntTypeProvider)
     {
-        var columnsWithTypes = set.ColumnNames.Select(c => $"{c} {columntTypeProvider.GetSqlType(set.Path.Table.TableName, c)}").ToArray();
+        var columnsWithTypes = table.UsedColumns.Order().Select(c => $"{c} {columntTypeProvider.GetSqlType(table.TableName, c)}").ToArray();
         return
-$"""
-    DECLARE {variableName} TABLE(
-        {string.Join(",\r\n    ", columnsWithTypes)}
-    )
-    """;
+            $"""
+            DECLARE {variableName} TABLE(
+                {string.Join(",\r\n    ", columnsWithTypes)}
+            )
+            """;
     }
 
     private static bool IsPKJoin(string tableName, IEnumerable<string> joinFields, IDbColumnTypeProvider columntTypeProvider)
@@ -211,51 +206,55 @@ $"""
         }
     }
 
-    private static IEnumerable<ColumnPath> CollectPaths(TableNode rootTable)
-    {
-        var path = new TablePathItem();
-        path.Table = rootTable;
-        yield return new ColumnPath(path, "Id");
-        foreach (var columnPath in CollectPathsCore(path, rootTable))
-            yield return columnPath;
+    //private static IEnumerable<ColumnPath> CollectPaths(MultiStatementQuery query)
+    //{
+    //    var path = new TablePathItem();
+    //    path.Table = query.Tables.First();
+    //    yield return new ColumnPath(path, "Id");
+    //    foreach (var item in query.Tables.Skip(1))
+    //    {
 
-        static IEnumerable<ColumnPath> CollectPathsCore(TablePathItem path, TableNode node)
-        {
-            foreach (var usedColumn in node.UsedColumns)
-            {
-                yield return new ColumnPath(path.GetAt(node), usedColumn);
+    //    }
+    //    foreach (var columnPath in CollectPathsCore(path, query))
+    //        yield return columnPath;
 
-                /*
-                if (child is SqlQueryTranslator.SqlDataFieldNode fieldAccessNode)
-                    yield return new ColumnPath(path.GetAt(fieldAccessNode.TableOwner), fieldAccessNode.ColumnName);
-                else if (child is SqlQueryTranslator.SqlAssociationFieldNode associationFieldNode)
-                {
-                    yield return new ColumnPath(path.GetAt(associationFieldNode.PreviousTableOwner), associationFieldNode.PreviousColumnName);
-                    var associationConnection = new List<TablePathConnection>() { new TablePathConnection(associationFieldNode.PreviousColumnName, associationFieldNode.ColumnName) };
-                    var next = path.GetAt(associationFieldNode.PreviousTableOwner)
-                        .AddNext(associationFieldNode.TableOwner, new() { new(associationFieldNode.PreviousColumnName, associationFieldNode.ColumnName) });
-                    foreach (var associationPath in CollectPathsCore(next, associationFieldNode))
-                        yield return associationPath;
-                    yield return new ColumnPath(next, associationFieldNode.ColumnName);
-                }
-                else
-                    foreach (var childPath in CollectPathsCore(path, child))
-                        yield return childPath;
-                */
-            }
-            foreach (var joinedTable in node.JoinedTables)
-            {
-                foreach (var innerPath in CollectPathsCore(path.GetAt(node).AddNext(joinedTable.RighTable, ConnectionFromJoinCondition(joinedTable.Conditions)), joinedTable.RighTable))
-                    yield return innerPath;
-            }
-        }
+    //    static IEnumerable<ColumnPath> CollectPathsCore(TablePathItem path, TableNode node)
+    //    {
+    //        foreach (var usedColumn in node.UsedColumns)
+    //        {
+    //            yield return new ColumnPath(path.GetAt(node), usedColumn);
 
-        static IEnumerable<TablePathConnection> ConnectionFromJoinCondition(IEnumerable<JoinCondition> joinConditions)
-        {
-            foreach (var joinCondtion in joinConditions)
-                yield return new TablePathConnection(joinCondtion.FieldLeft, joinCondtion.FieldRight);
-        }
-    }
+    //            /*
+    //            if (child is SqlQueryTranslator.SqlDataFieldNode fieldAccessNode)
+    //                yield return new ColumnPath(path.GetAt(fieldAccessNode.TableOwner), fieldAccessNode.ColumnName);
+    //            else if (child is SqlQueryTranslator.SqlAssociationFieldNode associationFieldNode)
+    //            {
+    //                yield return new ColumnPath(path.GetAt(associationFieldNode.PreviousTableOwner), associationFieldNode.PreviousColumnName);
+    //                var associationConnection = new List<TablePathConnection>() { new TablePathConnection(associationFieldNode.PreviousColumnName, associationFieldNode.ColumnName) };
+    //                var next = path.GetAt(associationFieldNode.PreviousTableOwner)
+    //                    .AddNext(associationFieldNode.TableOwner, new() { new(associationFieldNode.PreviousColumnName, associationFieldNode.ColumnName) });
+    //                foreach (var associationPath in CollectPathsCore(next, associationFieldNode))
+    //                    yield return associationPath;
+    //                yield return new ColumnPath(next, associationFieldNode.ColumnName);
+    //            }
+    //            else
+    //                foreach (var childPath in CollectPathsCore(path, child))
+    //                    yield return childPath;
+    //            */
+    //        }
+    //        foreach (var joinedTable in node.JoinedTables)
+    //        {
+    //            foreach (var innerPath in CollectPathsCore(path.GetAt(node).AddNext(joinedTable.RighTable, ConnectionFromJoinCondition(joinedTable.Conditions)), joinedTable.RighTable))
+    //                yield return innerPath;
+    //        }
+    //    }
+
+    //    static IEnumerable<TablePathConnection> ConnectionFromJoinCondition(IEnumerable<JoinCondition> joinConditions)
+    //    {
+    //        foreach (var joinCondtion in joinConditions)
+    //            yield return new TablePathConnection(joinCondtion.FieldLeft, joinCondtion.FieldRight);
+    //    }
+    //}
 
     private class BuilderContext
     {
