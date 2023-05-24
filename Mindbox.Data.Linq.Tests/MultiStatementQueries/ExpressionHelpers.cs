@@ -55,25 +55,54 @@ internal static class ExpressionHelpers
     {
         expression = Unwrap(expression);
 
-        if (expression is MemberExpression memberExpression && memberExpression.Member is PropertyInfo memberProperty &&
-            memberExpression.Expression is ParameterExpression memberParameterExpression)
+        if (expression is MemberExpression memberExpression && memberExpression.Member is PropertyInfo memberProperty)
         {
-            var table = translationContext.GetTableFromExpression(memberParameterExpression);
-            if (table != null)
+            if (memberExpression.Expression is ParameterExpression memberParameterExpression)
             {
-                // Column access. Like User.Name
-                if (memberProperty.CustomAttributes.Any(p => p.AttributeType == typeof(ColumnAttribute)))
-                    return new TableAndField(table, memberProperty.Name);
-                // Association access
-                if (memberProperty.CustomAttributes.Any(p => p.AttributeType == typeof(AssociationAttribute)))
+                var table = translationContext.GetTableFromExpression(memberParameterExpression);
+                if (table != null)
                 {
-                    var associationAttribute = memberProperty.CustomAttributes.SingleOrDefault(p => p.AttributeType == typeof(AssociationAttribute));
-                    var nextTableName = memberProperty.PropertyType.CustomAttributes.Single(c => c.AttributeType == typeof(TableAttribute)).NamedArguments
-                        .Single(a => a.MemberName == nameof(TableAttribute.Name)).TypedValue.Value.ToString();
-                    var currentTableField = associationAttribute.NamedArguments.Single(a => a.MemberName == nameof(AssociationAttribute.ThisKey)).TypedValue.Value.ToString();
-                    return new TableAndField(table, currentTableField);
+                    // Column access. Like User.Name
+                    if (memberProperty.CustomAttributes.Any(p => p.AttributeType == typeof(ColumnAttribute)))
+                        return new TableAndField(table, memberProperty.Name);
+                    // Association access
+                    if (memberProperty.CustomAttributes.Any(p => p.AttributeType == typeof(AssociationAttribute)))
+                    {
+                        var associationAttribute = memberProperty.CustomAttributes.SingleOrDefault(p => p.AttributeType == typeof(AssociationAttribute));
+                        var nextTableName = memberProperty.PropertyType.CustomAttributes.Single(c => c.AttributeType == typeof(TableAttribute)).NamedArguments
+                            .Single(a => a.MemberName == nameof(TableAttribute.Name)).TypedValue.Value.ToString();
+                        var currentTableField = associationAttribute.NamedArguments.Single(a => a.MemberName == nameof(AssociationAttribute.ThisKey)).TypedValue.Value.ToString();
+                        return new TableAndField(table, currentTableField);
+                    }
                 }
             }
+            if (memberExpression.Expression is MemberExpression innerMemberExpression && innerMemberExpression.Member is PropertyInfo innerMemberProperty)
+            {
+                if (innerMemberExpression.Expression is ParameterExpression innerMemberParameterExpression)
+                {
+                    var table = translationContext.GetTableFromExpression(innerMemberParameterExpression);
+                    if (table != null)
+                    {
+                        if (innerMemberProperty.CustomAttributes.Any(p => p.AttributeType == typeof(AssociationAttribute)))
+                        {
+                            var associationAttribute = innerMemberProperty.CustomAttributes.SingleOrDefault(p => p.AttributeType == typeof(AssociationAttribute));
+                            var nextTableName = innerMemberProperty.PropertyType.CustomAttributes.Single(c => c.AttributeType == typeof(TableAttribute)).NamedArguments
+                                .Single(a => a.MemberName == nameof(TableAttribute.Name)).TypedValue.Value.ToString();
+                            var currentTableField = associationAttribute.NamedArguments.Single(a => a.MemberName == nameof(AssociationAttribute.ThisKey)).TypedValue.Value.ToString();
+                            var nextTableField = associationAttribute.NamedArguments.Single(a => a.MemberName == nameof(AssociationAttribute.OtherKey)).TypedValue.Value.ToString();
+                            if (nextTableField == memberProperty.Name)
+                                return new TableAndField(table, currentTableField);
+                        }
+                    }
+                }
+            }
+        }
+
+        if (expression is ParameterExpression parameterExpression)
+        {
+            var table = translationContext.GetTableFromExpression(parameterExpression);
+            if (table != null)
+                return new TableAndField(table, translationContext.ColumnTypeProvider.GetPKFields(table.TableName).Single());
         }
 
         return null;
