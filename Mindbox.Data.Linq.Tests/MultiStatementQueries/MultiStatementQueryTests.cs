@@ -188,14 +188,14 @@ public class MultiStatementQueryTests
         var customerActions = contextAndConnection.DataContext.GetTable<CustomerAction>();
         var queryExpression = contextAndConnection.DataContext
             .GetTable<Customer>()
-            .Where(c => customerActions.Where(ca => ca.CustomerId == ca.Id).Any(ca => ca.ActionTemplateId == 10))
+            .Where(c => customerActions.Where(ca => ca.CustomerId == c.Id).Any(ca => ca.ActionTemplateId == 10))
             .Expression;
         var query = SqlQueryTranslator.Transalate(queryExpression, new DbColumnTypeProvider());
 
         // Assert
         query.CommandText.MatchSnapshot();
     }
-    
+
     // Nested joint
     // Querable join
     // Select with anonympus types

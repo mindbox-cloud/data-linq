@@ -212,56 +212,6 @@ SELECT * FROM {{variableName}}
         }
     }
 
-    //private static IEnumerable<ColumnPath> CollectPaths(MultiStatementQuery query)
-    //{
-    //    var path = new TablePathItem();
-    //    path.Table = query.Tables.First();
-    //    yield return new ColumnPath(path, "Id");
-    //    foreach (var item in query.Tables.Skip(1))
-    //    {
-
-    //    }
-    //    foreach (var columnPath in CollectPathsCore(path, query))
-    //        yield return columnPath;
-
-    //    static IEnumerable<ColumnPath> CollectPathsCore(TablePathItem path, TableNode node)
-    //    {
-    //        foreach (var usedColumn in node.UsedColumns)
-    //        {
-    //            yield return new ColumnPath(path.GetAt(node), usedColumn);
-
-    //            /*
-    //            if (child is SqlQueryTranslator.SqlDataFieldNode fieldAccessNode)
-    //                yield return new ColumnPath(path.GetAt(fieldAccessNode.TableOwner), fieldAccessNode.ColumnName);
-    //            else if (child is SqlQueryTranslator.SqlAssociationFieldNode associationFieldNode)
-    //            {
-    //                yield return new ColumnPath(path.GetAt(associationFieldNode.PreviousTableOwner), associationFieldNode.PreviousColumnName);
-    //                var associationConnection = new List<TablePathConnection>() { new TablePathConnection(associationFieldNode.PreviousColumnName, associationFieldNode.ColumnName) };
-    //                var next = path.GetAt(associationFieldNode.PreviousTableOwner)
-    //                    .AddNext(associationFieldNode.TableOwner, new() { new(associationFieldNode.PreviousColumnName, associationFieldNode.ColumnName) });
-    //                foreach (var associationPath in CollectPathsCore(next, associationFieldNode))
-    //                    yield return associationPath;
-    //                yield return new ColumnPath(next, associationFieldNode.ColumnName);
-    //            }
-    //            else
-    //                foreach (var childPath in CollectPathsCore(path, child))
-    //                    yield return childPath;
-    //            */
-    //        }
-    //        foreach (var joinedTable in node.JoinedTables)
-    //        {
-    //            foreach (var innerPath in CollectPathsCore(path.GetAt(node).AddNext(joinedTable.RighTable, ConnectionFromJoinCondition(joinedTable.Conditions)), joinedTable.RighTable))
-    //                yield return innerPath;
-    //        }
-    //    }
-
-    //    static IEnumerable<TablePathConnection> ConnectionFromJoinCondition(IEnumerable<JoinCondition> joinConditions)
-    //    {
-    //        foreach (var joinCondtion in joinConditions)
-    //            yield return new TablePathConnection(joinCondtion.FieldLeft, joinCondtion.FieldRight);
-    //    }
-    //}
-
     private class BuilderContext
     {
         private Dictionary<TableNode, string> _variableNames = new();

@@ -33,6 +33,7 @@ class SqlQueryTranslator
                 MapToSqlNode(new ExpressionChainItem(chain, i), context);
         }
 
+        context.FillJoinConditions();
         context.OptmizeQuery();
         return context.Query;
     }
@@ -58,9 +59,17 @@ class SqlQueryTranslator
                 throw new NotSupportedException();
             case ExpressionType.Quote:
                 var quoteExpression = (UnaryExpression)chainItem.Expression;
-                if (quoteExpression.Method == null)
-                    return;
-                throw new NotSupportedException();
+                if (quoteExpression.Method != null)
+                    throw new NotSupportedException();
+                if (chainItem.PreviousChainItem.Expression is MethodCallExpression quoteParentMethodExpression &&
+                    (quoteParentMethodExpression.Method.DeclaringType == typeof(Queryable) || quoteParentMethodExpression.Method.DeclaringType == typeof(Enumerable)))
+                {
+                    if (quoteParentMethodExpression.Method.GetParameters().Length == 2)
+                    {
+                        context.AddTableFilter(((LambdaExpression)quoteExpression.Operand).Body);
+                    }
+                }
+                return;
             case ExpressionType.Lambda:
                 var lambdaExpression = (LambdaExpression)chainItem.Expression;
                 if (lambdaExpression.ReturnType == typeof(bool) && chainItem.PreviousPreviousExpression is MethodCallExpression lambdCallExpression &&
@@ -68,7 +77,7 @@ class SqlQueryTranslator
                 {
                     var filterParameterExpression = lambdCallExpression.Method switch
                     {
-                        { Name: "Where" } when lambdCallExpression.Method.DeclaringType == typeof(Queryable) && lambdCallExpression.Method.GetParameters().Length == 2
+                        { Name: "Where" or "Any" } when lambdCallExpression.Method.GetParameters().Length == 2
                                 => lambdaExpression.Parameters[0],
                         _ => throw new NotSupportedException()
                     };
@@ -109,7 +118,7 @@ class SqlQueryTranslator
                         var associationTableField = associationAttribute.NamedArguments.Single(a => a.MemberName == nameof(AssociationAttribute.OtherKey)).TypedValue.Value.ToString();
                         var currentTable = context.CurrentTable;
                         var associationTable = context.AddTable(nextTableName, null);
-                        associationTable.AddJoinConitoin(new JoinCondition(associationTableField, currentTable, currentTableField));
+                        associationTable.AddJoinCondition(new JoinCondition(associationTableField, currentTable, currentTableField));
                         return;
                     }
                     //else if (toMap.PreviousNode is SqlAssociationFieldNode associationAccessNode)
@@ -134,12 +143,12 @@ class SqlQueryTranslator
                     var memberConstantValue = Expression.Lambda(memberExpression).Compile().DynamicInvoke();
                     if (memberConstantValue == null || memberConstantValue.GetType() == typeof(string))
                         return;
-                    //var memberTableName = ExpressionHelpers.GetTableName(memberConstantExpression);
-                    //if (!string.IsNullOrEmpty(memberTableName))
-                    //{
-                    //    return new SqlTableNode(memberTableName);
-                    //}
-                    //return new SqlNoOpNode(toMap.PreviousNode.TableOwner);
+                    var memberTableName = ExpressionHelpers.GetTableName(memberConstantValue);
+                    if (!string.IsNullOrEmpty(memberTableName))
+                    {
+                        context.AddTable(memberTableName, chainItem.Expression);
+                        return;
+                    }
                 }
                 throw new NotSupportedException();
             case ExpressionType.Not:
@@ -147,14 +156,11 @@ class SqlQueryTranslator
                 if (notExpression.IsLifted || notExpression.IsLiftedToNull || notExpression.Method != null)
                     throw new NotSupportedException();
                 return;
-            /*
-
- case ExpressionType.Convert:
-     var convertExpression = (UnaryExpression)expression;
-     if (convertExpression.IsLifted || convertExpression.IsLiftedToNull || convertExpression.Method != null)
-         throw new NotSupportedException();
-     return new SqlNoOpNode(toMap.PreviousNode.TableOwner);
- */
+            case ExpressionType.Convert:
+                var convertExpression = (UnaryExpression)chainItem.Expression;
+                if (convertExpression.IsLifted || convertExpression.IsLiftedToNull || convertExpression.Method != null)
+                    throw new NotSupportedException();
+                return;
             case ExpressionType.Add:
             case ExpressionType.AddChecked:
             case ExpressionType.ArrayLength:
@@ -752,6 +758,10 @@ class MultiStatementQuery
 
     public IEnumerable<(TableNode Removed, TableNode ReplacedBy)> OptmizeQuery()
     {
+        foreach (var table in _tables.Skip(1))
+            if (table.JoinConditions.Count == 0)
+                throw new InvalidOperationException("Join conditions missiong for table.");
+
         List<(TableNode Removed, TableNode ReplacedBy)> toReturn = new();
         while (true)
         {
@@ -854,7 +864,7 @@ class TableNode
         _usedColumns.Add(name);
     }
 
-    public void AddJoinConitoin(JoinCondition condition)
+    public void AddJoinCondition(JoinCondition condition)
     {
         if (_joinConditions.Contains(condition))
             throw new ArgumentException("Condition already added.");
@@ -878,6 +888,7 @@ record JoinCondition(string FieldRight, TableNode LeftTable, string FieldLeft);
 class TranslationContext
 {
     private Dictionary<Expression, TableNode> _expressionToTableMapping = new();
+    private Dictionary<TableNode, List<Expression>> _tableFilters = new();
 
     public MultiStatementQuery Query { get; } = new();
     public TableNode CurrentTable { get; private set; }
@@ -897,6 +908,17 @@ class TranslationContext
                 _expressionToTableMapping.Add(expression, CurrentTable);
         }
         return CurrentTable;
+    }
+
+    public void AddTableFilter(Expression tableFilter)
+    {
+        if (!_tableFilters.TryGetValue(CurrentTable, out var filters))
+        {
+            filters = new List<Expression>();
+            _tableFilters.Add(CurrentTable, filters);
+        }
+        if (!filters.Contains(tableFilter))
+            filters.Add(tableFilter);
     }
 
     public void SetCurrentTable(TableNode table)
@@ -933,6 +955,13 @@ class TranslationContext
         => _expressionToTableMapping[parameterExpression];
 
     public void ResetCurrentTable() => CurrentTable = null;
+
+    internal void FillJoinConditions()
+    {
+        foreach (var (table, filters) in _tableFilters)
+            foreach (var joinCondition in ExpressionHelpers.GetJoinConditions(this, table, filters))
+                table.AddJoinCondition(joinCondition);
+    }
 }
 
 public interface IDbColumnTypeProvider
