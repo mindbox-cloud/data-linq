@@ -243,12 +243,12 @@ public class MultiStatementQueryTests
         var orders = contextAndConnection.DataContext.GetTable<RetailOrder>();
         var queryExpression = contextAndConnection.DataContext
             .GetTable<Customer>()
-            .Where(c => 
+            .Where(c =>
                 orders.Where(o => o.CurrentCustomer == c)
-                   .SelectMany(o=> o.History.Single(hi=>hi.IsCurrentOtherwiseNull != null).Purchases)
-                   .Where(p=> p.PriceForCustomerOfLine / p.Count != null && p.PriceForCustomerOfLine / p.Count >= 123)
+                   .SelectMany(o => o.History.Single(hi => hi.IsCurrentOtherwiseNull != null).Purchases)
+                   .Where(p => p.PriceForCustomerOfLine / p.Count != null && p.PriceForCustomerOfLine / p.Count >= 123)
                    .Any()
-            )            
+            )
             .Expression;
         var query = SqlQueryTranslator.Transalate(queryExpression, new DbColumnTypeProvider());
 

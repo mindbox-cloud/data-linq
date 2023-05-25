@@ -4,6 +4,7 @@ using System;
 using System.Collections.Generic;
 using System.Data.Linq;
 using System.Data.Linq.Mapping;
+using System.Diagnostics;
 using System.Linq;
 using System.Linq.Expressions;
 using System.Reflection;
@@ -73,12 +74,18 @@ class SqlQueryTranslator
                 return;
             case ExpressionType.Lambda:
                 var lambdaExpression = (LambdaExpression)chainItem.Expression;
-                if (chainItem.PreviousPreviousExpression is MethodCallExpression lambdCallExpression &&
+                MethodCallExpression lambdCallExpression = null;
+                if (chainItem.PreviousChainItem.Expression is UnaryExpression)
+                    lambdCallExpression = chainItem.PreviousPreviousExpression as MethodCallExpression;
+                else
+                    lambdCallExpression = chainItem.PreviousChainItem.Expression as MethodCallExpression;
+
+                if (lambdCallExpression != null &&
                         (lambdCallExpression.Method.DeclaringType == typeof(Queryable) || lambdCallExpression.Method.DeclaringType == typeof(Enumerable)))
                 {
                     var filterParameterExpression = lambdCallExpression.Method switch
                     {
-                        { Name: "Where" or "Any" } when lambdaExpression.ReturnType == typeof(bool) && lambdCallExpression.Method.GetParameters().Length == 2
+                        { Name: "Where" or "Any" or "Single" } when lambdaExpression.ReturnType == typeof(bool) && lambdCallExpression.Method.GetParameters().Length == 2
                                 => lambdaExpression.Parameters[0],
                         { Name: "SelectMany" } when lambdCallExpression.Method.GetParameters().Length == 2
                                 => lambdaExpression.Parameters[0],
@@ -97,6 +104,11 @@ class SqlQueryTranslator
             case ExpressionType.GreaterThan:
             case ExpressionType.GreaterThanOrEqual:
             case ExpressionType.Equal:
+            case ExpressionType.NotEqual:
+            case ExpressionType.Divide:
+            case ExpressionType.Multiply:
+            case ExpressionType.Add:
+            case ExpressionType.Subtract:
                 return;
             case ExpressionType.Parameter:
                 context.SetCurrentTable(context.GetTableFromExpression((ParameterExpression)chainItem.Expression));
@@ -115,7 +127,8 @@ class SqlQueryTranslator
                     if (propertyInfo.CustomAttributes.Any(p => p.AttributeType == typeof(AssociationAttribute)))
                     {
                         var associationAttribute = propertyInfo.CustomAttributes.SingleOrDefault(p => p.AttributeType == typeof(AssociationAttribute));
-                        var nextTableName = propertyInfo.PropertyType.CustomAttributes.Single(c => c.AttributeType == typeof(TableAttribute)).NamedArguments
+                        var propertyType = propertyInfo.PropertyType.IsArray ? propertyInfo.PropertyType.GetElementType() : propertyInfo.PropertyType;
+                        var nextTableName = propertyType.CustomAttributes.Single(c => c.AttributeType == typeof(TableAttribute)).NamedArguments
                             .Single(a => a.MemberName == nameof(TableAttribute.Name)).TypedValue.Value.ToString();
                         var currentTableField = associationAttribute.NamedArguments.Single(a => a.MemberName == nameof(AssociationAttribute.ThisKey)).TypedValue.Value.ToString();
                         var associationTableField = associationAttribute.NamedArguments.Single(a => a.MemberName == nameof(AssociationAttribute.OtherKey)).TypedValue.Value.ToString();
@@ -162,21 +175,18 @@ class SqlQueryTranslator
                 if (convertExpression.IsLifted || convertExpression.IsLiftedToNull || convertExpression.Method != null)
                     throw new NotSupportedException();
                 return;
-            case ExpressionType.Add:
             case ExpressionType.AddChecked:
             case ExpressionType.ArrayLength:
             case ExpressionType.ArrayIndex:
             case ExpressionType.Coalesce:
             case ExpressionType.Conditional:
             case ExpressionType.ConvertChecked:
-            case ExpressionType.Divide:
             case ExpressionType.ExclusiveOr:
             case ExpressionType.Invoke:
             case ExpressionType.LeftShift:
             case ExpressionType.ListInit:
             case ExpressionType.MemberInit:
             case ExpressionType.Modulo:
-            case ExpressionType.Multiply:
             case ExpressionType.MultiplyChecked:
             case ExpressionType.Negate:
             case ExpressionType.UnaryPlus:
@@ -184,10 +194,8 @@ class SqlQueryTranslator
             case ExpressionType.New:
             case ExpressionType.NewArrayInit:
             case ExpressionType.NewArrayBounds:
-            case ExpressionType.NotEqual:
             case ExpressionType.Power:
             case ExpressionType.RightShift:
-            case ExpressionType.Subtract:
             case ExpressionType.SubtractChecked:
             case ExpressionType.TypeAs:
             case ExpressionType.TypeIs:
@@ -360,6 +368,7 @@ class MultiStatementQuery
     }
 }
 
+[DebuggerDisplay("{TableName}")]
 class TableNode
 {
     private List<string> _usedColumns = new();
