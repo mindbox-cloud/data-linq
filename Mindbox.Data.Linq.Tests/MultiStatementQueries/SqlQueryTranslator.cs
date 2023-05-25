@@ -73,12 +73,14 @@ class SqlQueryTranslator
                 return;
             case ExpressionType.Lambda:
                 var lambdaExpression = (LambdaExpression)chainItem.Expression;
-                if (lambdaExpression.ReturnType == typeof(bool) && chainItem.PreviousPreviousExpression is MethodCallExpression lambdCallExpression &&
+                if (chainItem.PreviousPreviousExpression is MethodCallExpression lambdCallExpression &&
                         (lambdCallExpression.Method.DeclaringType == typeof(Queryable) || lambdCallExpression.Method.DeclaringType == typeof(Enumerable)))
                 {
                     var filterParameterExpression = lambdCallExpression.Method switch
                     {
-                        { Name: "Where" or "Any" } when lambdCallExpression.Method.GetParameters().Length == 2
+                        { Name: "Where" or "Any" } when lambdaExpression.ReturnType == typeof(bool) && lambdCallExpression.Method.GetParameters().Length == 2
+                                => lambdaExpression.Parameters[0],
+                        { Name: "SelectMany" } when lambdCallExpression.Method.GetParameters().Length == 2
                                 => lambdaExpression.Parameters[0],
                         _ => throw new NotSupportedException()
                     };
@@ -503,6 +505,7 @@ public class DbColumnTypeProvider : IDbColumnTypeProvider
             "directcrm.CustomFieldValues" => new[] { "Id" },
             "directcrm.Areas" => new[] { "Id" },
             "directcrm.SubAreas" => new[] { "Id" },
+            "directcrm.RetailOrders" => new[] { "Id" },
             _ => throw new NotSupportedException()
         };
     }
@@ -538,6 +541,8 @@ public class DbColumnTypeProvider : IDbColumnTypeProvider
             ("directcrm.Areas", "SubAreaId") => "int null",
             ("directcrm.SubAreas", "Id") => "int not null",
             ("directcrm.SubAreas", "Name") => "nvarchar(64) not null",
+            ("directcrm.RetailOrders", "Id") => "int not null",
+            ("directcrm.RetailOrders", "CustomerId") => "int null",
             _ => throw new NotSupportedException()
         };
     }

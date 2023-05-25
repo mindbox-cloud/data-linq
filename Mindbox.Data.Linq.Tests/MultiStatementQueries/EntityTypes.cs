@@ -55,11 +55,9 @@ public sealed class CustomerAction
     [Column]
     public int PointOfContactId { get; set; }
 
-    // private EntityRef<PointOfContact> _pointOfContact;
     [Column]
     public int ActionTemplateId { get; set; }
 
-    // private EntityRef<ActionTemplate> _actionTemplate;
     [Column]
     public int CustomerId { get; set; }
 
@@ -69,7 +67,6 @@ public sealed class CustomerAction
     [Column]
     public int? StaffId { get; set; }
 
-    // private EntityRef<Staff> Staff;
     [Column]
     public int OriginalCustomerId { get; set; }
 
@@ -117,4 +114,53 @@ public sealed class SubArea
 
     [Column]
     public string Name { get; set; }
+}
+
+[Table(Name = "directcrm.RetailOrders")]
+public sealed class RetailOrder
+{
+    [Column(IsPrimaryKey = true)]
+    public int Id { get; set; }
+
+    [Column]
+    public int CustomerId { get; set; }
+
+    [Association(ThisKey = nameof(Id), OtherKey = nameof(RetailOrderHistoryItem.RetailOrderId))]
+    public RetailOrderHistoryItem[] History { get; set; }
+
+    [Association(ThisKey = nameof(CustomerId), OtherKey = nameof(Customer.Id))]
+    public Customer CurrentCustomer { get; set; }
+}
+
+
+[Table(Name = "directcrm.RetailOrderHistoryItems")]
+public sealed class RetailOrderHistoryItem
+{
+    [Column(IsPrimaryKey = true)]
+    public int Id { get; set; }
+
+    [Column]
+    public int RetailOrderId { get; set; }
+
+    [Association(ThisKey = nameof(Id), OtherKey = nameof(RetailOrderPurchase.RetailOrderHistoryItemId))]
+    public RetailOrderPurchase[] Purchases { get; set; }
+
+    [Column]
+    public bool? IsCurrentOtherwiseNull { get; set; }
+}
+
+[Table(Name = "directcrm.RetailOrderPurchases")]
+public sealed class RetailOrderPurchase
+{
+    [Column(IsPrimaryKey = true)]
+    public int Id { get; set; }
+
+    [Column]
+    public int RetailOrderHistoryItemId { get; set; }
+
+    [Column]
+    public decimal? PriceForCustomerOfLine { get; set; }
+
+    [Column]
+    public decimal? Count { get; set; }
 }

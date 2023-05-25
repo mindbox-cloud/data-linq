@@ -1,6 +1,7 @@
 ﻿using System.Data;
 using System.Linq;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
+using Newtonsoft.Json.Linq;
 using Snapshooter.MSTest;
 
 namespace Mindbox.Data.Linq.Tests.MultiStatementQueries;
@@ -232,10 +233,34 @@ public class MultiStatementQueryTests
         query.CommandText.MatchSnapshot();
     }
 
+    [TestMethod]
+    public void Translate_TableJoinReversedByAssociationFollowedBySelectMany_Success()
+    {
+        // Arrange
+        using var contextAndConnection = new DataContextAndConnection();
+
+        // Act
+        var orders = contextAndConnection.DataContext.GetTable<RetailOrder>();
+        var queryExpression = contextAndConnection.DataContext
+            .GetTable<Customer>()
+            .Where(c => 
+                orders.Where(o => o.CurrentCustomer == c)
+                   .SelectMany(o=> o.History.Single(hi=>hi.IsCurrentOtherwiseNull != null).Purchases)
+                   .Where(p=> p.PriceForCustomerOfLine / p.Count != null && p.PriceForCustomerOfLine / p.Count >= 123)
+                   .Any()
+            )            
+            .Expression;
+        var query = SqlQueryTranslator.Transalate(queryExpression, new DbColumnTypeProvider());
+
+        // Assert
+        query.CommandText.MatchSnapshot();
+    }
+
     // Several neested joins
     // Querable join
     // Select with anonympus types
     // SelectMany
 
     // See sample for more cases
+
 }

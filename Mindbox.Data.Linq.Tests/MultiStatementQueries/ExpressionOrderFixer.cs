@@ -60,6 +60,11 @@ internal static class ExpressionOrderFixer
                     case ExpressionType.LessThanOrEqual:
                     case ExpressionType.GreaterThan:
                     case ExpressionType.GreaterThanOrEqual:
+                    case ExpressionType.NotEqual:
+                    case ExpressionType.Divide:
+                    case ExpressionType.Multiply:
+                    case ExpressionType.Subtract:
+                    case ExpressionType.Add:
                     case ExpressionType.Equal:
                         var binaryExpression = (BinaryExpression)expression;
                         foreach (var item in GetExpressionsCore(stack, binaryExpression.Left))
@@ -85,7 +90,7 @@ internal static class ExpressionOrderFixer
                         break;
                     case ExpressionType.Convert:
                         var convertExpression = (UnaryExpression)expression;
-                        if (convertExpression.IsLifted || convertExpression.IsLiftedToNull || convertExpression.Method != null)
+                        if (convertExpression.Method != null && convertExpression.Method.Name != "op_Implicit")
                             throw new NotSupportedException();
                         foreach (var item in GetExpressionsCore(stack, convertExpression.Operand))
                             yield return item;
