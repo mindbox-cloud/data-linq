@@ -9,14 +9,25 @@ namespace Mindbox.Data.Linq.Tests.MultiStatementQueries;
 
 internal static class ExpressionHelpers
 {
-    public static string GetTableName(ConstantExpression constantExpression)
+    public static string GetTableName(Expression expression)
     {
-        var constantValue = constantExpression.Value;
-        return GetTableName(constantValue);
+        if (expression is ConstantExpression constantExpression)
+        {
+            var constantValue = constantExpression.Value;
+            return GetTableNameFromObject(constantValue);
+        }
+        else if (expression is MemberExpression memberExpression && memberExpression.Expression is ConstantExpression)
+        {
+            var memberConstantValue = Expression.Lambda(memberExpression).Compile().DynamicInvoke();
+            return GetTableNameFromObject(memberConstantValue);
+        }
+        return null;
     }
 
-    public static string GetTableName(object tableOb)
+    public static string GetTableNameFromObject(object tableOb)
     {
+        if (tableOb == null)
+            return null;
         if (!tableOb.GetType().IsGenericType || tableOb.GetType().GetGenericTypeDefinition() != typeof(System.Data.Linq.Table<>))
             return null;
         var genericParameterType = tableOb.GetType().GenericTypeArguments[0];

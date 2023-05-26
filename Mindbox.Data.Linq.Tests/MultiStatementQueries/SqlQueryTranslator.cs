@@ -157,7 +157,7 @@ class SqlQueryTranslator
                     var memberConstantValue = Expression.Lambda(memberExpression).Compile().DynamicInvoke();
                     if (memberConstantValue == null || memberConstantValue.GetType() == typeof(string))
                         return;
-                    var memberTableName = ExpressionHelpers.GetTableName(memberConstantValue);
+                    var memberTableName = ExpressionHelpers.GetTableNameFromObject(memberConstantValue);
                     if (!string.IsNullOrEmpty(memberTableName))
                     {
                         context.AddTable(memberTableName, chainItem.Expression);

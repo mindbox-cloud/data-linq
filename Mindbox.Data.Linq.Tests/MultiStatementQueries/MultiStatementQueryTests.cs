@@ -1,5 +1,9 @@
-﻿using System.Data;
+﻿using System;
+using System.Collections.Generic;
+using System.Data;
+using System.Diagnostics;
 using System.Linq;
+using System.Linq.Expressions;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Newtonsoft.Json.Linq;
 using Snapshooter.MSTest;
@@ -263,4 +267,127 @@ public class MultiStatementQueryTests
 
     // See sample for more cases
 
+
+    [TestMethod]
+    public void Translate_TableJoinReversedByAssociationFollowedBySelectManyWithExpressionVisitor_Success()
+    {
+        // Arrange
+        using var contextAndConnection = new DataContextAndConnection();
+
+        // Act
+        var orders = contextAndConnection.DataContext.GetTable<RetailOrder>();
+        var queryExpression = contextAndConnection.DataContext
+            .GetTable<Customer>()
+            .Where(c =>
+                orders.Where(o => o.CurrentCustomer == c)
+                   .SelectMany(o => o.History.Single(hi => hi.IsCurrentOtherwiseNull != null).Purchases)
+                   .Where(p => p.PriceForCustomerOfLine / p.Count != null && p.PriceForCustomerOfLine / p.Count >= 123)
+                   .Any()
+            )
+            .Expression;
+
+
+        var visitor = new QueryExpressionVisitor();
+        visitor.Visit(queryExpression);
+    }
+
+    class QueryExpressionVisitor : ExpressionVisitor
+    {
+        private Dictionary<TableNode, List<Expression>> _tableToChainCallMethods = new Dictionary<TableNode, List<Expression>>();
+        private Stack<(ParameterExpression, string)> _tablesOnStack = new();
+        private List<string> _context = new List<string>();
+        private 
+
+        protected override Expression VisitConstant(ConstantExpression node)
+        {
+            var tableName = ExpressionHelpers.GetTableName(node);
+            if (!string.IsNullOrEmpty(tableName))
+            {
+                Console.WriteLine($"Table: {tableName}");
+            }
+
+            return base.VisitConstant(node);
+        }
+
+        protected override Expression VisitMember(MemberExpression node)
+        {
+            if (node.Expression is ConstantExpression)
+            {
+                var memberConstantValue = Expression.Lambda(node).Compile().DynamicInvoke();
+                var memberTableName = ExpressionHelpers.GetTableNameFromObject(memberConstantValue);
+                if (!string.IsNullOrEmpty(memberTableName))
+                {
+                    Console.WriteLine($"Table: {memberTableName}");
+                }
+            }
+
+            return base.VisitMember(node);
+        }
+
+        protected override Expression VisitMethodCall(MethodCallExpression node)
+        {
+            var chainCalls = ExpressionOrderFixer.GetReorderedChainCall(node).ToArray();
+            var tableName = ExpressionHelpers.GetTableName(chainCalls[0]);
+            if (!string.IsNullOrEmpty(tableName))
+                chainCalls = chainCalls.Skip(1).ToArray();
+            else if (string.IsNullOrEmpty(tableName) && chainCalls.Length > 1)
+            {
+                tableName = ExpressionHelpers.GetTableName(chainCalls[1]);
+                if (!string.IsNullOrEmpty(tableName))
+                    chainCalls  = chainCalls.Skip(2).ToArray();
+            }
+            if (!string.IsNullOrEmpty(tableName))
+            {
+                using (PushContext(tableName))
+                {
+                    foreach (var chainItemExpression in chainCalls)
+                    {
+                        if (chainItemExpression is MethodCallExpression chainCallExpression &&
+                            (chainCallExpression.Method.DeclaringType == typeof(Queryable) || chainCallExpression.Method.DeclaringType == typeof(Enumerable)))
+                        {
+                            if (chainCallExpression.Arguments.Count == 2)
+                                using (PushContext(chainCallExpression.Method.Name))
+                                {
+                                    Visit(chainCallExpression.Arguments[1]);
+                                }
+                        }
+                    }
+                }
+                return node;
+            }
+            else
+                return base.VisitMethodCall(node);
+        }
+
+        private ContextPusher PushContext(string contextItem)
+        {
+            _context.Add(contextItem);
+            PrintContext();
+            return new ContextPusher(_context);
+        }
+
+        private void PrintContext()
+        {
+            if (_context.Count == 0)
+                Console.WriteLine("Context is empty");
+            else
+                Console.WriteLine(string.Join(" -> ", _context));
+        }
+
+        struct ContextPusher : IDisposable
+        {
+            private List<string> _context;
+
+            public ContextPusher(List<string> context)
+            {
+                _context = context;
+            }
+
+            public void Dispose()
+            {
+                _context.RemoveAt(_context.Count -1);
+            }
+        }
+
+    }
 }

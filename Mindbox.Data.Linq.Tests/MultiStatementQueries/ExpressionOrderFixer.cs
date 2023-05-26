@@ -102,7 +102,7 @@ internal static class ExpressionOrderFixer
     }
 
 
-    private static IEnumerable<Expression> GetReorderedChainCall(Expression expression)
+    public static IEnumerable<Expression> GetReorderedChainCall(Expression expression)
     {
         List<Expression> toReturn = new List<Expression>();
         while (true)
