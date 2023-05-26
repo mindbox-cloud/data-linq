@@ -27,6 +27,13 @@ class SqlQueryTranslator
     private static MultiStatementQuery TranslateCore(Expression expression, IDbColumnTypeProvider columntTypeProvider)
     {
         var context = new TranslationContext(columntTypeProvider);
+        throw new NotSupportedException();
+    }
+
+    /*
+    private static MultiStatementQuery TranslateCore(Expression expression, IDbColumnTypeProvider columntTypeProvider)
+    {
+        var context = new TranslationContext(columntTypeProvider);
         var chains = ExpressionOrderFixer.GetExpressionChains(expression).ToArray();
         foreach (var chain in chains)
         {
@@ -133,19 +140,6 @@ class SqlQueryTranslator
                         var currentTableField = associationAttribute.NamedArguments.Single(a => a.MemberName == nameof(AssociationAttribute.ThisKey)).TypedValue.Value.ToString();
                         var associationTableField = associationAttribute.NamedArguments.Single(a => a.MemberName == nameof(AssociationAttribute.OtherKey)).TypedValue.Value.ToString();
 
-                        /*
-                        // Skip association if it doesn't lead to any access for fields in other table
-                        // Consider examples:
-                        //      Customers.Where(c => CustomerActions.Where(ca=> ca.Customer.Id == c.Id)) -> ca.Customer.Id is ca.CusomerId
-                        //          no need to join CustomerActions->Customer as all data available in CustomerActions, association only defines Customer->CustomerActions join clause
-                        //      Customers.Where(c => CustomerActions.Where(ca=> ca.Customer == c)) -> same as above, association only defines Customer->CustomerActions join clause
-                        if (chainItem.NextChainItem?.Expression is MemberExpression nextMemberAccess && nextMemberAccess.Member is PropertyInfo nextPropertyInfo)
-                        {
-                            if (nextPropertyInfo.CustomAttributes.Any(p => p.AttributeType == typeof(ColumnAttribute)) && nextPropertyInfo.Name == associationTableField)
-                                return;
-                        }
-                        */
-
                         var currentTable = context.CurrentTable;
                         var associationTable = context.AddTable(nextTableName, null);
                         associationTable.AddJoinCondition(new JoinCondition(associationTableField, currentTable, currentTableField));
@@ -250,6 +244,7 @@ class SqlQueryTranslator
         public ExpressionChainItem NextChainItem => Chain.Items.Count <= Index + 1 ? null : new ExpressionChainItem(Chain, Index + 1);
         public Expression PreviousPreviousExpression => PreviousChainItem.PreviousChainItem.Expression;
     }
+     */
 }
 
 class MultiStatementQuery
