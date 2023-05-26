@@ -17,6 +17,8 @@ internal static class ExpressionHelpers
 
     public static string GetTableName(object tableOb)
     {
+        if (tableOb == null)
+            return null;
         if (!tableOb.GetType().IsGenericType || tableOb.GetType().GetGenericTypeDefinition() != typeof(System.Data.Linq.Table<>))
             return null;
         var genericParameterType = tableOb.GetType().GenericTypeArguments[0];

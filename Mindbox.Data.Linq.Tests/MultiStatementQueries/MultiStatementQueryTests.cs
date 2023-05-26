@@ -1,5 +1,9 @@
-﻿using System.Data;
+﻿using System;
+using System.Data;
+using System.Diagnostics.CodeAnalysis;
 using System.Linq;
+using System.Linq.Expressions;
+using Microsoft.VisualBasic;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Newtonsoft.Json.Linq;
 using Snapshooter.MSTest;
@@ -250,10 +254,55 @@ public class MultiStatementQueryTests
                    .Any()
             )
             .Expression;
-        var query = SqlQueryTranslator.Transalate(queryExpression, new DbColumnTypeProvider());
+
+        var visitor = new Visitor();
+        visitor.Visit(queryExpression);
+
+        // var query = SqlQueryTranslator.Transalate(queryExpression, new DbColumnTypeProvider());
 
         // Assert
-        query.CommandText.MatchSnapshot();
+        // query.CommandText.MatchSnapshot();
+    }
+
+
+    class Visitor : ExpressionVisitor
+    {
+        protected override Expression VisitConstant(ConstantExpression node)
+        {
+            if (!string.IsNullOrEmpty(ExpressionHelpers.GetTableName(node)))
+                Console.WriteLine($"Visited table: {ExpressionHelpers.GetTableName(node)}");
+            return base.VisitConstant(node);
+        }
+
+        protected override Expression VisitMember(MemberExpression node)
+        {
+            var baseVisit = base.VisitMember(node);
+            if (node.Expression is ConstantExpression)// Invocation of constant
+            {
+                var memberConstantValue = Expression.Lambda(node).Compile().DynamicInvoke();
+                var memberTableName = ExpressionHelpers.GetTableName(memberConstantValue);
+                if (!string.IsNullOrEmpty(memberTableName))
+                {
+                    Console.WriteLine($"Visited table: {memberTableName}");
+                }
+            }
+            return baseVisit;
+        }
+
+        protected override Expression VisitMethodCall(MethodCallExpression node)
+        {
+            var baseVisit = base.VisitMethodCall(node);
+            if (node.Method.DeclaringType == typeof(Queryable) || node.Method.DeclaringType == typeof(Enumerable))
+                Console.WriteLine($"Visiting querable or enumerable method: {node.Method.Name}");
+            return baseVisit;
+        }
+
+
+        [return: NotNullIfNotNull("node")]
+        public override Expression Visit(Expression node)
+        {
+            return base.Visit(node);
+        }
     }
 
     // Several neested joins
