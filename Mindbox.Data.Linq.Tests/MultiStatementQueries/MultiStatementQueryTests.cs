@@ -293,10 +293,11 @@ public class MultiStatementQueryTests
 
     class QueryExpressionVisitor : ExpressionVisitor
     {
-        private Dictionary<TableNode, List<Expression>> _tableToChainCallMethods = new Dictionary<TableNode, List<Expression>>();
-        private Stack<(ParameterExpression, string)> _tablesOnStack = new();
-        private List<string> _context = new List<string>();
-        private 
+        private Stack<>
+        private Stack<(ParameterExpression, TableNode)> _variablesOnStack = new();
+        private List<string> _context = new();
+
+        public MultiStatementQuery Query { get; private set; } = new MultiStatementQuery();
 
         protected override Expression VisitConstant(ConstantExpression node)
         {
@@ -345,11 +346,19 @@ public class MultiStatementQueryTests
                         if (chainItemExpression is MethodCallExpression chainCallExpression &&
                             (chainCallExpression.Method.DeclaringType == typeof(Queryable) || chainCallExpression.Method.DeclaringType == typeof(Enumerable)))
                         {
-                            if (chainCallExpression.Arguments.Count == 2)
+                            if (new[] { "Where", "Any" }.Contains(chainCallExpression.Method.Name) && chainCallExpression.Arguments.Count == 2)
+                            {
                                 using (PushContext(chainCallExpression.Method.Name))
                                 {
                                     Visit(chainCallExpression.Arguments[1]);
                                 }
+                            }
+                            else if (new[] { "Select" }.Contains(chainCallExpression.Method.Name) && chainCallExpression.Arguments.Count == 2)
+                                continue;
+                            else if (new[] { "SelectMany" }.Contains(chainCallExpression.Method.Name) && chainCallExpression.Arguments.Count == 2)
+                                continue;
+                            else if (new[] { "Any" }.Contains(chainCallExpression.Method.Name) && chainCallExpression.Arguments.Count == 1)
+                                continue;
                         }
                     }
                 }
@@ -358,6 +367,7 @@ public class MultiStatementQueryTests
             else
                 return base.VisitMethodCall(node);
         }
+
 
         private ContextPusher PushContext(string contextItem)
         {
