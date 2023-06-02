@@ -39,7 +39,7 @@ internal static class ExpressionOrderFixer
             }
 
 
-            using (new StackPusher(stack, expression))
+            using (new StackPusher<Expression>(stack, expression))
                 switch (expression.NodeType)
                 {
                     case ExpressionType.Quote:
@@ -137,20 +137,28 @@ internal static class ExpressionOrderFixer
     }
 }
 
-struct StackPusher : IDisposable
+public struct StackPusher<T> : IDisposable
 {
-    private readonly List<Expression> _stack;
+    private readonly List<T> _listAsStack;
+    private readonly Stack<T> _stack;
 
-    public StackPusher(List<Expression> stack, Expression expression)
+    public StackPusher(Stack<T> stack, T expression)
     {
         _stack = stack;
-        _stack.Add(expression);
+        _stack.Push(expression);
+    }
+
+    public StackPusher(List<T> stack, T expression)
+    {
+        _listAsStack = stack;
+        _listAsStack.Add(expression);
     }
 
 
     public void Dispose()
     {
-        _stack.RemoveAt(_stack.Count - 1);
+        _listAsStack?.RemoveAt(_listAsStack.Count - 1);
+        _stack?.Pop();
     }
 }
 

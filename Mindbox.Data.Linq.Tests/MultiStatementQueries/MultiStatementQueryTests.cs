@@ -293,9 +293,9 @@ public class MultiStatementQueryTests
 
     class QueryExpressionVisitor : ExpressionVisitor
     {
-        private Stack<>
+        private Stack<TableNode> _currentChainTable = new();
         private Stack<(ParameterExpression, TableNode)> _variablesOnStack = new();
-        private List<string> _context = new();
+        private Stack<string> _context = new();
 
         public MultiStatementQuery Query { get; private set; } = new MultiStatementQuery();
 
@@ -304,7 +304,7 @@ public class MultiStatementQueryTests
             var tableName = ExpressionHelpers.GetTableName(node);
             if (!string.IsNullOrEmpty(tableName))
             {
-                Console.WriteLine($"Table: {tableName}");
+                throw new InvalidOperationException("All tables should be extracted from chain calls.");
             }
 
             return base.VisitConstant(node);
@@ -339,6 +339,7 @@ public class MultiStatementQueryTests
             }
             if (!string.IsNullOrEmpty(tableName))
             {
+                using (_currentChainTable.ScopePush(Query.AddTable(tableName)))
                 using (PushContext(tableName))
                 {
                     foreach (var chainItemExpression in chainCalls)
@@ -349,6 +350,7 @@ public class MultiStatementQueryTests
                             if (new[] { "Where", "Any" }.Contains(chainCallExpression.Method.Name) && chainCallExpression.Arguments.Count == 2)
                             {
                                 using (PushContext(chainCallExpression.Method.Name))
+                                using (_variablesOnStack.ScopePush((ExtractParameterVaribleFromFilterExpression(chainCallExpression.Arguments[1]), _currentChainTable.Peek())))
                                 {
                                     Visit(chainCallExpression.Arguments[1]);
                                 }
@@ -368,12 +370,23 @@ public class MultiStatementQueryTests
                 return base.VisitMethodCall(node);
         }
 
-
-        private ContextPusher PushContext(string contextItem)
+        private ParameterExpression ExtractParameterVaribleFromFilterExpression(Expression filterExpression)
         {
-            _context.Add(contextItem);
+            var unary = (UnaryExpression)filterExpression;
+            if (unary.NodeType != ExpressionType.Quote || unary.IsLifted || unary.IsLiftedToNull || unary.Method != null)
+                throw new NotSupportedException();
+            var lambda = (LambdaExpression)unary.Operand;
+            if (lambda.ReturnType != typeof(bool) || lambda.TailCall || !string.IsNullOrEmpty(lambda.Name) || lambda.Parameters.Count != 1)
+                throw new NotSupportedException();
+            return lambda.Parameters[0];
+        }
+
+
+        private StackPusher<string> PushContext(string contextItem)
+        {
+            var toReturn = new StackPusher<string>(_context, contextItem);
             PrintContext();
-            return new ContextPusher(_context);
+            return toReturn;
         }
 
         private void PrintContext()
@@ -383,21 +396,14 @@ public class MultiStatementQueryTests
             else
                 Console.WriteLine(string.Join(" -> ", _context));
         }
+    }
+}
 
-        struct ContextPusher : IDisposable
-        {
-            private List<string> _context;
 
-            public ContextPusher(List<string> context)
-            {
-                _context = context;
-            }
-
-            public void Dispose()
-            {
-                _context.RemoveAt(_context.Count -1);
-            }
-        }
-
+public static class StackExtensions
+{
+    public static StackPusher<T> ScopePush<T>(this Stack<T> stack, T item)
+    {
+        return new StackPusher<T>(stack, item);
     }
 }
