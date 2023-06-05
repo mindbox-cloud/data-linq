@@ -2,12 +2,14 @@
 using Snapshooter.MSTest;
 using System;
 using System.Collections.Generic;
+using System.ComponentModel.DataAnnotations;
 using System.Data.Linq;
 using System.Data.Linq.Mapping;
 using System.Diagnostics;
 using System.Linq;
 using System.Linq.Expressions;
 using System.Reflection;
+using System.Text;
 
 namespace Mindbox.Data.Linq.Tests.MultiStatementQueries;
 
@@ -360,6 +362,23 @@ class MultiStatementQuery
             }
             return null;
         }
+    }
+
+    public string Dump()
+    {
+        var sb = new StringBuilder();
+        foreach (var table in _tables)
+        {
+            var columns = string.Empty;
+            if (table.UsedColumns.Count > 0)
+                columns = $"({string.Join(", ", table.UsedColumns)})";
+            sb.AppendLine($"{table.TableName}{columns}");
+            if (table.JoinConditions.Count > 0)
+                foreach (var condition in table.JoinConditions)
+                    sb.AppendLine($"\t{condition.FieldRight} = {condition.LeftTable.TableName}.{condition.FieldLeft}");
+        }
+
+        return sb.ToString();
     }
 }
 
