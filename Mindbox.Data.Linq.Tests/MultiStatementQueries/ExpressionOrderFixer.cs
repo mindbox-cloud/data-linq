@@ -104,6 +104,8 @@ internal static class ExpressionOrderFixer
 
     public static IEnumerable<Expression> GetReorderedChainCall(Expression expression)
     {
+        if (expression == null)
+            return Enumerable.Empty<Expression>();
         List<Expression> toReturn = new List<Expression>();
         while (true)
         {
