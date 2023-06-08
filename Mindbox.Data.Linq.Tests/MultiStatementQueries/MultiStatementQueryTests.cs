@@ -291,7 +291,7 @@ public class MultiStatementQueryTests
             .Expression;
 
 
-        var visitor = new QueryExpressionVisitor(new DbColumnTypeProvider());
+        var visitor = new FilterExpressionVisitor(new DbColumnTypeProvider());
         visitor.Visit(queryExpression);
 
         //Console.WriteLine();
@@ -349,21 +349,112 @@ class SelectSle : IChainPartSle
     public IChainPartSle NextChainExpression { get; set; }
 }
 
+class VisitorContext
+{
+    public ISimplifiedLinqExpression Root { get; set; }
+    public IDbColumnTypeProvider ColumnTypeProvider { get; private set; }
+    public IChainPartSle CurrentChainSle { get; private set; }
+    public ISimplifiedLinqExpression CurrentSle { get; private set; }
+    public Action<ISimplifiedLinqExpression> CurrentSleSetChildFunc { get; private set; }
 
-class QueryExpressionVisitor : ExpressionVisitor
+    public VisitorContext(IDbColumnTypeProvider columnTypeProvider)
+    {
+        ColumnTypeProvider = columnTypeProvider;
+    }
+
+    public void SetCurrent(ISimplifiedLinqExpression newCurrentSle, Action<ISimplifiedLinqExpression> childSetFunc)
+    {
+        var newCurrentSleAsChain = newCurrentSle as IChainPartSle;
+        if (Root == null)
+        {
+            if (newCurrentSleAsChain == null)
+                throw new InvalidOperationException();
+            Root = newCurrentSleAsChain;
+        }
+
+        if (newCurrentSleAsChain != null && CurrentSle is IChainPartSle currentChainSle) // We continue with chain
+        {
+            currentChainSle.NextChainExpression = newCurrentSleAsChain;
+            newCurrentSleAsChain.PreviousChainExpression = currentChainSle;
+        }
+        else
+        {
+            if (CurrentSleSetChildFunc != null)
+                CurrentSleSetChildFunc(newCurrentSle);
+        }
+
+        CurrentSle  = newCurrentSle;
+        CurrentSleSetChildFunc = childSetFunc;
+    }
+}
+
+class ChainExpressionVisitor : ExpressionVisitor
 {
     //private Stack<DataSource> _dataSourceStack = new();
     //private Stack<(ParameterExpression Parameter, DataSource DataSource)> _variablesOnStack = new();
     //private Stack<string> _context = new();
-    private readonly IDbColumnTypeProvider _columnTypeProvider;
+    private readonly VisitorContext _visitorContext;
+
+    public ChainExpressionVisitor(VisitorContext context)
+    {
+        _visitorContext = context;
+    }
+
+    [return: NotNullIfNotNull("node")]
+    public override Expression Visit(Expression node)
+    {
+        var chainCalls = ExpressionOrderFixer.GetReorderedChainCall(node).ToArray();
+        if (chainCalls.Length == 0)
+            throw new InvalidOperationException();
+        var tableName = ExpressionHelpers.GetTableName(chainCalls[0]);
+        if (!string.IsNullOrEmpty(tableName))
+            chainCalls = chainCalls.Skip(1).ToArray();
+        else if (string.IsNullOrEmpty(tableName) && chainCalls.Length > 1)
+        {
+            tableName = ExpressionHelpers.GetTableName(chainCalls[1]);
+            if (!string.IsNullOrEmpty(tableName))
+                chainCalls  = chainCalls.Skip(2).ToArray();
+        }
+        if (string.IsNullOrEmpty(tableName))
+            throw new InvalidOperationException();
+
+        _visitorContext.SetCurrent(new TableSle(tableName), null);
+
+        // Update current expression
+        foreach (var chainItemExpression in chainCalls)
+        {
+            if (chainItemExpression is MethodCallExpression chainCallExpression &&
+                (chainCallExpression.Method.DeclaringType == typeof(Queryable) || chainCallExpression.Method.DeclaringType == typeof(Enumerable)))
+            {
+                if (new[] { "Where", "Any" }.Contains(chainCallExpression.Method.Name) && chainCallExpression.Arguments.Count == 2)
+                    new FilterExpressionVisitor(_visitorContext).Visit(chainCallExpression.Arguments[0]);
+                else if (new[] { "Select" }.Contains(chainCallExpression.Method.Name) && chainCallExpression.Arguments.Count == 2)
+                    continue;
+                else if (new[] { "SelectMany" }.Contains(chainCallExpression.Method.Name) && chainCallExpression.Arguments.Count == 2)
+                    continue;
+                else if (new[] { "Any" }.Contains(chainCallExpression.Method.Name) && chainCallExpression.Arguments.Count == 1)
+                    continue;
+            }
+        }
+        return node;
+    }
+}
+
+
+class FilterExpressionVisitor : ExpressionVisitor
+{
+    //private Stack<DataSource> _dataSourceStack = new();
+    //private Stack<(ParameterExpression Parameter, DataSource DataSource)> _variablesOnStack = new();
+    //private Stack<string> _context = new();
+    private readonly VisitorContext _visitorContext;
     private ISimplifiedLinqExpression _currentExpression;
     private BinarySide? _currentBinarySide;
 
     public TableSle SimplifiedExpression { get; private set; }
 
-    public QueryExpressionVisitor(IDbColumnTypeProvider columnTypeProvider)
+    public FilterExpressionVisitor(VisitorContext context)
     {
-        _columnTypeProvider= columnTypeProvider;
+        _visitorContext = context;
     }
 
     [return: NotNullIfNotNull("node")]
