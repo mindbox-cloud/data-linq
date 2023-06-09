@@ -291,7 +291,8 @@ public class MultiStatementQueryTests
             .Expression;
 
 
-        var visitor = new FilterExpressionVisitor(new DbColumnTypeProvider());
+        var visitorContext = new VisitorContext(new DbColumnTypeProvider());
+        var visitor = new ChainExpressionVisitor(visitorContext);
         visitor.Visit(queryExpression);
 
         //Console.WriteLine();
@@ -310,7 +311,16 @@ interface IChainPartSle : ISimplifiedLinqExpression
     IChainPartSle NextChainExpression { get; set; }
 }
 
-class TableSle : IChainPartSle
+interface ITreePartSle : ISimplifiedLinqExpression
+{
+    ISimplifiedLinqExpression ParentExpression { get; set; }
+}
+
+interface IRowSourceSle : IChainPartSle
+{
+}
+
+class TableSle : IRowSourceSle
 {
     public string Name { get; private set; }
 
@@ -323,24 +333,19 @@ class TableSle : IChainPartSle
     }
 }
 
-class FilterSle : IChainPartSle
+class FilterSle : IChainPartSle, ITreePartSle
 {
+    public ISimplifiedLinqExpression ParentExpression { get; set; }
     public IChainPartSle PreviousChainExpression { get; set; }
     public ISimplifiedLinqExpression InnerExpression { get; set; }
     public IChainPartSle NextChainExpression { get; set; }
 }
 
-class BinarySle : ISimplifiedLinqExpression
+class FilterBinarySle : ITreePartSle
 {
-    public ISimplifiedLinqExpression UpperExpression { get; set; }
+    public ISimplifiedLinqExpression ParentExpression { get; set; }
     public ISimplifiedLinqExpression LeftExpression { get; set; }
     public ISimplifiedLinqExpression RightExpression { get; set; }
-}
-
-enum BinarySide
-{
-    Left,
-    Right,
 }
 
 class SelectSle : IChainPartSle
@@ -349,21 +354,36 @@ class SelectSle : IChainPartSle
     public IChainPartSle NextChainExpression { get; set; }
 }
 
+delegate void SetChildDelegate(ISimplifiedLinqExpression parent, ISimplifiedLinqExpression child);
+
 class VisitorContext
 {
+    public Dictionary<ParameterExpression, ISimplifiedLinqExpression> ParameterToSle { get; private set; } = new();
     public ISimplifiedLinqExpression Root { get; set; }
     public IDbColumnTypeProvider ColumnTypeProvider { get; private set; }
     public IChainPartSle CurrentChainSle { get; private set; }
     public ISimplifiedLinqExpression CurrentSle { get; private set; }
-    public Action<ISimplifiedLinqExpression> CurrentSleSetChildFunc { get; private set; }
+    public SetChildDelegate CurrentSleSetChildFunc { get; private set; }
 
     public VisitorContext(IDbColumnTypeProvider columnTypeProvider)
     {
         ColumnTypeProvider = columnTypeProvider;
     }
 
-    public void SetCurrent(ISimplifiedLinqExpression newCurrentSle, Action<ISimplifiedLinqExpression> childSetFunc)
+    /// <summary>
+    /// Add NEW sle.
+    /// </summary>
+    /// <param name="newCurrentSle">New sle.</param>
+    /// <param name="childSetFunc">Child set func.</param>
+    public void AddSle(ISimplifiedLinqExpression newCurrentSle, SetChildDelegate childSetFunc)
     {
+        // If same sle -> only replace child set func.
+        if (newCurrentSle == CurrentSle)
+        {
+            CurrentSleSetChildFunc = childSetFunc;
+            return;
+        }
+
         var newCurrentSleAsChain = newCurrentSle as IChainPartSle;
         if (Root == null)
         {
@@ -372,27 +392,41 @@ class VisitorContext
             Root = newCurrentSleAsChain;
         }
 
-        if (newCurrentSleAsChain != null && CurrentSle is IChainPartSle currentChainSle) // We continue with chain
+        // Maintain linking for chains
+        if (newCurrentSleAsChain != null && CurrentSle is IChainPartSle currentChainSle)
         {
             currentChainSle.NextChainExpression = newCurrentSleAsChain;
             newCurrentSleAsChain.PreviousChainExpression = currentChainSle;
         }
-        else
-        {
-            if (CurrentSleSetChildFunc != null)
-                CurrentSleSetChildFunc(newCurrentSle);
-        }
+
+        /// Maitain linking for trees
+        if (newCurrentSle is ITreePartSle newCurrentTreeSle && CurrentSle is ITreePartSle currentTreeSle)
+            newCurrentTreeSle.ParentExpression = currentTreeSle;
+
+        // Maintain linking from parent-> child for trees
+        if (CurrentSleSetChildFunc != null)
+            CurrentSleSetChildFunc(CurrentSle, newCurrentSle);
 
         CurrentSle  = newCurrentSle;
+        CurrentSleSetChildFunc = childSetFunc;
+    }
+
+    /// <summary>
+    /// Moves to EXISTING sle.
+    /// </summary>
+    /// <param name="existingSle">Existing sle.</param>
+    /// <param name="childSetFunc">Child set funnc.</param>
+    public void MoveToSle(ISimplifiedLinqExpression existingSle, SetChildDelegate childSetFunc)
+    {
+        if (existingSle is IChainPartSle existingChainSle)
+            CurrentChainSle = existingChainSle;
+        CurrentSle  = existingSle;
         CurrentSleSetChildFunc = childSetFunc;
     }
 }
 
 class ChainExpressionVisitor : ExpressionVisitor
 {
-    //private Stack<DataSource> _dataSourceStack = new();
-    //private Stack<(ParameterExpression Parameter, DataSource DataSource)> _variablesOnStack = new();
-    //private Stack<string> _context = new();
     private readonly VisitorContext _visitorContext;
 
     public ChainExpressionVisitor(VisitorContext context)
@@ -418,16 +452,21 @@ class ChainExpressionVisitor : ExpressionVisitor
         if (string.IsNullOrEmpty(tableName))
             throw new InvalidOperationException();
 
-        _visitorContext.SetCurrent(new TableSle(tableName), null);
+        var chainStart = new TableSle(tableName);
+        _visitorContext.AddSle(chainStart, null);
 
-        // Update current expression
+        // Visit all chain parts
         foreach (var chainItemExpression in chainCalls)
         {
             if (chainItemExpression is MethodCallExpression chainCallExpression &&
                 (chainCallExpression.Method.DeclaringType == typeof(Queryable) || chainCallExpression.Method.DeclaringType == typeof(Enumerable)))
             {
                 if (new[] { "Where", "Any" }.Contains(chainCallExpression.Method.Name) && chainCallExpression.Arguments.Count == 2)
-                    new FilterExpressionVisitor(_visitorContext).Visit(chainCallExpression.Arguments[0]);
+                {
+                    var filterParameter = ExtractParameterVaribleFromFilterExpression(chainCallExpression.Arguments[1]);
+                    var filter = ExtractFilterLambda(chainCallExpression.Arguments[1]);
+                    new FilterExpressionVisitor(_visitorContext).Visit(filter);
+                }
                 else if (new[] { "Select" }.Contains(chainCallExpression.Method.Name) && chainCallExpression.Arguments.Count == 2)
                     continue;
                 else if (new[] { "SelectMany" }.Contains(chainCallExpression.Method.Name) && chainCallExpression.Arguments.Count == 2)
@@ -435,8 +474,32 @@ class ChainExpressionVisitor : ExpressionVisitor
                 else if (new[] { "Any" }.Contains(chainCallExpression.Method.Name) && chainCallExpression.Arguments.Count == 1)
                     continue;
             }
+            else
+                throw new InvalidOperationException();
         }
         return node;
+    }
+
+    private ParameterExpression ExtractParameterVaribleFromFilterExpression(Expression filterExpression)
+    {
+        var unary = (UnaryExpression)filterExpression;
+        if (unary.NodeType != ExpressionType.Quote || unary.IsLifted || unary.IsLiftedToNull || unary.Method != null)
+            throw new NotSupportedException();
+        var lambda = (LambdaExpression)unary.Operand;
+        if (lambda.ReturnType != typeof(bool) || lambda.TailCall || !string.IsNullOrEmpty(lambda.Name) || lambda.Parameters.Count != 1)
+            throw new NotSupportedException();
+        return lambda.Parameters[0];
+    }
+
+    private Expression ExtractFilterLambda(Expression expression)
+    {
+        if (expression is not UnaryExpression unary)
+            throw new InvalidOperationException();
+        if (unary.Method != null)
+            throw new InvalidOperationException();
+        if (unary.IsLifted || unary.IsLiftedToNull)
+            throw new InvalidOperationException();
+        return ((LambdaExpression)unary.Operand).Body;
     }
 }
 
@@ -447,55 +510,71 @@ class FilterExpressionVisitor : ExpressionVisitor
     //private Stack<(ParameterExpression Parameter, DataSource DataSource)> _variablesOnStack = new();
     //private Stack<string> _context = new();
     private readonly VisitorContext _visitorContext;
-    private ISimplifiedLinqExpression _currentExpression;
-    private BinarySide? _currentBinarySide;
+    //private ISimplifiedLinqExpression _currentExpression;
+    //private BinarySide? _currentBinarySide;
 
     public TableSle SimplifiedExpression { get; private set; }
 
     public FilterExpressionVisitor(VisitorContext context)
     {
         _visitorContext = context;
+        _visitorContext.AddSle(new FilterSle(), (p, c) => ((FilterSle)p).InnerExpression = c);
+    }
+
+    protected override Expression VisitBinary(BinaryExpression node)
+    {
+        var binarySle = new FilterBinarySle();
+        _visitorContext.AddSle(binarySle, (p, c) => ((FilterBinarySle)p).LeftExpression = c);
+        Visit(node.Left);
+
+        _visitorContext.MoveToSle(binarySle, (p, c) => ((FilterBinarySle)p).RightExpression = c);
+        Visit(node.Right);
+        return node;
     }
 
     [return: NotNullIfNotNull("node")]
     public override Expression Visit(Expression node)
     {
-        var chainCalls = ExpressionOrderFixer.GetReorderedChainCall(node).ToArray();
-        if (chainCalls.Length == 0)
+        if (node is BinaryExpression)
             return base.Visit(node);
-        var tableName = ExpressionHelpers.GetTableName(chainCalls[0]);
-        if (!string.IsNullOrEmpty(tableName))
-            chainCalls = chainCalls.Skip(1).ToArray();
-        else if (string.IsNullOrEmpty(tableName) && chainCalls.Length > 1)
-        {
-            tableName = ExpressionHelpers.GetTableName(chainCalls[1]);
-            if (!string.IsNullOrEmpty(tableName))
-                chainCalls  = chainCalls.Skip(2).ToArray();
-        }
-        if (string.IsNullOrEmpty(tableName))
-            return base.Visit(node);
-        if (SimplifiedExpression != null)
-            throw new NotSupportedException();
-        SimplifiedExpression = new TableSle(tableName);
-        _currentExpression = SimplifiedExpression;
+        else
+            return new ChainExpressionVisitor(_visitorContext).Visit(node);
+        //var chainCalls = ExpressionOrderFixer.GetReorderedChainCall(node).ToArray();
+        //if (chainCalls.Length == 0)
+        //    return base.Visit(node);
+        //var tableName = ExpressionHelpers.GetTableName(chainCalls[0]);
+        //if (!string.IsNullOrEmpty(tableName))
+        //    chainCalls = chainCalls.Skip(1).ToArray();
+        //else if (string.IsNullOrEmpty(tableName) && chainCalls.Length > 1)
+        //{
+        //    tableName = ExpressionHelpers.GetTableName(chainCalls[1]);
+        //    if (!string.IsNullOrEmpty(tableName))
+        //        chainCalls  = chainCalls.Skip(2).ToArray();
+        //}
+        //if (string.IsNullOrEmpty(tableName))
+        //    return base.Visit(node);
+        //if (SimplifiedExpression != null)
+        //    throw new NotSupportedException();
+        //SimplifiedExpression = new TableSle(tableName);
+        //_currentExpression = SimplifiedExpression;
 
-        foreach (var chainItemExpression in chainCalls)
-        {
-            if (chainItemExpression is MethodCallExpression chainCallExpression &&
-                (chainCallExpression.Method.DeclaringType == typeof(Queryable) || chainCallExpression.Method.DeclaringType == typeof(Enumerable)))
-            {
-                if (new[] { "Where", "Any" }.Contains(chainCallExpression.Method.Name) && chainCallExpression.Arguments.Count == 2)
-                {
-                    Visit(chainCallExpression.Arguments[1]);
-                }
-                else if (new[] { "Select" }.Contains(chainCallExpression.Method.Name) && chainCallExpression.Arguments.Count == 2)
-                    continue;
-                else if (new[] { "SelectMany" }.Contains(chainCallExpression.Method.Name) && chainCallExpression.Arguments.Count == 2)
-                    continue;
-                else if (new[] { "Any" }.Contains(chainCallExpression.Method.Name) && chainCallExpression.Arguments.Count == 1)
-                    continue;
-            }
-        }
+        //foreach (var chainItemExpression in chainCalls)
+        //{
+        //    if (chainItemExpression is MethodCallExpression chainCallExpression &&
+        //        (chainCallExpression.Method.DeclaringType == typeof(Queryable) || chainCallExpression.Method.DeclaringType == typeof(Enumerable)))
+        //    {
+        //        if (new[] { "Where", "Any" }.Contains(chainCallExpression.Method.Name) && chainCallExpression.Arguments.Count == 2)
+        //        {
+        //            Visit(chainCallExpression.Arguments[1]);
+        //        }
+        //        else if (new[] { "Select" }.Contains(chainCallExpression.Method.Name) && chainCallExpression.Arguments.Count == 2)
+        //            continue;
+        //        else if (new[] { "SelectMany" }.Contains(chainCallExpression.Method.Name) && chainCallExpression.Arguments.Count == 2)
+        //            continue;
+        //        else if (new[] { "Any" }.Contains(chainCallExpression.Method.Name) && chainCallExpression.Arguments.Count == 1)
+        //            continue;
+        //    }
+        //}
         return node;
     }
 
@@ -513,16 +592,7 @@ class FilterExpressionVisitor : ExpressionVisitor
     //    return base.VisitBinary(node);
     //}
 
-    //private ParameterExpression ExtractParameterVaribleFromFilterExpression(Expression filterExpression)
-    //{
-    //    var unary = (UnaryExpression)filterExpression;
-    //    if (unary.NodeType != ExpressionType.Quote || unary.IsLifted || unary.IsLiftedToNull || unary.Method != null)
-    //        throw new NotSupportedException();
-    //    var lambda = (LambdaExpression)unary.Operand;
-    //    if (lambda.ReturnType != typeof(bool) || lambda.TailCall || !string.IsNullOrEmpty(lambda.Name) || lambda.Parameters.Count != 1)
-    //        throw new NotSupportedException();
-    //    return lambda.Parameters[0];
-    //}
+    
 
     //private TableDataSource PeekTableFromDataSources()
     //{
