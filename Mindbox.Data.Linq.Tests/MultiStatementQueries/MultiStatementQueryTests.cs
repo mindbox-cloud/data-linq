@@ -291,6 +291,7 @@ public class MultiStatementQueryTests
             .Expression;
 
 
+
         var visitorContext = new VisitorContext(new DbColumnTypeProvider());
         var visitor = new ChainExpressionVisitor(visitorContext);
         visitor.Visit(queryExpression);
@@ -301,21 +302,47 @@ public class MultiStatementQueryTests
     }
 }
 
+/// <summary>
+/// Marker base interface.
+/// </summary>
 interface ISimplifiedLinqExpression
 {
 }
 
+/// <summary>
+/// Single statement from chained statmenets. 
+/// Exmaple
+///     Chained statement: User.CustomerAction.CustomField
+///     IChainPartSle instances: User, CustomerAction, CustomerField
+/// </summary>
 interface IChainPartSle : ISimplifiedLinqExpression
 {
     IChainPartSle PreviousChainExpression { get; set; }
     IChainPartSle NextChainExpression { get; set; }
 }
 
+/// <summary>
+/// Tree like statement from tree statements. 
+/// Example:
+///     Tree statement: (USer.Id == 10) || (User.Name == "asdf") 
+///     ITreePartSle parts:
+///                                 (USer.Id == 10)     ||       (User.Name == "asdf")
+///                             User.Id          10           User.Name          "asdf"
+/// </summary>
 interface ITreePartSle : ISimplifiedLinqExpression
 {
     ISimplifiedLinqExpression ParentExpression { get; set; }
 }
 
+/// <summary>
+/// Source of rows.
+/// Examples:
+///    TableSle
+///    SelectSle
+///    AssociationSle 
+///    
+/// Note: SelectSle and AssociationSle are analogs.
+/// </summary>
 interface IRowSourceSle : IChainPartSle
 {
 }
@@ -333,6 +360,29 @@ class TableSle : IRowSourceSle
     }
 }
 
+class ReferenceRowSourceSle : IChainPartSle
+{
+    public IChainPartSle ReferenceRowSource { get; set; }
+    public IChainPartSle PreviousChainExpression { get; set; }
+    public IChainPartSle NextChainExpression { get; set; }
+}
+
+class ColumnAccessSle : IChainPartSle
+{
+    public string ColumnName { get; set; }
+    public IChainPartSle PreviousChainExpression { get; set; }
+    public IChainPartSle NextChainExpression { get; set; }
+}
+
+class AssociationSle : IRowSourceSle
+{
+    public string ColumnName { get; set; }
+    public string NextTableName { get; set; }
+    public string NextTableColumnName { get; set; }
+    public IChainPartSle PreviousChainExpression { get; set; }
+    public IChainPartSle NextChainExpression { get; set; }
+}
+
 class FilterSle : IChainPartSle, ITreePartSle
 {
     public ISimplifiedLinqExpression ParentExpression { get; set; }
@@ -348,7 +398,7 @@ class FilterBinarySle : ITreePartSle
     public ISimplifiedLinqExpression RightExpression { get; set; }
 }
 
-class SelectSle : IChainPartSle
+class SelectSle : IRowSourceSle
 {
     public IChainPartSle PreviousChainExpression { get; set; }
     public IChainPartSle NextChainExpression { get; set; }
@@ -358,7 +408,7 @@ delegate void SetChildDelegate(ISimplifiedLinqExpression parent, ISimplifiedLinq
 
 class VisitorContext
 {
-    public Dictionary<ParameterExpression, ISimplifiedLinqExpression> ParameterToSle { get; private set; } = new();
+    public Dictionary<ParameterExpression, IChainPartSle> ParameterToSle { get; private set; } = new();
     public ISimplifiedLinqExpression Root { get; set; }
     public IDbColumnTypeProvider ColumnTypeProvider { get; private set; }
     public IChainPartSle CurrentChainSle { get; private set; }
@@ -449,11 +499,28 @@ class ChainExpressionVisitor : ExpressionVisitor
             if (!string.IsNullOrEmpty(tableName))
                 chainCalls  = chainCalls.Skip(2).ToArray();
         }
-        if (string.IsNullOrEmpty(tableName))
-            throw new InvalidOperationException();
 
-        var chainStart = new TableSle(tableName);
-        _visitorContext.AddSle(chainStart, null);
+        IChainPartSle currentChainSle;
+        if (!string.IsNullOrEmpty(tableName))
+            currentChainSle = new TableSle(tableName);
+        else
+        {
+            // May be we are accessing table via parameter 
+            if (chainCalls[0] is ParameterExpression parameterExpression && _visitorContext.ParameterToSle.TryGetValue(parameterExpression, out var parameterSle))
+            {
+                if (parameterSle is TableSle parameerTableSle)
+                {
+                    currentChainSle = new ReferenceRowSourceSle() { ReferenceRowSource = parameerTableSle };
+                    chainCalls = chainCalls.Skip(1).ToArray();
+                }
+                else
+                    throw new InvalidOperationException();
+            }
+            else
+                throw new InvalidOperationException();
+        }
+
+        _visitorContext.AddSle(currentChainSle, null);
 
         // Visit all chain parts
         foreach (var chainItemExpression in chainCalls)
@@ -464,6 +531,7 @@ class ChainExpressionVisitor : ExpressionVisitor
                 if (new[] { "Where", "Any" }.Contains(chainCallExpression.Method.Name) && chainCallExpression.Arguments.Count == 2)
                 {
                     var filterParameter = ExtractParameterVaribleFromFilterExpression(chainCallExpression.Arguments[1]);
+                    _visitorContext.ParameterToSle.Add(filterParameter, currentChainSle);
                     var filter = ExtractFilterLambda(chainCallExpression.Arguments[1]);
                     new FilterExpressionVisitor(_visitorContext).Visit(filter);
                 }
@@ -473,6 +541,25 @@ class ChainExpressionVisitor : ExpressionVisitor
                     continue;
                 else if (new[] { "Any" }.Contains(chainCallExpression.Method.Name) && chainCallExpression.Arguments.Count == 1)
                     continue;
+            }
+            else if (chainItemExpression is MemberExpression memberExpression)
+            {
+                if (memberExpression.Member is PropertyInfo memberProperty)
+                {
+                    if (memberProperty.CustomAttributes.Any(p => p.AttributeType == typeof(ColumnAttribute)))
+                        _visitorContext.AddSle(new ColumnAccessSle() { ColumnName = memberProperty.Name }, null);
+                    else if (memberProperty.CustomAttributes.Any(p => p.AttributeType == typeof(AssociationAttribute)))
+                    {
+                        var associationAttribute = memberProperty.CustomAttributes.SingleOrDefault(p => p.AttributeType == typeof(AssociationAttribute));
+                        var nextTableName = memberProperty.PropertyType.CustomAttributes.Single(c => c.AttributeType == typeof(TableAttribute)).NamedArguments
+                            .Single(a => a.MemberName == nameof(TableAttribute.Name)).TypedValue.Value.ToString();
+                        var currentTableField = associationAttribute.NamedArguments.Single(a => a.MemberName == nameof(AssociationAttribute.ThisKey)).TypedValue.Value.ToString();
+                        var otherTableField = associationAttribute.NamedArguments.Single(a => a.MemberName == nameof(AssociationAttribute.OtherKey)).TypedValue.Value.ToString();
+                        _visitorContext.AddSle(new AssociationSle() { ColumnName = currentTableField, NextTableName = nextTableName, NextTableColumnName = otherTableField }, null);
+                    }
+                }
+                else
+                    throw new InvalidOperationException();
             }
             else
                 throw new InvalidOperationException();
@@ -575,7 +662,7 @@ class FilterExpressionVisitor : ExpressionVisitor
         //            continue;
         //    }
         //}
-        return node;
+        //return node;
     }
 
     //protected override Expression VisitMethodCall(MethodCallExpression node)
@@ -592,7 +679,7 @@ class FilterExpressionVisitor : ExpressionVisitor
     //    return base.VisitBinary(node);
     //}
 
-    
+
 
     //private TableDataSource PeekTableFromDataSources()
     //{
