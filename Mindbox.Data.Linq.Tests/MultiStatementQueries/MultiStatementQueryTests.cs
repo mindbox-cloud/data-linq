@@ -374,6 +374,12 @@ class ColumnAccessSle : IChainPartSle
     public IChainPartSle NextChainExpression { get; set; }
 }
 
+class FixedValueSle : IChainPartSle
+{
+    public IChainPartSle PreviousChainExpression { get; set; }
+    public IChainPartSle NextChainExpression { get; set; }
+}
+
 class AssociationSle : IRowSourceSle
 {
     public string ColumnName { get; set; }
@@ -411,13 +417,31 @@ class VisitorContext
     public Dictionary<ParameterExpression, IChainPartSle> ParameterToSle { get; private set; } = new();
     public ISimplifiedLinqExpression Root { get; set; }
     public IDbColumnTypeProvider ColumnTypeProvider { get; private set; }
+
+
+
     public IChainPartSle CurrentChainSle { get; private set; }
     public ISimplifiedLinqExpression CurrentSle { get; private set; }
     public SetChildDelegate CurrentSleSetChildFunc { get; private set; }
 
+
+    Didicated methods for tree an d chain
+    public IChainPartSle CurrentChainSle2 { get; private set; }
+    public ITreePartSle CurrentTreeParent { get; private set; }
+    //public SetChildDelegate CurrentSleSetChildFunc { get; private set; }
+
     public VisitorContext(IDbColumnTypeProvider columnTypeProvider)
     {
         ColumnTypeProvider = columnTypeProvider;
+    }
+
+    /// <summary>
+    /// Adds chain sle.
+    /// </summary>
+    /// <param name="chainSle">Chain.</param>
+    public void AddChain(IChainPartSle chainSle)
+    {
+
     }
 
     /// <summary>
@@ -449,7 +473,7 @@ class VisitorContext
             newCurrentSleAsChain.PreviousChainExpression = currentChainSle;
         }
 
-        /// Maitain linking for trees
+        /// Maintain linking for trees
         if (newCurrentSle is ITreePartSle newCurrentTreeSle && CurrentSle is ITreePartSle currentTreeSle)
             newCurrentTreeSle.ParentExpression = currentTreeSle;
 
@@ -459,6 +483,14 @@ class VisitorContext
 
         CurrentSle  = newCurrentSle;
         CurrentSleSetChildFunc = childSetFunc;
+    }
+
+    /// <summary>
+    /// Restarts chain.
+    /// </summary>
+    public void RestartChain()
+    {
+        CurrentChainSle = null;
     }
 
     /// <summary>
@@ -487,6 +519,30 @@ class ChainExpressionVisitor : ExpressionVisitor
     [return: NotNullIfNotNull("node")]
     public override Expression Visit(Expression node)
     {
+        if (UnwrpaNode(node) is ConstantExpression constantExpression)
+        {
+            _visitorContext.AddSle(new FixedValueSle(), null);
+            return node;
+        }
+
+        return VisitChain(node);
+    }
+
+    private Expression UnwrpaNode(Expression node)
+    {
+        // Removes all convers.
+        while (true)
+        {
+            if (node is not UnaryExpression unaryExpression)
+                return node;
+            if (unaryExpression.NodeType != ExpressionType.Convert)
+                return node;
+            node = unaryExpression.Operand;
+        }
+    }
+
+    private Expression VisitChain(Expression node)
+    {
         var chainCalls = ExpressionOrderFixer.GetReorderedChainCall(node).ToArray();
         if (chainCalls.Length == 0)
             throw new InvalidOperationException();
@@ -500,9 +556,9 @@ class ChainExpressionVisitor : ExpressionVisitor
                 chainCalls  = chainCalls.Skip(2).ToArray();
         }
 
-        IChainPartSle currentChainSle;
+        IChainPartSle chainStartSle;
         if (!string.IsNullOrEmpty(tableName))
-            currentChainSle = new TableSle(tableName);
+            chainStartSle = new TableSle(tableName);
         else
         {
             // May be we are accessing table via parameter 
@@ -510,7 +566,7 @@ class ChainExpressionVisitor : ExpressionVisitor
             {
                 if (parameterSle is TableSle parameerTableSle)
                 {
-                    currentChainSle = new ReferenceRowSourceSle() { ReferenceRowSource = parameerTableSle };
+                    chainStartSle = new ReferenceRowSourceSle() { ReferenceRowSource = parameerTableSle };
                     chainCalls = chainCalls.Skip(1).ToArray();
                 }
                 else
@@ -520,7 +576,7 @@ class ChainExpressionVisitor : ExpressionVisitor
                 throw new InvalidOperationException();
         }
 
-        _visitorContext.AddSle(currentChainSle, null);
+        _visitorContext.AddSle(chainStartSle, null);
 
         // Visit all chain parts
         foreach (var chainItemExpression in chainCalls)
@@ -531,9 +587,11 @@ class ChainExpressionVisitor : ExpressionVisitor
                 if (new[] { "Where", "Any" }.Contains(chainCallExpression.Method.Name) && chainCallExpression.Arguments.Count == 2)
                 {
                     var filterParameter = ExtractParameterVaribleFromFilterExpression(chainCallExpression.Arguments[1]);
-                    _visitorContext.ParameterToSle.Add(filterParameter, currentChainSle);
+                    _visitorContext.ParameterToSle.Add(filterParameter, chainStartSle);
                     var filter = ExtractFilterLambda(chainCallExpression.Arguments[1]);
-                    new FilterExpressionVisitor(_visitorContext).Visit(filter);
+                    var filterVisitor = new FilterExpressionVisitor(_visitorContext);
+                    filterVisitor.Visit(filter);
+                    _visitorContext.MoveToSle(filterVisitor.FilterSle, null);
                 }
                 else if (new[] { "Select" }.Contains(chainCallExpression.Method.Name) && chainCallExpression.Arguments.Count == 2)
                     continue;
@@ -600,12 +658,19 @@ class FilterExpressionVisitor : ExpressionVisitor
     //private ISimplifiedLinqExpression _currentExpression;
     //private BinarySide? _currentBinarySide;
 
-    public TableSle SimplifiedExpression { get; private set; }
+    //public TableSle SimplifiedExpression { get; private set; }
+
+    /// <summary>
+    /// Filter sle.
+    /// </summary>
+    public FilterSle FilterSle { get; private set; }
 
     public FilterExpressionVisitor(VisitorContext context)
     {
         _visitorContext = context;
-        _visitorContext.AddSle(new FilterSle(), (p, c) => ((FilterSle)p).InnerExpression = c);
+        FilterSle = new FilterSle();
+        _visitorContext.AddSle(FilterSle, (p, c) => ((FilterSle)p).InnerExpression = c);
+        _visitorContext.RestartChain();
     }
 
     protected override Expression VisitBinary(BinaryExpression node)
