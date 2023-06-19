@@ -335,6 +335,14 @@ interface ITreePartSle : ISimplifiedLinqExpression
 }
 
 /// <summary>
+/// Chain with tree sle.
+/// </summary>
+interface IChainWithTreePartSle : IChainPartSle, ITreePartSle
+{
+
+}
+
+/// <summary>
 /// Source of rows.
 /// Examples:
 ///    TableSle
@@ -389,7 +397,7 @@ class AssociationSle : IRowSourceSle
     public IChainPartSle NextChainExpression { get; set; }
 }
 
-class FilterSle : IChainPartSle, ITreePartSle
+class FilterSle : IChainWithTreePartSle
 {
     public ISimplifiedLinqExpression ParentExpression { get; set; }
     public IChainPartSle PreviousChainExpression { get; set; }
@@ -418,17 +426,9 @@ class VisitorContext
     public ISimplifiedLinqExpression Root { get; set; }
     public IDbColumnTypeProvider ColumnTypeProvider { get; private set; }
 
-
-
     public IChainPartSle CurrentChainSle { get; private set; }
-    public ISimplifiedLinqExpression CurrentSle { get; private set; }
-    public SetChildDelegate CurrentSleSetChildFunc { get; private set; }
-
-
-    Didicated methods for tree an d chain
-    public IChainPartSle CurrentChainSle2 { get; private set; }
-    public ITreePartSle CurrentTreeParent { get; private set; }
-    //public SetChildDelegate CurrentSleSetChildFunc { get; private set; }
+    public ITreePartSle CurrentTreeSle { get; private set; }
+    public SetChildDelegate CurrentTreeSleSetChildFunc { get; private set; }
 
     public VisitorContext(IDbColumnTypeProvider columnTypeProvider)
     {
@@ -439,71 +439,95 @@ class VisitorContext
     /// Adds chain sle.
     /// </summary>
     /// <param name="chainSle">Chain.</param>
-    public void AddChain(IChainPartSle chainSle)
+    public void AddChain(IChainPartSle newChainSle)
     {
-
-    }
-
-    /// <summary>
-    /// Add NEW sle.
-    /// </summary>
-    /// <param name="newCurrentSle">New sle.</param>
-    /// <param name="childSetFunc">Child set func.</param>
-    public void AddSle(ISimplifiedLinqExpression newCurrentSle, SetChildDelegate childSetFunc)
-    {
-        // If same sle -> only replace child set func.
-        if (newCurrentSle == CurrentSle)
-        {
-            CurrentSleSetChildFunc = childSetFunc;
-            return;
-        }
-
-        var newCurrentSleAsChain = newCurrentSle as IChainPartSle;
+        if (newChainSle is ITreePartSle)
+            throw new InvalidOperationException();
         if (Root == null)
+            Root = newChainSle;
+
+        if (CurrentChainSle != null)
         {
-            if (newCurrentSleAsChain == null)
-                throw new InvalidOperationException();
-            Root = newCurrentSleAsChain;
+            CurrentChainSle.NextChainExpression = newChainSle;
+            newChainSle.PreviousChainExpression = CurrentChainSle;
         }
 
-        // Maintain linking for chains
-        if (newCurrentSleAsChain != null && CurrentSle is IChainPartSle currentChainSle)
-        {
-            currentChainSle.NextChainExpression = newCurrentSleAsChain;
-            newCurrentSleAsChain.PreviousChainExpression = currentChainSle;
-        }
-
-        /// Maintain linking for trees
-        if (newCurrentSle is ITreePartSle newCurrentTreeSle && CurrentSle is ITreePartSle currentTreeSle)
-            newCurrentTreeSle.ParentExpression = currentTreeSle;
 
         // Maintain linking from parent-> child for trees
-        if (CurrentSleSetChildFunc != null)
-            CurrentSleSetChildFunc(CurrentSle, newCurrentSle);
+        if (CurrentTreeSleSetChildFunc != null)
+            CurrentTreeSleSetChildFunc(CurrentTreeSle, newChainSle);
 
-        CurrentSle  = newCurrentSle;
-        CurrentSleSetChildFunc = childSetFunc;
+        CurrentTreeSleSetChildFunc = null;
+        CurrentTreeSle = null;
+        CurrentChainSle = newChainSle;
     }
 
     /// <summary>
-    /// Restarts chain.
+    /// Adds tree node.
     /// </summary>
-    public void RestartChain()
+    /// <param name="newTreeNodeSle">New tree node sle.</param>
+    /// <param name="childSetFunc">Child set func.</param>
+    public void AddTreeNode(ITreePartSle newTreeNodeSle, SetChildDelegate childSetFunc)
     {
+        if (newTreeNodeSle is IChainPartSle)
+            throw new InvalidOperationException();
+        if (Root == null)
+            throw new InvalidOperationException();
+
         CurrentChainSle = null;
+        CurrentTreeSleSetChildFunc(CurrentTreeSle, newTreeNodeSle);
+        newTreeNodeSle.ParentExpression = CurrentTreeSle;
+        CurrentTreeSle = newTreeNodeSle;
+        CurrentTreeSleSetChildFunc = childSetFunc;
     }
 
     /// <summary>
-    /// Moves to EXISTING sle.
+    /// Add chain with root tree sle.
+    /// </summary>
+    /// <param name="newChainWithTree">New chain sle.</param>
+    /// <param name="childSetFunc">Child set func.</param>
+    public void AddChainWithRootTree(IChainWithTreePartSle newChainWithTree, SetChildDelegate childSetFunc)
+    {
+        if (Root == null)
+            throw new InvalidOperationException();
+
+        // Set link in chain
+        if (CurrentChainSle != null)
+        {
+            CurrentChainSle.NextChainExpression = newChainWithTree;
+            newChainWithTree.PreviousChainExpression = CurrentChainSle;
+        }
+
+        // This tree is always root of tree, we expect to traverse it as next step
+        CurrentChainSle = null;
+        CurrentTreeSle = newChainWithTree;
+        CurrentTreeSleSetChildFunc = childSetFunc;
+    }
+
+    /// <summary>
+    /// Moves to existing chain sle.
+    /// </summary>
+    /// <param name="existingSle">Existing sle.</param>
+    public void MoveToChainSle(IChainPartSle existingSle)
+    {
+        CurrentChainSle = existingSle;
+        CurrentTreeSle = null;
+        CurrentTreeSleSetChildFunc = null;
+    }
+
+    /// <summary>
+    /// Moves to existing sle.
     /// </summary>
     /// <param name="existingSle">Existing sle.</param>
     /// <param name="childSetFunc">Child set funnc.</param>
-    public void MoveToSle(ISimplifiedLinqExpression existingSle, SetChildDelegate childSetFunc)
+    public void MoveToTreeSle(ITreePartSle existingSle, SetChildDelegate childSetFunc)
     {
-        if (existingSle is IChainPartSle existingChainSle)
-            CurrentChainSle = existingChainSle;
-        CurrentSle  = existingSle;
-        CurrentSleSetChildFunc = childSetFunc;
+        if (existingSle is IChainPartSle)
+            throw new InvalidOperationException();
+
+        CurrentChainSle = null;
+        CurrentTreeSle = existingSle;
+        CurrentTreeSleSetChildFunc = childSetFunc;
     }
 }
 
@@ -519,9 +543,9 @@ class ChainExpressionVisitor : ExpressionVisitor
     [return: NotNullIfNotNull("node")]
     public override Expression Visit(Expression node)
     {
-        if (UnwrpaNode(node) is ConstantExpression constantExpression)
+        if (UnwrpaNode(node) is ConstantExpression)
         {
-            _visitorContext.AddSle(new FixedValueSle(), null);
+            _visitorContext.AddChain(new FixedValueSle());
             return node;
         }
 
@@ -576,7 +600,7 @@ class ChainExpressionVisitor : ExpressionVisitor
                 throw new InvalidOperationException();
         }
 
-        _visitorContext.AddSle(chainStartSle, null);
+        _visitorContext.AddChain(chainStartSle);
 
         // Visit all chain parts
         foreach (var chainItemExpression in chainCalls)
@@ -591,7 +615,7 @@ class ChainExpressionVisitor : ExpressionVisitor
                     var filter = ExtractFilterLambda(chainCallExpression.Arguments[1]);
                     var filterVisitor = new FilterExpressionVisitor(_visitorContext);
                     filterVisitor.Visit(filter);
-                    _visitorContext.MoveToSle(filterVisitor.FilterSle, null);
+                    _visitorContext.MoveToChainSle(filterVisitor.FilterSle);
                 }
                 else if (new[] { "Select" }.Contains(chainCallExpression.Method.Name) && chainCallExpression.Arguments.Count == 2)
                     continue;
@@ -605,7 +629,7 @@ class ChainExpressionVisitor : ExpressionVisitor
                 if (memberExpression.Member is PropertyInfo memberProperty)
                 {
                     if (memberProperty.CustomAttributes.Any(p => p.AttributeType == typeof(ColumnAttribute)))
-                        _visitorContext.AddSle(new ColumnAccessSle() { ColumnName = memberProperty.Name }, null);
+                        _visitorContext.AddChain(new ColumnAccessSle() { ColumnName = memberProperty.Name });
                     else if (memberProperty.CustomAttributes.Any(p => p.AttributeType == typeof(AssociationAttribute)))
                     {
                         var associationAttribute = memberProperty.CustomAttributes.SingleOrDefault(p => p.AttributeType == typeof(AssociationAttribute));
@@ -613,7 +637,7 @@ class ChainExpressionVisitor : ExpressionVisitor
                             .Single(a => a.MemberName == nameof(TableAttribute.Name)).TypedValue.Value.ToString();
                         var currentTableField = associationAttribute.NamedArguments.Single(a => a.MemberName == nameof(AssociationAttribute.ThisKey)).TypedValue.Value.ToString();
                         var otherTableField = associationAttribute.NamedArguments.Single(a => a.MemberName == nameof(AssociationAttribute.OtherKey)).TypedValue.Value.ToString();
-                        _visitorContext.AddSle(new AssociationSle() { ColumnName = currentTableField, NextTableName = nextTableName, NextTableColumnName = otherTableField }, null);
+                        _visitorContext.AddChain(new AssociationSle() { ColumnName = currentTableField, NextTableName = nextTableName, NextTableColumnName = otherTableField });
                     }
                 }
                 else
@@ -669,17 +693,16 @@ class FilterExpressionVisitor : ExpressionVisitor
     {
         _visitorContext = context;
         FilterSle = new FilterSle();
-        _visitorContext.AddSle(FilterSle, (p, c) => ((FilterSle)p).InnerExpression = c);
-        _visitorContext.RestartChain();
+        _visitorContext.AddChainWithRootTree(FilterSle, (p, c) => ((FilterSle)p).InnerExpression = c);
     }
 
     protected override Expression VisitBinary(BinaryExpression node)
     {
         var binarySle = new FilterBinarySle();
-        _visitorContext.AddSle(binarySle, (p, c) => ((FilterBinarySle)p).LeftExpression = c);
+        _visitorContext.AddTreeNode(binarySle, (p, c) => ((FilterBinarySle)p).LeftExpression = c);
         Visit(node.Left);
 
-        _visitorContext.MoveToSle(binarySle, (p, c) => ((FilterBinarySle)p).RightExpression = c);
+        _visitorContext.MoveToTreeSle(binarySle, (p, c) => ((FilterBinarySle)p).RightExpression = c);
         Visit(node.Right);
         return node;
     }
