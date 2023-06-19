@@ -412,10 +412,13 @@ class FilterBinarySle : ITreePartSle
     public ISimplifiedLinqExpression RightExpression { get; set; }
 }
 
-class SelectSle : IRowSourceSle
+class SelectSle : IRowSourceSle, IChainWithTreePartSle
 {
     public IChainPartSle PreviousChainExpression { get; set; }
     public IChainPartSle NextChainExpression { get; set; }
+    public ISimplifiedLinqExpression ParentExpression { get; set; }
+    public ISimplifiedLinqExpression InnerExpression { get; set; }
+
 }
 
 delegate void SetChildDelegate(ISimplifiedLinqExpression parent, ISimplifiedLinqExpression child);
@@ -580,9 +583,9 @@ class ChainExpressionVisitor : ExpressionVisitor
                 chainCalls  = chainCalls.Skip(2).ToArray();
         }
 
-        IChainPartSle chainStartSle;
+        IChainPartSle lastRowSourceSle;
         if (!string.IsNullOrEmpty(tableName))
-            chainStartSle = new TableSle(tableName);
+            lastRowSourceSle = new TableSle(tableName);
         else
         {
             // May be we are accessing table via parameter 
@@ -590,7 +593,7 @@ class ChainExpressionVisitor : ExpressionVisitor
             {
                 if (parameterSle is TableSle parameerTableSle)
                 {
-                    chainStartSle = new ReferenceRowSourceSle() { ReferenceRowSource = parameerTableSle };
+                    lastRowSourceSle = new ReferenceRowSourceSle() { ReferenceRowSource = parameerTableSle };
                     chainCalls = chainCalls.Skip(1).ToArray();
                 }
                 else
@@ -600,7 +603,7 @@ class ChainExpressionVisitor : ExpressionVisitor
                 throw new InvalidOperationException();
         }
 
-        _visitorContext.AddChain(chainStartSle);
+        _visitorContext.AddChain(lastRowSourceSle);
 
         // Visit all chain parts
         foreach (var chainItemExpression in chainCalls)
@@ -611,16 +614,28 @@ class ChainExpressionVisitor : ExpressionVisitor
                 if (new[] { "Where", "Any" }.Contains(chainCallExpression.Method.Name) && chainCallExpression.Arguments.Count == 2)
                 {
                     var filterParameter = ExtractParameterVaribleFromFilterExpression(chainCallExpression.Arguments[1]);
-                    _visitorContext.ParameterToSle.Add(filterParameter, chainStartSle);
+                    _visitorContext.ParameterToSle.Add(filterParameter, lastRowSourceSle);
                     var filter = ExtractFilterLambda(chainCallExpression.Arguments[1]);
                     var filterVisitor = new FilterExpressionVisitor(_visitorContext);
                     filterVisitor.Visit(filter);
                     _visitorContext.MoveToChainSle(filterVisitor.FilterSle);
                 }
                 else if (new[] { "Select" }.Contains(chainCallExpression.Method.Name) && chainCallExpression.Arguments.Count == 2)
-                    continue;
+                {
+                    var filterParameter = ExtractParameterVaribleFromFilterExpression(chainCallExpression.Arguments[1]);
+                    _visitorContext.ParameterToSle.Add(filterParameter, lastRowSourceSle);
+                    var filter = ExtractFilterLambda(chainCallExpression.Arguments[1]);
+                    var filterVisitor = new FilterExpressionVisitor(_visitorContext);
+                    filterVisitor.Visit(filter);
+                    _visitorContext.MoveToChainSle(filterVisitor.FilterSle);
+                    lastRowSourceSle = filterVisitor.FilterSle;
+                    continue; // TODO
+                }
+                    
                 else if (new[] { "SelectMany" }.Contains(chainCallExpression.Method.Name) && chainCallExpression.Arguments.Count == 2)
-                    continue;
+                {
+                    continue; // TODO
+                }
                 else if (new[] { "Any" }.Contains(chainCallExpression.Method.Name) && chainCallExpression.Arguments.Count == 1)
                     continue;
             }
