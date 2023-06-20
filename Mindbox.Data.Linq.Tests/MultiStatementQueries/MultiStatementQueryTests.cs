@@ -591,13 +591,8 @@ class ChainExpressionVisitor : ExpressionVisitor
             // May be we are accessing table via parameter 
             if (chainCalls[0] is ParameterExpression parameterExpression && _visitorContext.ParameterToSle.TryGetValue(parameterExpression, out var parameterSle))
             {
-                if (parameterSle is TableSle parameerTableSle)
-                {
-                    lastRowSourceSle = new ReferenceRowSourceSle() { ReferenceRowSource = parameerTableSle };
-                    chainCalls = chainCalls.Skip(1).ToArray();
-                }
-                else
-                    throw new InvalidOperationException();
+                lastRowSourceSle = new ReferenceRowSourceSle() { ReferenceRowSource = parameterSle };
+                chainCalls = chainCalls.Skip(1).ToArray();
             }
             else
                 throw new InvalidOperationException();
@@ -611,33 +606,32 @@ class ChainExpressionVisitor : ExpressionVisitor
             if (chainItemExpression is MethodCallExpression chainCallExpression &&
                 (chainCallExpression.Method.DeclaringType == typeof(Queryable) || chainCallExpression.Method.DeclaringType == typeof(Enumerable)))
             {
-                if (new[] { "Where", "Any" }.Contains(chainCallExpression.Method.Name) && chainCallExpression.Arguments.Count == 2)
+                if (new[] { "Where", "Any", "Single" }.Contains(chainCallExpression.Method.Name) && chainCallExpression.Arguments.Count == 2)
                 {
                     var filterParameter = ExtractParameterVaribleFromFilterExpression(chainCallExpression.Arguments[1]);
                     _visitorContext.ParameterToSle.Add(filterParameter, lastRowSourceSle);
-                    var filter = ExtractFilterLambda(chainCallExpression.Arguments[1]);
+                    var filter = ExtractFilterLambdaBody(chainCallExpression.Arguments[1]);
                     var filterVisitor = new FilterExpressionVisitor(_visitorContext);
                     filterVisitor.Visit(filter);
                     _visitorContext.MoveToChainSle(filterVisitor.FilterSle);
                 }
-                else if (new[] { "Select" }.Contains(chainCallExpression.Method.Name) && chainCallExpression.Arguments.Count == 2)
+                else if ((new[] { "Select" }.Contains(chainCallExpression.Method.Name) && chainCallExpression.Arguments.Count == 2) ||
+                    (new[] { "SelectMany" }.Contains(chainCallExpression.Method.Name) && chainCallExpression.Arguments.Count == 2))
                 {
-                    var filterParameter = ExtractParameterVaribleFromFilterExpression(chainCallExpression.Arguments[1]);
+                    var filterParameter = ExtractParameterVaribleFromSelectExpression(chainCallExpression.Arguments[1]);
                     _visitorContext.ParameterToSle.Add(filterParameter, lastRowSourceSle);
-                    var filter = ExtractFilterLambda(chainCallExpression.Arguments[1]);
-                    var filterVisitor = new FilterExpressionVisitor(_visitorContext);
-                    filterVisitor.Visit(filter);
-                    _visitorContext.MoveToChainSle(filterVisitor.FilterSle);
-                    lastRowSourceSle = filterVisitor.FilterSle;
-                    continue; // TODO
-                }
-                    
-                else if (new[] { "SelectMany" }.Contains(chainCallExpression.Method.Name) && chainCallExpression.Arguments.Count == 2)
-                {
-                    continue; // TODO
+                    var selectSle = new SelectSle();
+                    _visitorContext.AddChainWithRootTree(selectSle, (p, c) => ((SelectSle)p).InnerExpression = c);
+                    lastRowSourceSle = selectSle;
+                    new ChainExpressionVisitor(_visitorContext).Visit(ExtractSelectLambdaBody(chainCallExpression.Arguments[1]));
+                    continue;
                 }
                 else if (new[] { "Any" }.Contains(chainCallExpression.Method.Name) && chainCallExpression.Arguments.Count == 1)
                     continue;
+                else if (new[] { "Single" }.Contains(chainCallExpression.Method.Name) && chainCallExpression.Arguments.Count == 1)
+                    continue;
+                else
+                    throw new NotSupportedException();
             }
             else if (chainItemExpression is MemberExpression memberExpression)
             {
@@ -648,11 +642,13 @@ class ChainExpressionVisitor : ExpressionVisitor
                     else if (memberProperty.CustomAttributes.Any(p => p.AttributeType == typeof(AssociationAttribute)))
                     {
                         var associationAttribute = memberProperty.CustomAttributes.SingleOrDefault(p => p.AttributeType == typeof(AssociationAttribute));
-                        var nextTableName = memberProperty.PropertyType.CustomAttributes.Single(c => c.AttributeType == typeof(TableAttribute)).NamedArguments
+                        var nextTableName = GetMetaTypeFromAssociation(memberProperty.PropertyType).CustomAttributes.Single(c => c.AttributeType == typeof(TableAttribute)).NamedArguments
                             .Single(a => a.MemberName == nameof(TableAttribute.Name)).TypedValue.Value.ToString();
                         var currentTableField = associationAttribute.NamedArguments.Single(a => a.MemberName == nameof(AssociationAttribute.ThisKey)).TypedValue.Value.ToString();
                         var otherTableField = associationAttribute.NamedArguments.Single(a => a.MemberName == nameof(AssociationAttribute.OtherKey)).TypedValue.Value.ToString();
-                        _visitorContext.AddChain(new AssociationSle() { ColumnName = currentTableField, NextTableName = nextTableName, NextTableColumnName = otherTableField });
+                        var associationSle = new AssociationSle() { ColumnName = currentTableField, NextTableName = nextTableName, NextTableColumnName = otherTableField };
+                        lastRowSourceSle = associationSle;
+                        _visitorContext.AddChain(associationSle);
                     }
                 }
                 else
@@ -664,27 +660,55 @@ class ChainExpressionVisitor : ExpressionVisitor
         return node;
     }
 
+    private Type GetMetaTypeFromAssociation(Type type)
+    {
+        if (type.IsArray)
+            return type.GetElementType();
+        return type;
+    }
+
     private ParameterExpression ExtractParameterVaribleFromFilterExpression(Expression filterExpression)
     {
-        var unary = (UnaryExpression)filterExpression;
-        if (unary.NodeType != ExpressionType.Quote || unary.IsLifted || unary.IsLiftedToNull || unary.Method != null)
-            throw new NotSupportedException();
-        var lambda = (LambdaExpression)unary.Operand;
+        LambdaExpression lambda;
+        if (filterExpression is UnaryExpression unary)
+        {
+            if (unary.NodeType != ExpressionType.Quote || unary.IsLifted || unary.IsLiftedToNull || unary.Method != null)
+                throw new NotSupportedException();
+            lambda = (LambdaExpression)unary.Operand;
+        }
+        else
+            lambda = (LambdaExpression)filterExpression;
         if (lambda.ReturnType != typeof(bool) || lambda.TailCall || !string.IsNullOrEmpty(lambda.Name) || lambda.Parameters.Count != 1)
             throw new NotSupportedException();
         return lambda.Parameters[0];
     }
 
-    private Expression ExtractFilterLambda(Expression expression)
+    private ParameterExpression ExtractParameterVaribleFromSelectExpression(Expression filterExpression)
     {
-        if (expression is not UnaryExpression unary)
-            throw new InvalidOperationException();
-        if (unary.Method != null)
-            throw new InvalidOperationException();
-        if (unary.IsLifted || unary.IsLiftedToNull)
-            throw new InvalidOperationException();
-        return ((LambdaExpression)unary.Operand).Body;
+        var unary = (UnaryExpression)filterExpression;
+        if (unary.NodeType != ExpressionType.Quote || unary.IsLifted || unary.IsLiftedToNull || unary.Method != null)
+            throw new NotSupportedException();
+        var lambda = (LambdaExpression)unary.Operand;
+        if (lambda.TailCall || !string.IsNullOrEmpty(lambda.Name) || lambda.Parameters.Count != 1)
+            throw new NotSupportedException();
+        return lambda.Parameters[0];
     }
+
+    private Expression ExtractFilterLambdaBody(Expression expression)
+    {
+        if (expression is UnaryExpression unary)
+        {
+            if (unary.Method != null)
+                throw new InvalidOperationException();
+            if (unary.IsLifted || unary.IsLiftedToNull)
+                throw new InvalidOperationException();
+            return ((LambdaExpression)unary.Operand).Body;
+        }
+        return ((LambdaExpression)expression).Body;
+    }
+
+    private Expression ExtractSelectLambdaBody(Expression expression)
+        => ExtractFilterLambdaBody(expression);
 }
 
 
