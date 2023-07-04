@@ -29,6 +29,13 @@ class SqlQueryTranslator
     private static MultiStatementQuery TranslateCore(Expression expression, IDbColumnTypeProvider columntTypeProvider)
     {
         var context = new TranslationContext(columntTypeProvider);
+
+        var visitorContext = new VisitorContext(new DbColumnTypeProvider());
+        var visitor = new ChainExpressionVisitor(visitorContext);
+        visitor.Visit(expression);
+
+        
+
         throw new NotSupportedException();
     }
 

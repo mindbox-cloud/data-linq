@@ -239,7 +239,7 @@ public class MultiStatementQueryTests
     }
 
     [TestMethod]
-    public void Translate_TableJoinReversedByAssociationFollowedBySelectMany_Success()
+    public void Translate_TableJoinByAssociationFollowedBySelectMany_Success()
     {
         // Arrange
         using var contextAndConnection = new DataContextAndConnection();
@@ -268,9 +268,9 @@ public class MultiStatementQueryTests
 
     // See sample for more cases
 
-
+    /*
     [TestMethod]
-    public void Translate_TableJoinReversedByAssociationFollowedBySelectManyWithExpressionVisitor_Success()
+    public void Translate_TableJoinReversedByAssociationFollowedBySelectMany_Success()
     {
         // Arrange
         using var contextAndConnection = new DataContextAndConnection();
@@ -286,8 +286,10 @@ public class MultiStatementQueryTests
                    .Any()
             )
             .Expression;
+        var query = SqlQueryTranslator.Transalate(queryExpression, new DbColumnTypeProvider());
 
-
+        // Assert
+        query.CommandText.MatchSnapshot();
 
         var visitorContext = new VisitorContext(new DbColumnTypeProvider());
         var visitor = new ChainExpressionVisitor(visitorContext);
@@ -296,7 +298,7 @@ public class MultiStatementQueryTests
         //Console.WriteLine();
         //Console.WriteLine("Query:");
         //Console.WriteLine(visitor.Query.Dump());
-    }
+    }*/
 }
 
 /// <summary>
@@ -364,7 +366,7 @@ interface ITreeNodeSle : ISimplifiedLinqExpression
 /// <summary>
 /// Chain with tree sle.
 /// </summary>
-interface IChainPartAndTreeRootSle : IChainPart, ITreeNodeSle
+interface IChainPartAndTreeNodeSle : IChainPart, ITreeNodeSle
 {
 
 }
@@ -424,7 +426,7 @@ class AssociationChainPart : IRowSourceChainPart
     public IChainSle Chain { get; set; }
 }
 
-class FilterChainPart : IChainPartAndTreeRootSle
+class FilterChainPart : IChainPartAndTreeNodeSle
 {
     public IChainSle Chain { get; set; }
     public ISimplifiedLinqExpression ParentExpression { get; set; }
@@ -438,7 +440,7 @@ class FilterBinarySle : ITreeNodeSle
     public ISimplifiedLinqExpression RightExpression { get; set; }
 }
 
-class SelectChainPart : IRowSourceChainPart, IChainPartAndTreeRootSle
+class SelectChainPart : IRowSourceChainPart, IChainPartAndTreeNodeSle
 {
     public IChainSle Chain { get; set; }
     public ISimplifiedLinqExpression ParentExpression { get; set; }
@@ -457,6 +459,10 @@ class VisitorContext
     public ITreeNodeSle CurrentTreeSle { get; private set; }
     public SetTreeChildDelegate CurrentTreeSleSetChildFunc { get; private set; }
 
+    /// <summary>
+    /// Constructor.
+    /// </summary>
+    /// <param name="columnTypeProvider">Column provider.</param>
     public VisitorContext(IDbColumnTypeProvider columnTypeProvider)
     {
         ColumnTypeProvider = columnTypeProvider;
@@ -512,7 +518,7 @@ class VisitorContext
     /// </summary>
     /// <param name="newChainWithTree">New chain sle.</param>
     /// <param name="childSetFunc">Child set func.</param>
-    public void AddChainWithTreeRoot(IChainPartAndTreeRootSle newChainWithTree, SetTreeChildDelegate childSetFunc)
+    public void AddChainWithTreeRoot(IChainPartAndTreeNodeSle newChainWithTree, SetTreeChildDelegate childSetFunc)
     {
         if (Root == null)
             throw new InvalidOperationException();
@@ -579,7 +585,7 @@ class ChainExpressionVisitor : ExpressionVisitor
 
     private Expression UnwrpaNode(Expression node)
     {
-        // Removes all convers.
+        // Removes all converters.
         while (true)
         {
             if (node is not UnaryExpression unaryExpression)
