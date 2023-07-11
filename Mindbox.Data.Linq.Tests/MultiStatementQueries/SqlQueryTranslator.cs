@@ -97,7 +97,7 @@ class SqlQueryTranslator
                     connection.OtherTable == this && connection.OtherTableFields.SequenceEqual(fields)))
                     return;
             }
-            _connections.Add(new(this, fields, otherTable, otherTableFields));e
+            _connections.Add(new(this, fields, otherTable, otherTableFields));
         }
     }
 
