@@ -3,7 +3,7 @@ name: Dev Build
 on:
   push:
     branches:
-      - ublish-dev/**
+      - publish-dev/**
 
 jobs:
   build:
