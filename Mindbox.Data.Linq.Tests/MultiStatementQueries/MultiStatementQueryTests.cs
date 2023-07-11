@@ -452,7 +452,7 @@ delegate void SetTreeChildDelegate(ISimplifiedLinqExpression parent, ISimplified
 class VisitorContext
 {
     public Dictionary<ParameterExpression, IChainPart> ParameterToSle { get; private set; } = new();
-    public ISimplifiedLinqExpression Root { get; set; }
+    public IChainSle Root { get; set; }
     public IDbColumnTypeProvider ColumnTypeProvider { get; private set; }
 
     public IChainSle CurrentChain { get; private set; }

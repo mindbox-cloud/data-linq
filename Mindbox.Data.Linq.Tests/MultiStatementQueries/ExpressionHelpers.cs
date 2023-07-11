@@ -35,6 +35,7 @@ internal static class ExpressionHelpers
         var tableName = attribute.NamedArguments.Single(a => a.MemberName == nameof(TableAttribute.Name)).TypedValue.Value.ToString()!;
         return tableName;
     }
+    /*
 
     internal static IEnumerable<JoinCondition> GetJoinConditions(TranslationContext translationContext, TableNode table, IEnumerable<Expression> filters)
     {
@@ -130,6 +131,7 @@ internal static class ExpressionHelpers
             return expression;
         }
     }
+    */
 
-    private record TableAndField(TableNode Table, string Field);
+    // private record TableAndField(TableNode Table, string Field);
 }

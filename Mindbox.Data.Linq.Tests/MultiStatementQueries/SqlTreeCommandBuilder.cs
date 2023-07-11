@@ -8,6 +8,7 @@ namespace Mindbox.Data.Linq.Tests.MultiStatementQueries;
 
 internal class SqlTreeCommandBuilder
 {
+    /*
     public static string Build(MultiStatementQuery query, IDbColumnTypeProvider columntTypeProvider)
     {
         var context = new BuilderContext();
@@ -237,4 +238,5 @@ SELECT * FROM {{variableName}}
             return name;
         }
     }
+    */
 }

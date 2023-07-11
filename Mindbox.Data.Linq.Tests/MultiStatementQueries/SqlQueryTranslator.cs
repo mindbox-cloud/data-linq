@@ -18,25 +18,129 @@ class SqlQueryTranslator
 {
     public static SqlQueryTranslatorResult Transalate(Expression node, IDbColumnTypeProvider columntTypeProvider)
     {
-        var query = TranslateCore(node, columntTypeProvider);
+        TranslateCore(node, columntTypeProvider);
         // SimplifyTree(root);
 
-        var command = SqlTreeCommandBuilder.Build(query, columntTypeProvider);
+        // var command = SqlTreeCommandBuilder.Build(query, columntTypeProvider);
 
-        return new SqlQueryTranslatorResult(command);
+        return new SqlQueryTranslatorResult("");
     }
 
-    private static MultiStatementQuery TranslateCore(Expression expression, IDbColumnTypeProvider columntTypeProvider)
+    private static void TranslateCore(Expression expression, IDbColumnTypeProvider columntTypeProvider)
     {
-        var context = new TranslationContext(columntTypeProvider);
+        // var context = new TranslationContext(columntTypeProvider);
+        var rootSle = TranslateToSimplifiedExpression(expression);
 
+        StringBuilder sb = new();
+
+        foreach (var chainItem in rootSle.Items)
+        {
+            if (chainItem is TableChainPart tableChainPart)
+            {
+                throw new NotSupportedException();
+            }
+            else if (chainItem is SelectChainPart selectChainPart)
+            {
+                throw new NotSupportedException();
+            }
+            else if (chainItem is AssociationChainPart associationChainPart)
+            {
+                throw new NotSupportedException();
+            }
+            else if (chainItem is FilterChainPart filterChainPart)
+            {
+                throw new NotSupportedException();
+            }
+            else
+                throw new NotSupportedException();
+        }
+
+
+
+        throw new NotSupportedException();
+    }
+
+
+
+    private static IChainSle TranslateToSimplifiedExpression(Expression expression)
+    {
         var visitorContext = new VisitorContext(new DbColumnTypeProvider());
         var visitor = new ChainExpressionVisitor(visitorContext);
         visitor.Visit(expression);
+        return visitorContext.Root;
+    }
 
-        
+    class Table
+    {
+        private List<string> _usedFields = new();
+        private List<Connection> _connections = new();
 
-        throw new NotSupportedException();
+        public string Name { get; private set; }
+        public IEnumerable<string> UsedFields => _usedFields;
+        public IEnumerable<Connection> Connections => _connections;
+
+        public void AddField(string name)
+        {
+            if (_usedFields.Contains(name))
+                return;
+            _usedFields.Add(name);
+            _usedFields.Sort();
+        }
+
+        public void AddConnection(IEnumerable<string> fields, Table otherTable, IEnumerable<string> otherTableFields)
+        {
+            foreach (var connection in _connections)
+            {
+                if ((connection.Table == this && connection.TableFields.SequenceEqual(fields) &&
+                    connection.OtherTable == otherTable && connection.OtherTableFields.SequenceEqual(otherTableFields)) ||
+                    (connection.Table == otherTable && connection.TableFields.SequenceEqual(otherTableFields) &&
+                    connection.OtherTable == this && connection.OtherTableFields.SequenceEqual(fields)))
+                    return;
+            }
+            _connections.Add(new(this, fields, otherTable, otherTableFields));e
+        }
+    }
+
+    class Connection
+    {
+        public Table Table { get; private set; }
+        public IEnumerable<string> TableFields { get; private set; }
+        public Table OtherTable { get; private set; }
+        public IEnumerable<string> OtherTableFields { get; private set; }
+
+        public Connection(Table table, IEnumerable<string> tableFields, Table otherTable, IEnumerable<string> otherTableFields)
+        {
+            Table = table;
+            TableFields = tableFields.OrderBy(f => f).ToArray();
+            OtherTable = otherTable;
+            OtherTableFields = otherTableFields.OrderBy(f => f).ToArray();
+        }
+    }
+
+    class TranslationContext
+    {
+        private Dictionary<ISimplifiedLinqExpression, string> _variableNames = new();
+        public StringBuilder StringBuilder { get; } = new StringBuilder();
+
+        public string GetVariableName(ISimplifiedLinqExpression sle, string tableName)
+        {
+            if (!_variableNames.TryGetValue(sle, out var name))
+            {
+                name = $"@table{tableName.Replace('.', '_')}";
+                if (_variableNames.Values.Contains(name))
+                {
+                    int counter = 2;
+                    while (true)
+                    {
+                        name = $"@table{tableName.Replace('.', '_')}_{counter++}";
+                        if (!_variableNames.Values.Contains(name))
+                            break;
+                    }
+                }
+                _variableNames.Add(sle, name);
+            }
+            return name;
+        }
     }
 
     /*
@@ -255,7 +359,7 @@ class SqlQueryTranslator
     }
      */
 }
-
+/*
 class MultiStatementQuery
 {
     private List<TableNode> _tables = new();
@@ -516,6 +620,7 @@ class TranslationContext
                 table.AddJoinCondition(joinCondition);
     }
 }
+*/
 
 public interface IDbColumnTypeProvider
 {
