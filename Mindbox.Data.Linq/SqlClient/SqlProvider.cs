@@ -8,7 +8,7 @@ using System.Data.Common;
 using System.Data.Linq;
 using System.Data.Linq.Mapping;
 using System.Data.Linq.Provider;
-using System.Data.SqlClient;
+using Microsoft.Data.SqlClient;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
@@ -20,6 +20,7 @@ using System.Diagnostics.CodeAnalysis;
 using Me = System.Data.Linq.SqlClient;
 using System.Runtime.Versioning;
 using System.Runtime.CompilerServices;
+using Mindbox.Expressions;
 
 namespace System.Data.Linq.SqlClient {
     public sealed class Sql2000Provider : SqlProvider {
@@ -377,10 +378,15 @@ namespace System.Data.Linq.SqlClient {
             }
 
             int maxUsersPerConnection = 1;
-            if (con.ConnectionString.IndexOf("MultipleActiveResultSets", StringComparison.OrdinalIgnoreCase) >= 0) {
+
+            var multipleActiveResultSetDisplayName = ReflectionExpressions
+                .TryGetPropertyInfo<SqlConnectionStringBuilder>(cb => cb.MultipleActiveResultSets)?
+                .GetCustomAttribute<DisplayNameAttribute>()?.DisplayName ?? "MultipleActiveResultSets";
+            
+            if (con.ConnectionString.IndexOf(multipleActiveResultSetDisplayName, StringComparison.OrdinalIgnoreCase) >= 0) {
                 DbConnectionStringBuilder builder = new DbConnectionStringBuilder();
                 builder.ConnectionString = con.ConnectionString;
-                if (string.Compare((string)builder["MultipleActiveResultSets"], "true", StringComparison.OrdinalIgnoreCase) == 0) {
+                if (string.Compare((string)builder[multipleActiveResultSetDisplayName], "true", StringComparison.OrdinalIgnoreCase) == 0) {
                     maxUsersPerConnection = 50;
                 }
             }
@@ -1141,7 +1147,7 @@ namespace System.Data.Linq.SqlClient {
                     if (piScale != null) {
                         scale = (int)Convert.ChangeType(piScale.GetValue(p, null), typeof(int), CultureInfo.InvariantCulture);
                     }                
-                    var sp = p as System.Data.SqlClient.SqlParameter;
+                    var sp = p as Microsoft.Data.SqlClient.SqlParameter;
                     writer.WriteLine("-- {0}: {1} {2} (Size = {3}; Prec = {4}; Scale = {5}) [{6}]", 
                         p.ParameterName, 
                         p.Direction, 

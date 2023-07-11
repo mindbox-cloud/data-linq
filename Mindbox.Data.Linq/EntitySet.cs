@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Collections.Specialized;
 using System.ComponentModel;
 using System.Linq;
 using System.Text;
@@ -8,7 +9,7 @@ using Mindbox.Data.Linq;
 
 namespace System.Data.Linq 
 {
-    public sealed class EntitySet<TEntity> : IList, IList<TEntity>, IListSource, IEntitySet
+    public sealed class EntitySet<TEntity> : IList, IList<TEntity>, IListSource, IEntitySet, INotifyCollectionChanged
         where TEntity : class 
 	{
         private IEnumerable<TEntity> source;
@@ -26,17 +27,28 @@ namespace System.Data.Linq
 	    private EventHandler listChanging;
 
 
+	    [Obsolete("Non compatible API with EntityFramework")]
         public EntitySet() 
 		{
         }
 
+        [Obsolete("Non compatible API with EntityFramework")]
         public EntitySet(Action<TEntity> onAdd, Action<TEntity> onRemove) 
 		{
             this.onAdd = onAdd;
             this.onRemove = onRemove;
         }
 
-
+        internal static EntitySet<TEntity> Create(Action<TEntity> onAdd, Action<TEntity> onRemove) 
+#pragma warning disable CS0618
+	        => new(onAdd, onRemove);
+#pragma warning restore CS0618
+        
+        internal static EntitySet<TEntity> Create() 
+#pragma warning disable CS0618
+	        => new();
+#pragma warning restore CS0618
+  
         internal EntitySet(EntitySet<TEntity> sourceEntitySet, bool copyNotifications) 
 		{
             source = sourceEntitySet.source;
@@ -105,6 +117,7 @@ namespace System.Data.Linq
                 entities[index] = value;
                 OnModified();
                 OnListChanged(ListChangedType.ItemAdded, index);
+                SendNotifyCollectionChanged(NotifyCollectionChangedAction.Replace, old, value);
             }
         }
 
@@ -223,6 +236,7 @@ namespace System.Data.Linq
 						removedEntities.Remove(entity);
                     entities.Add(entity);
                     OnListChanged(ListChangedType.ItemAdded, entities.IndexOf(entity));
+                    SendNotifyCollectionChanged(NotifyCollectionChangedAction.Add, entity);
                 }
                 OnModified();
             }
@@ -245,7 +259,8 @@ namespace System.Data.Linq
 						removedEntities.Remove(entity);
                     entities.Add(entity);
                     OnListChanged(ListChangedType.ItemAdded, entities.IndexOf(entity));
-                }
+                    SendNotifyCollectionChanged(NotifyCollectionChangedAction.Add, entity);
+				}
             }
             OnModified();
         }
@@ -316,6 +331,7 @@ namespace System.Data.Linq
 			OnListChanged(ListChangedType.ItemAdded, index);
 
 			OnAdd(entity);
+			SendNotifyCollectionChanged(NotifyCollectionChangedAction.Add, entity, index);
 		}
 
 		public void Load()
@@ -374,7 +390,10 @@ namespace System.Data.Linq
 				// so we shouldn't fire the event since the list itself will not be changed, even though the Remove will still be tracked
 				// on the removedEntities list in case a subsequent Load brings in this entity.
 				if (index != -1)
+				{
 					OnListChanged(ListChangedType.ItemDeleted, index);
+					SendNotifyCollectionChanged(NotifyCollectionChangedAction.Remove, entity);
+				}
 			}
 			return removed;
 		}
@@ -390,6 +409,7 @@ namespace System.Data.Linq
 			entities.RemoveAt(index);
 			OnModified();
 			OnListChanged(ListChangedType.ItemDeleted, index);
+			SendNotifyCollectionChanged(NotifyCollectionChangedAction.Remove, entity, index);
 		}
 
 		public void SetSource(IEnumerable<TEntity> entitySource)
@@ -605,5 +625,22 @@ namespace System.Data.Linq
                 index = -1;
             }
         }
-    }
+
+        public event NotifyCollectionChangedEventHandler CollectionChanged;
+        
+        private void SendNotifyCollectionChanged(NotifyCollectionChangedAction action, TEntity oldItem, TEntity newItem)
+        {
+	        CollectionChanged?.Invoke(this, new NotifyCollectionChangedEventArgs(action, oldItem, newItem));
+        }
+
+        private void SendNotifyCollectionChanged(NotifyCollectionChangedAction action, TEntity item)
+        {
+	        CollectionChanged?.Invoke(this, new NotifyCollectionChangedEventArgs(action, item));
+        }
+
+        private void SendNotifyCollectionChanged(NotifyCollectionChangedAction action, TEntity item, int index)
+        {
+	        CollectionChanged?.Invoke(this, new NotifyCollectionChangedEventArgs(action, item, index));
+        }
+	}
 }

@@ -1,0 +1,5 @@
+{
+   "extends":[
+      "github>mindbox-cloud/renovate-config"
+   ]
+}
