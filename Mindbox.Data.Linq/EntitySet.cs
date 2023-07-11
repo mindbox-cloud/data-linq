@@ -26,7 +26,6 @@ namespace System.Data.Linq
 		private IBindingList cachedList;
 	    private EventHandler listChanging;
 
-
 	    [Obsolete("Non compatible API with EntityFramework")]
         public EntitySet() 
 		{
@@ -626,21 +625,35 @@ namespace System.Data.Linq
             }
         }
 
-        public event NotifyCollectionChangedEventHandler CollectionChanged;
+        public int CollectionNotifyChangedSubscriptions;
+        private NotifyCollectionChangedEventHandler _collectionChanged;
+        public event NotifyCollectionChangedEventHandler CollectionChanged
+        {
+	        add
+	        {
+		        _collectionChanged += value;
+		        CollectionNotifyChangedSubscriptions++;
+	        }
+	        remove
+	        {
+		        _collectionChanged -= value;
+		        CollectionNotifyChangedSubscriptions--;
+	        }
+        }
         
         private void SendNotifyCollectionChanged(NotifyCollectionChangedAction action, TEntity oldItem, TEntity newItem)
         {
-	        CollectionChanged?.Invoke(this, new NotifyCollectionChangedEventArgs(action, oldItem, newItem));
+	        _collectionChanged?.Invoke(this, new NotifyCollectionChangedEventArgs(action, oldItem, newItem));
         }
 
         private void SendNotifyCollectionChanged(NotifyCollectionChangedAction action, TEntity item)
         {
-	        CollectionChanged?.Invoke(this, new NotifyCollectionChangedEventArgs(action, item));
+	        _collectionChanged?.Invoke(this, new NotifyCollectionChangedEventArgs(action, item));
         }
 
         private void SendNotifyCollectionChanged(NotifyCollectionChangedAction action, TEntity item, int index)
         {
-	        CollectionChanged?.Invoke(this, new NotifyCollectionChangedEventArgs(action, item, index));
+	        _collectionChanged?.Invoke(this, new NotifyCollectionChangedEventArgs(action, item, index));
         }
 	}
 }
