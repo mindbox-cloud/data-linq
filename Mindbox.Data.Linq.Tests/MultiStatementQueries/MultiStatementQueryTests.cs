@@ -345,7 +345,7 @@ static class ChainPartSleExtensions
 /// <summary>
 /// Chain of chainparts.
 /// </summary>
-interface IChainSle : ISimplifiedLinqExpression
+interface IChainSle : ITreeNodeSle
 {
     List<IChainPart> Items { get; }
 }
@@ -387,6 +387,8 @@ interface IRowSourceChainPart : IChainPart
 class ChainSle : IChainSle
 {
     public List<IChainPart> Items { get; } = new List<IChainPart>();
+
+    public ISimplifiedLinqExpression ParentExpression { get; set; }
 }
 
 class TableChainPart : IRowSourceChainPart
@@ -481,6 +483,7 @@ class VisitorContext
         {
             CurrentChain = new ChainSle();
             CurrentTreeSleSetChildFunc?.Invoke(CurrentTreeSle, CurrentChain);
+            CurrentChain.ParentExpression = CurrentTreeSle;
             if (Root == null)
                 Root = CurrentChain;
         }

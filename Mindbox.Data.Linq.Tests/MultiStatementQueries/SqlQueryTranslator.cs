@@ -16,9 +16,9 @@ namespace Mindbox.Data.Linq.Tests.MultiStatementQueries;
 
 class SqlQueryTranslator
 {
-    public static SqlQueryTranslatorResult Transalate(Expression node, IDbColumnTypeProvider columntTypeProvider)
+    public static SqlQueryTranslatorResult Transalate(Expression node, IDbColumnTypeProvider columnTypeProvider)
     {
-        TranslateCore(node, columntTypeProvider);
+        TranslateCore(node, columnTypeProvider);
         // SimplifyTree(root);
 
         // var command = SqlTreeCommandBuilder.Build(query, columntTypeProvider);
@@ -26,17 +26,17 @@ class SqlQueryTranslator
         return new SqlQueryTranslatorResult("");
     }
 
-    private static void TranslateCore(Expression expression, IDbColumnTypeProvider columntTypeProvider)
+    private static void TranslateCore(Expression expression, IDbColumnTypeProvider columnTypeProvider)
     {
-        // var context = new TranslationContext(columntTypeProvider);
+        var context = new TranslationContext();
         var rootSle = TranslateToSimplifiedExpression(expression);
-
-        StringBuilder sb = new();
 
         foreach (var chainItem in rootSle.Items)
         {
             if (chainItem is TableChainPart tableChainPart)
             {
+                if(context.RootTable == null)
+
                 throw new NotSupportedException();
             }
             else if (chainItem is SelectChainPart selectChainPart)
@@ -120,7 +120,9 @@ class SqlQueryTranslator
     class TranslationContext
     {
         private Dictionary<ISimplifiedLinqExpression, string> _variableNames = new();
-        public StringBuilder StringBuilder { get; } = new StringBuilder();
+
+        public Table RootTable { get; set; }
+        public Table CurrentTable { get; set; }
 
         public string GetVariableName(ISimplifiedLinqExpression sle, string tableName)
         {
