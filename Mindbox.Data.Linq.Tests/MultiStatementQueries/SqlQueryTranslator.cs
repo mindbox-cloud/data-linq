@@ -1,32 +1,22 @@
-﻿using Castle.Components.DictionaryAdapter;
-using Snapshooter.MSTest;
-using System;
+﻿using System;
 using System.Collections.Generic;
-using System.ComponentModel.DataAnnotations;
-using System.Data.Linq;
-using System.Data.Linq.Mapping;
-using System.Diagnostics;
 using System.Linq;
 using System.Linq.Expressions;
-using System.Reflection;
-using System.Text;
 
 namespace Mindbox.Data.Linq.Tests.MultiStatementQueries;
-
 
 class SqlQueryTranslator
 {
     public static SqlQueryTranslatorResult Transalate(Expression node, IDbColumnTypeProvider columnTypeProvider)
     {
-        TranslateCore(node, columnTypeProvider);
-        // SimplifyTree(root);
+        var table = TranslateCore(node);
 
-        // var command = SqlTreeCommandBuilder.Build(query, columntTypeProvider);
+        var command = SqlTreeCommandBuilder.Build(table, columnTypeProvider);
 
-        return new SqlQueryTranslatorResult("");
+        return new SqlQueryTranslatorResult(command);
     }
 
-    private static void TranslateCore(Expression expression, IDbColumnTypeProvider columnTypeProvider)
+    private static TableNode2 TranslateCore(Expression expression)
     {
         var context = new TranslationContext();
         var rootSle = TranslateToSimplifiedExpression(expression);
@@ -35,9 +25,11 @@ class SqlQueryTranslator
         {
             if (chainItem is TableChainPart tableChainPart)
             {
-                if(context.RootTable == null)
+                var table = new TableNode2(tableChainPart.Name);
+                if (context.RootTable == null)
+                    context.RootTable = table;
 
-                throw new NotSupportedException();
+                context.CurrentTable = table;
             }
             else if (chainItem is SelectChainPart selectChainPart)
             {
@@ -55,9 +47,7 @@ class SqlQueryTranslator
                 throw new NotSupportedException();
         }
 
-
-
-        throw new NotSupportedException();
+        return context.RootTable;
     }
 
 
@@ -70,59 +60,13 @@ class SqlQueryTranslator
         return visitorContext.Root;
     }
 
-    class Table
-    {
-        private List<string> _usedFields = new();
-        private List<Connection> _connections = new();
-
-        public string Name { get; private set; }
-        public IEnumerable<string> UsedFields => _usedFields;
-        public IEnumerable<Connection> Connections => _connections;
-
-        public void AddField(string name)
-        {
-            if (_usedFields.Contains(name))
-                return;
-            _usedFields.Add(name);
-            _usedFields.Sort();
-        }
-
-        public void AddConnection(IEnumerable<string> fields, Table otherTable, IEnumerable<string> otherTableFields)
-        {
-            foreach (var connection in _connections)
-            {
-                if ((connection.Table == this && connection.TableFields.SequenceEqual(fields) &&
-                    connection.OtherTable == otherTable && connection.OtherTableFields.SequenceEqual(otherTableFields)) ||
-                    (connection.Table == otherTable && connection.TableFields.SequenceEqual(otherTableFields) &&
-                    connection.OtherTable == this && connection.OtherTableFields.SequenceEqual(fields)))
-                    return;
-            }
-            _connections.Add(new(this, fields, otherTable, otherTableFields));
-        }
-    }
-
-    class Connection
-    {
-        public Table Table { get; private set; }
-        public IEnumerable<string> TableFields { get; private set; }
-        public Table OtherTable { get; private set; }
-        public IEnumerable<string> OtherTableFields { get; private set; }
-
-        public Connection(Table table, IEnumerable<string> tableFields, Table otherTable, IEnumerable<string> otherTableFields)
-        {
-            Table = table;
-            TableFields = tableFields.OrderBy(f => f).ToArray();
-            OtherTable = otherTable;
-            OtherTableFields = otherTableFields.OrderBy(f => f).ToArray();
-        }
-    }
 
     class TranslationContext
     {
         private Dictionary<ISimplifiedLinqExpression, string> _variableNames = new();
 
-        public Table RootTable { get; set; }
-        public Table CurrentTable { get; set; }
+        public TableNode2 RootTable { get; set; }
+        public TableNode2 CurrentTable { get; set; }
 
         public string GetVariableName(ISimplifiedLinqExpression sle, string tableName)
         {
@@ -623,6 +567,71 @@ class TranslationContext
     }
 }
 */
+
+class TableNode2
+{
+    private List<string> _usedFields = new();
+    private List<Connection> _connections = new();
+
+    public string Name { get; private set; }
+    public IEnumerable<string> UsedFields => _usedFields;
+    public IEnumerable<Connection> Connections => _connections;
+
+    public TableNode2(string name)
+    {
+        Name = name;
+    }
+
+    public void AddField(string name)
+    {
+        if (_usedFields.Contains(name))
+            return;
+        _usedFields.Add(name);
+        _usedFields.Sort();
+    }
+
+    public void AddConnection(IEnumerable<string> fields, TableNode2 otherTable, IEnumerable<string> otherTableFields)
+    {
+        foreach (var connection in _connections)
+        {
+            if ((connection.Table == this && connection.TableFields.SequenceEqual(fields) &&
+                connection.OtherTable == otherTable && connection.OtherTableFields.SequenceEqual(otherTableFields)) ||
+                (connection.Table == otherTable && connection.TableFields.SequenceEqual(otherTableFields) &&
+                connection.OtherTable == this && connection.OtherTableFields.SequenceEqual(fields)))
+                return;
+        }
+        _connections.Add(new(this, fields, otherTable, otherTableFields));
+    }
+}
+
+class Connection
+{
+    private string[] _tableFields;
+    private string[] _otherTableFields;
+    public TableNode2 Table { get; private set; }
+    public IEnumerable<string> TableFields => _tableFields;
+    public TableNode2 OtherTable { get; private set; }
+    public IEnumerable<string> OtherTableFields => _otherTableFields;
+    public IEnumerable<(string Field, string OtherField)> MappedFields
+    {
+        get
+        {
+            for (int i = 0; i < _tableFields.Length; i++)
+                yield return (_tableFields[i], _otherTableFields[i]);
+        }
+    }
+
+
+    public Connection(TableNode2 table, IEnumerable<string> tableFields, TableNode2 otherTable, IEnumerable<string> otherTableFields)
+    {
+        Table = table;
+        _tableFields = tableFields.OrderBy(f => f).ToArray();
+        OtherTable = otherTable;
+        _otherTableFields = otherTableFields.OrderBy(f => f).ToArray();
+        if (TableFields.Count() != OtherTableFields.Count())
+            throw new ArgumentException();
+    }
+}
 
 public interface IDbColumnTypeProvider
 {

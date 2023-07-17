@@ -568,6 +568,7 @@ class VisitorContext
 class ChainExpressionVisitor : ExpressionVisitor
 {
     private readonly VisitorContext _visitorContext;
+    private bool isNonFirstCall;
 
     public ChainExpressionVisitor(VisitorContext context)
     {
@@ -577,11 +578,12 @@ class ChainExpressionVisitor : ExpressionVisitor
     [return: NotNullIfNotNull("node")]
     public override Expression Visit(Expression node)
     {
-        if (UnwrpaNode(node) is ConstantExpression)
+        if (isNonFirstCall && UnwrpaNode(node) is ConstantExpression)
         {
             _visitorContext.AddChainPart(new FixedValueChainPart());
             return node;
         }
+        isNonFirstCall = true;
 
         return VisitChain(node);
     }
