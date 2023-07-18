@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Linq.Expressions;
+using System.Runtime.Intrinsics.X86;
 
 namespace Mindbox.Data.Linq.Tests.MultiStatementQueries;
 
@@ -18,11 +19,15 @@ class SqlQueryTranslator
 
     private static TableNode2 TranslateCore(Expression expression)
     {
-        var context = new TranslationContext();
         var rootSle = TranslateToSimplifiedExpression(expression);
+        var context = new TranslationContext();
+        TranslateChain(context, rootSle);
+        return context.RootTable;
+    }
 
-        foreach (var chainItem in rootSle.Items)
-        {
+    private static void TranslateChain(TranslationContext context, IChainSle chain)
+    {
+        foreach (var chainItem in chain.Items)
             if (chainItem is TableChainPart tableChainPart)
             {
                 var table = new TableNode2(tableChainPart.Name);
@@ -41,16 +46,49 @@ class SqlQueryTranslator
             }
             else if (chainItem is FilterChainPart filterChainPart)
             {
-                throw new NotSupportedException();
+                TranslateTree(context, (ITreeNodeSle)filterChainPart.InnerExpression);
             }
             else
                 throw new NotSupportedException();
-        }
 
-        return context.RootTable;
+    }
+
+    private static void TranslateTree(TranslationContext context, ITreeNodeSle sle)
+    {
+        if (sle is FilterBinarySle filterBinary)
+        {
+            throw new NotImplementedException();
+            if (filterBinary.LeftExpression is FixedValueChainPart || filterBinary.RightExpression is FixedValueChainPart )
+            {
+                var (left, rightFixedValue) = (filterBinary.LeftExpression, filterBinary.RightExpression);
+                if (filterBinary.LeftExpression is FixedValueChainPart)
+                    (left, rightFixedValue) = (filterBinary.RightExpression, filterBinary.LeftExpression);
+                if (left is IChainSle leftAsChain)
+                    TranslateChain(context, leftAsChain);
+                else if (left is ITreeNodeSle leftAsTreeNode)
+                    TranslateTree(context, leftAsTreeNode);
+                else throw new NotSupportedException();
+            }
+
+        }
+        else
+            throw new NotSupportedException();
     }
 
 
+    enum FilerBinaryType
+    {
+        /// <summary>
+        /// Operator against constaint.
+        /// We can simply analysis only non constant part and drop constant sle.
+        /// Examples: 'c.Password == "asdf"' or 'c.Age > 20' or 'c.CustomerActions.Where(c=>c.ActionTypeId == 12).Count() < 10'
+        /// </summary>
+        OperatorAgainstConstant,
+        /// <summary>
+        /// Both parts(left and right) are FilterBinarySle expressions.
+        /// </summary>
+        NestedFilterBinary,
+    }
 
     private static IChainSle TranslateToSimplifiedExpression(Expression expression)
     {
@@ -600,6 +638,11 @@ class TableNode2
                 connection.OtherTable == this && connection.OtherTableFields.SequenceEqual(fields)))
                 return;
         }
+        foreach (var field in fields)
+            AddField(field);
+        foreach (var otherField in otherTableFields)
+            otherTable.AddField(otherField);
+
         _connections.Add(new(this, fields, otherTable, otherTableFields));
     }
 }

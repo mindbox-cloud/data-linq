@@ -440,6 +440,31 @@ class FilterBinarySle : ITreeNodeSle
     public ISimplifiedLinqExpression ParentExpression { get; set; }
     public ISimplifiedLinqExpression LeftExpression { get; set; }
     public ISimplifiedLinqExpression RightExpression { get; set; }
+    public FilterBinaryOperator Operator { get; set; }
+}
+
+enum FilterBinaryOperator
+{
+    /// <summary>
+    /// Equal. Only between 2 chains.
+    /// </summary>
+    ChainsEqual,
+    /// <summary>
+    /// Not equal. Only between 2 chains.
+    /// </summary>
+    ChainsNotEqual,
+    /// <summary>
+    /// Any other operator between 2 chains. For example: +, -, / and so on.
+    /// </summary>
+    ChainOther,
+    /// <summary>
+    /// And. Either left or right or both are FilterBinarySle
+    /// </summary>
+    FilterBinaryAnd,
+    /// <summary>
+    /// Or. Either left or right or both are FilterBinarySle
+    /// </summary>
+    FilterBinaryOr,
 }
 
 class SelectChainPart : IRowSourceChainPart, IChainPartAndTreeNodeSle
@@ -565,28 +590,26 @@ class VisitorContext
     }
 }
 
-class ChainExpressionVisitor : ExpressionVisitor
+class ChainExpressionVisitor
 {
     private readonly VisitorContext _visitorContext;
-    private bool isNonFirstCall;
 
     public ChainExpressionVisitor(VisitorContext context)
     {
         _visitorContext = context;
     }
 
-    [return: NotNullIfNotNull("node")]
-    public override Expression Visit(Expression node)
-    {
-        if (isNonFirstCall && UnwrpaNode(node) is ConstantExpression)
-        {
-            _visitorContext.AddChainPart(new FixedValueChainPart());
-            return node;
-        }
-        isNonFirstCall = true;
+    //[return: NotNullIfNotNull("node")]
+    //public override Expression Visit(Expression node)
+    //{
+    //    //if (&& IsConstant(constantExpression))
+    //    //{
+    //    //    _visitorContext.AddChainPart(new FixedValueChainPart());
+    //    //    return node;
+    //    //}
 
-        return VisitChain(node);
-    }
+    //    return VisitChain(node);
+    //}
 
     private Expression UnwrpaNode(Expression node)
     {
@@ -601,7 +624,7 @@ class ChainExpressionVisitor : ExpressionVisitor
         }
     }
 
-    private Expression VisitChain(Expression node)
+    public Expression Visit(Expression node)
     {
         var chainCalls = ExpressionOrderFixer.GetReorderedChainCall(node).ToArray();
         if (chainCalls.Length == 0)
@@ -614,6 +637,11 @@ class ChainExpressionVisitor : ExpressionVisitor
             tableName = ExpressionHelpers.GetTableName(chainCalls[1]);
             if (!string.IsNullOrEmpty(tableName))
                 chainCalls  = chainCalls.Skip(2).ToArray();
+        }
+        else if (UnwrpaNode(chainCalls[0]) is ConstantExpression constantExpression && chainCalls.Length == 1)
+        {
+            _visitorContext.AddChainPart(new FixedValueChainPart());
+            return node;
         }
 
         IChainPart lastRowSourceSle;
@@ -772,6 +800,37 @@ class FilterExpressionVisitor : ExpressionVisitor
     protected override Expression VisitBinary(BinaryExpression node)
     {
         var binarySle = new FilterBinarySle();
+        switch (node.NodeType)
+        {
+            case ExpressionType.Add:
+            case ExpressionType.AddChecked:
+            case ExpressionType.Divide:
+            case ExpressionType.GreaterThan:
+            case ExpressionType.GreaterThanOrEqual:
+            case ExpressionType.LessThan:
+            case ExpressionType.LessThanOrEqual:
+            case ExpressionType.Multiply:
+            case ExpressionType.Subtract:
+            case ExpressionType.SubtractChecked:
+                binarySle.Operator = FilterBinaryOperator.ChainOther;
+                break;
+            case ExpressionType.And:
+            case ExpressionType.AndAlso:
+                binarySle.Operator = FilterBinaryOperator.FilterBinaryAnd;
+                break;
+            case ExpressionType.Equal:
+                binarySle.Operator = FilterBinaryOperator.ChainsEqual;
+                break;
+            case ExpressionType.NotEqual:
+                binarySle.Operator = FilterBinaryOperator.FilterBinaryOr;
+                break;
+            case ExpressionType.Or:
+            case ExpressionType.OrElse:
+                binarySle.Operator = FilterBinaryOperator.FilterBinaryOr;
+                break;
+            default:
+                throw new NotSupportedException();
+        }
         _visitorContext.AddTreeNode(binarySle, (p, c) => ((FilterBinarySle)p).LeftExpression = c);
         Visit(node.Left);
 
