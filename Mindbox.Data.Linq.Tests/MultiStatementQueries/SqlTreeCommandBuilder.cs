@@ -9,6 +9,8 @@ internal class SqlTreeCommandBuilder
 {
     public static string Build(TableNode2 query, IDbColumnTypeProvider columnTypeProvider)
     {
+        query.AddField("Id");
+
         var context = new BuilderContext();
         List<string> queryParts = new();
         List<string> variableDefinitions = new();
@@ -16,7 +18,7 @@ internal class SqlTreeCommandBuilder
         var rootVariableName = context.CreateVariableName(query);
         variableDefinitions.Add(BuildTableVariableDefinition(rootVariableName, query, columnTypeProvider));
         queryParts.Add($"""
-            INSERT INTO {rootVariableName}({string.Join(", ,", GetUsedColumns(query))})
+            INSERT INTO {rootVariableName}({string.Join(", ", GetUsedColumns(query))})
                 SELECT {string.Join(", ", GetUsedColumns(query).Order().Select(c => $"current.{c}"))}
                     FROM {query.Name} AS current
                         WHERE Id = @__id

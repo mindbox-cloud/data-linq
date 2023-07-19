@@ -1,4 +1,5 @@
-﻿using System;
+﻿using Microsoft.VisualBasic;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Linq.Expressions;
@@ -31,6 +32,7 @@ class SqlQueryTranslator
             if (chainItem is TableChainPart tableChainPart)
             {
                 var table = new TableNode2(tableChainPart.Name);
+                table.TableChainParts.Add(tableChainPart);
                 if (context.RootTable == null)
                     context.RootTable = table;
 
@@ -48,6 +50,17 @@ class SqlQueryTranslator
             {
                 TranslateTree(context, (ITreeNodeSle)filterChainPart.InnerExpression);
             }
+            else if (chainItem is ReferenceRowSourceChainPart referenceRowSourceChainPart)
+            {
+                // That is vairable in linq expression, ensure that it belongs to current table context.
+                if (!context.CurrentTable.TableChainParts.Contains((TableChainPart)referenceRowSourceChainPart.ReferenceRowSource))
+                    throw new NotSupportedException();
+                continue;
+            }
+            else if (chainItem is ColumnAccessChainPart columnAccessChainPart)
+            {
+                context.CurrentTable.AddField(columnAccessChainPart.ColumnName);
+            }
             else
                 throw new NotSupportedException();
 
@@ -57,37 +70,47 @@ class SqlQueryTranslator
     {
         if (sle is FilterBinarySle filterBinary)
         {
-            throw new NotImplementedException();
-            if (filterBinary.LeftExpression is FixedValueChainPart || filterBinary.RightExpression is FixedValueChainPart )
+            if (IsOperatorAgainstConstant(filterBinary, out var nonConstantSle))
             {
-                var (left, rightFixedValue) = (filterBinary.LeftExpression, filterBinary.RightExpression);
-                if (filterBinary.LeftExpression is FixedValueChainPart)
-                    (left, rightFixedValue) = (filterBinary.RightExpression, filterBinary.LeftExpression);
-                if (left is IChainSle leftAsChain)
-                    TranslateChain(context, leftAsChain);
-                else if (left is ITreeNodeSle leftAsTreeNode)
-                    TranslateTree(context, leftAsTreeNode);
-                else throw new NotSupportedException();
+                if (nonConstantSle is ChainSle nonConstantChainSle)
+                    TranslateChain(context, (IChainSle)nonConstantSle);
+                else if (nonConstantSle is ITreeNodeSle treeNodeSle)
+                    TranslateTree(context, treeNodeSle);
+                else
+                    throw new NotSupportedException();
             }
-
+            else
+                throw new NotImplementedException();
         }
         else
             throw new NotSupportedException();
     }
 
-
-    enum FilerBinaryType
+    /// <summary>
+    /// Operator against constaint.
+    /// We can simply analysis only non constant part and drop constant sle.
+    /// Examples: 'c.Password == "asdf"' or 'c.Age > 20' or 'c.CustomerActions.Where(c=>c.ActionTypeId == 12).Count() < 10'
+    /// </summary>
+    /// <param name="sle"></param>
+    /// <param name="nonConstant"></param>
+    /// <returns></returns>
+    private static bool IsOperatorAgainstConstant(FilterBinarySle sle, out ISimplifiedLinqExpression nonConstant)
     {
-        /// <summary>
-        /// Operator against constaint.
-        /// We can simply analysis only non constant part and drop constant sle.
-        /// Examples: 'c.Password == "asdf"' or 'c.Age > 20' or 'c.CustomerActions.Where(c=>c.ActionTypeId == 12).Count() < 10'
-        /// </summary>
-        OperatorAgainstConstant,
-        /// <summary>
-        /// Both parts(left and right) are FilterBinarySle expressions.
-        /// </summary>
-        NestedFilterBinary,
+        if (sle.LeftExpression is ChainSle leftChain && IsConstant(leftChain))
+        {
+            nonConstant = sle.RightExpression;
+            return true;
+        }
+
+        if (sle.RightExpression is ChainSle rightChain && IsConstant(rightChain))
+        {
+            nonConstant = sle.LeftExpression;
+            return true;
+        }
+        nonConstant = null;
+        return false;
+
+        static bool IsConstant(IChainSle chain) => chain.Items.Count == 1 && chain.Items[0] is FixedValueChainPart;
     }
 
     private static IChainSle TranslateToSimplifiedExpression(Expression expression)
@@ -614,6 +637,8 @@ class TableNode2
     public string Name { get; private set; }
     public IEnumerable<string> UsedFields => _usedFields;
     public IEnumerable<Connection> Connections => _connections;
+
+    public List<TableChainPart> TableChainParts { get; } = new();
 
     public TableNode2(string name)
     {
