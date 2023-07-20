@@ -638,7 +638,8 @@ class ChainExpressionVisitor
             if (!string.IsNullOrEmpty(tableName))
                 chainCalls  = chainCalls.Skip(2).ToArray();
         }
-        else if (UnwrpaNode(chainCalls[0]) is ConstantExpression constantExpression && chainCalls.Length == 1)
+
+        if (string.IsNullOrEmpty(tableName) && UnwrpaNode(chainCalls[0]) is ConstantExpression) // plain constant or variable
         {
             _visitorContext.AddChainPart(new FixedValueChainPart());
             return node;

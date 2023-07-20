@@ -14,9 +14,12 @@ internal static class ExpressionHelpers
         if (expression is ConstantExpression constantExpression)
         {
             var constantValue = constantExpression.Value;
-            return GetTableNameFromObject(constantValue);
+            var tableNameFromConstant = GetTableNameFromObject(constantValue);
+            if (!string.IsNullOrEmpty(tableNameFromConstant))
+                return tableNameFromConstant;
         }
-        else if (expression is MemberExpression memberExpression && memberExpression.Expression is ConstantExpression)
+
+        if (expression is MemberExpression memberExpression && memberExpression.Expression is ConstantExpression)
         {
             var memberConstantValue = Expression.Lambda(memberExpression).Compile().DynamicInvoke();
             return GetTableNameFromObject(memberConstantValue);

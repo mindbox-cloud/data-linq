@@ -3,8 +3,8 @@
     TempPasswordEmail nvarchar(256) not null
 )
 
-INSERT INTO @tabledirectcrm_Customers
-    SELECT current.Id, current.TempPasswordEmail 
+INSERT INTO @tabledirectcrm_Customers(Id, TempPasswordEmail)
+    SELECT current.Id, current.TempPasswordEmail
         FROM directcrm.Customers AS current
-        WHERE Id = @pKeyId
+            WHERE Id = @__id
 SELECT * FROM @tabledirectcrm_Customers
