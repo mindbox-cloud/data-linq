@@ -48,11 +48,14 @@ class SqlQueryTranslator
             }
             else if (chainItem is FilterChainPart filterChainPart)
             {
-                TranslateTree(context, (ITreeNodeSle)filterChainPart.InnerExpression);
+                if (filterChainPart.InnerExpression is ChainSle filterChainInnerExpressionAsChain)
+                    TranslateChain(context, filterChainInnerExpressionAsChain);
+                else
+                    TranslateTree(context, (ITreeNodeSle)filterChainPart.InnerExpression);
             }
             else if (chainItem is ReferenceRowSourceChainPart referenceRowSourceChainPart)
             {
-                // That is vairable in linq expression, ensure that it belongs to current table context.
+                // That is parameter in lambda, ensure that it belongs to current table context.
                 if (!context.CurrentTable.TableChainParts.Contains((TableChainPart)referenceRowSourceChainPart.ReferenceRowSource))
                     throw new NotSupportedException();
                 continue;
