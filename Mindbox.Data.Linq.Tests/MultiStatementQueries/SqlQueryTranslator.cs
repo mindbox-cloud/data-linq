@@ -83,10 +83,21 @@ class SqlQueryTranslator
                     throw new NotSupportedException();
             }
             else
-                throw new NotImplementedException();
+            {
+                TranslateCore(context, filterBinary.LeftExpression);
+                TranslateCore(context, filterBinary.RightExpression);
+            }
         }
         else
             throw new NotSupportedException();
+
+        static void TranslateCore(TranslationContext context, ISimplifiedLinqExpression expression)
+        {
+            if (expression is FilterBinarySle filterBinary)
+                TranslateTree(context, filterBinary);
+            else
+                TranslateChain(context, (IChainSle)expression);
+        }
     }
 
     /// <summary>
