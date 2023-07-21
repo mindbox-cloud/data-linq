@@ -44,7 +44,9 @@ class SqlQueryTranslator
             }
             else if (chainItem is AssociationChainPart associationChainPart)
             {
-                throw new NotSupportedException();
+                var associationTable = new TableNode2(associationChainPart.NextTableName);
+                context.CurrentTable.AddConnection(new[] { associationChainPart.ColumnName }, associationTable, new string[] { associationChainPart.NextTableColumnName });
+                context.CurrentTable = associationTable;                
             }
             else if (chainItem is FilterChainPart filterChainPart)
             {

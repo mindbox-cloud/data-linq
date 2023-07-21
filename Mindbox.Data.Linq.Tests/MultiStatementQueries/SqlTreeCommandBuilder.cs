@@ -49,9 +49,10 @@ internal class SqlTreeCommandBuilder
             }
             string previousSource;
             if (IsPKJoin(connection.Table.Name, connection.TableFields, columnTypeProvider))
-                previousSource = $"(SELECT DISTINCT {string.Join(", ", connection.TableFields)} FROM {context.GetVariableName(connection.Table)})";
-            else
                 previousSource = context.GetVariableName(connection.Table);
+            else
+                previousSource = $"(SELECT DISTINCT {string.Join(", ", connection.TableFields)} FROM {context.GetVariableName(connection.Table)})";
+
 
             var query = $"""
                 INSERT INTO {variableName}({string.Join(", ,", GetUsedColumns(otherTable))})
