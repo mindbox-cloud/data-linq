@@ -348,6 +348,7 @@ static class ChainPartSleExtensions
 interface IChainSle : ITreeNodeSle
 {
     List<IChainPart> Items { get; }
+    bool IsNegated { get; set; }
 }
 
 /// <summary>
@@ -389,6 +390,8 @@ class ChainSle : IChainSle
     public List<IChainPart> Items { get; } = new List<IChainPart>();
 
     public ISimplifiedLinqExpression ParentExpression { get; set; }
+
+    public bool IsNegated { get; set; }
 }
 
 class TableChainPart : IRowSourceChainPart
@@ -599,18 +602,6 @@ class ChainExpressionVisitor
         _visitorContext = context;
     }
 
-    //[return: NotNullIfNotNull("node")]
-    //public override Expression Visit(Expression node)
-    //{
-    //    //if (&& IsConstant(constantExpression))
-    //    //{
-    //    //    _visitorContext.AddChainPart(new FixedValueChainPart());
-    //    //    return node;
-    //    //}
-
-    //    return VisitChain(node);
-    //}
-
     private Expression UnwrpaNode(Expression node)
     {
         // Removes all converters.
@@ -624,8 +615,19 @@ class ChainExpressionVisitor
         }
     }
 
+    private Expression UnwrapNot(Expression expression, out bool isNegated)
+    {
+        isNegated = false;
+        if (expression.NodeType != ExpressionType.Not)
+            return expression;
+        var unary = expression as UnaryExpression;
+        isNegated = true;
+        return unary.Operand;
+    }
+
     public Expression Visit(Expression node)
     {
+        node = UnwrapNot(node, out var isNegated);
         var chainCalls = ExpressionOrderFixer.GetReorderedChainCall(node).ToArray();
         if (chainCalls.Length == 0)
             throw new InvalidOperationException();
@@ -661,6 +663,7 @@ class ChainExpressionVisitor
         }
 
         _visitorContext.AddChainPart(lastRowSourceSle);
+        _visitorContext.CurrentChain.IsNegated = isNegated;
 
         // Visit all chain parts
         foreach (var chainItemExpression in chainCalls)
