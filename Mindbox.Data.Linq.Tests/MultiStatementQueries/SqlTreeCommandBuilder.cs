@@ -65,7 +65,7 @@ internal class SqlTreeCommandBuilder
             queryParts.Add(query);
 
             foreach (var nextConnection in connection.OtherTable.Connections)
-                BuildCore(context, queryParts, variableDefinitions, connection, columnTypeProvider);
+                BuildCore(context, queryParts, variableDefinitions, nextConnection, columnTypeProvider);
         }
     }
 

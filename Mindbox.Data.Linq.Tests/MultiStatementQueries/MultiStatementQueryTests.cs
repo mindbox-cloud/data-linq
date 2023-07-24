@@ -152,37 +152,37 @@ public class MultiStatementQueryTests
         query.CommandText.MatchSnapshot();
     }
 
-    //[TestMethod]
-    //public void Translate_TableLinkedViaReferenceChainAssociation_Success()
-    //{
-    //    // Arrange
-    //    using var contextAndConnection = new DataContextAndConnection();
+    [TestMethod]
+    public void Translate_TableLinkedViaReferenceChainAssociation_Success()
+    {
+        // Arrange
+        using var contextAndConnection = new DataContextAndConnection();
 
-    //    // Act
-    //    var queryExpression = contextAndConnection.DataContext
-    //        .GetTable<Customer>().Where(c => c.Area.SubArea.Name == "SomeSubArea").Expression;
-    //    var query = SqlQueryTranslator.Transalate(queryExpression, new DbColumnTypeProvider());
+        // Act
+        var queryExpression = contextAndConnection.DataContext
+            .GetTable<Customer>().Where(c => c.Area.SubArea.Name == "SomeSubArea").Expression;
+        var query = SqlQueryTranslator.Transalate(queryExpression, new DbColumnTypeProvider());
 
-    //    // Assert
-    //    query.CommandText.MatchSnapshot();
-    //}
+        // Assert
+        query.CommandText.MatchSnapshot();
+    }
 
-    //[TestMethod]
-    //public void Translate_TableLinkedViaReferenceChainAssociationAndFilterOnAllAssociations_Success()
-    //{
-    //    // Arrange
-    //    using var contextAndConnection = new DataContextAndConnection();
+    [TestMethod]
+    public void Translate_TableLinkedViaReferenceChainAssociationAndFilterOnAllAssociations_Success()
+    {
+        // Arrange
+        using var contextAndConnection = new DataContextAndConnection();
 
-    //    // Act
-    //    var queryExpression = contextAndConnection.DataContext
-    //        .GetTable<Customer>()
-    //        .Where(c => c.Area.Name == "SomeArea")
-    //        .Where(c => c.Area.SubArea.Name == "SomeSubArea").Expression;
-    //    var query = SqlQueryTranslator.Transalate(queryExpression, new DbColumnTypeProvider());
+        // Act
+        var queryExpression = contextAndConnection.DataContext
+            .GetTable<Customer>()
+            .Where(c => c.Area.Name == "SomeArea")
+            .Where(c => c.Area.SubArea.Name == "SomeSubArea").Expression;
+        var query = SqlQueryTranslator.Transalate(queryExpression, new DbColumnTypeProvider());
 
-    //    // Assert
-    //    query.CommandText.MatchSnapshot();
-    //}
+        // Assert
+        query.CommandText.MatchSnapshot();
+    }
 
     //[TestMethod]
     //public void Translate_TableJoinByDataFieldViaWhere_Success()

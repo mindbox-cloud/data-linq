@@ -28,15 +28,14 @@ class SqlQueryTranslator
 
     private static void TranslateChain(TranslationContext context, IChainSle chain)
     {
+        TableNode2 currentTable = null!;
         foreach (var chainItem in chain.Items)
             if (chainItem is TableChainPart tableChainPart)
             {
-                var table = new TableNode2(tableChainPart.Name);
-                table.TableChainParts.Add(tableChainPart);
+                currentTable = new TableNode2(tableChainPart.Name);
+                currentTable.TableChainParts.Add(tableChainPart);
                 if (context.RootTable == null)
-                    context.RootTable = table;
-
-                context.CurrentTable = table;
+                    context.RootTable = currentTable;
             }
             else if (chainItem is SelectChainPart selectChainPart)
             {
@@ -45,8 +44,8 @@ class SqlQueryTranslator
             else if (chainItem is AssociationChainPart associationChainPart)
             {
                 var associationTable = new TableNode2(associationChainPart.NextTableName);
-                context.CurrentTable.AddConnection(new[] { associationChainPart.ColumnName }, associationTable, new string[] { associationChainPart.NextTableColumnName });
-                context.CurrentTable = associationTable;                
+                currentTable.AddConnection(new[] { associationChainPart.ColumnName }, associationTable, new string[] { associationChainPart.NextTableColumnName });
+                currentTable = associationTable;
             }
             else if (chainItem is FilterChainPart filterChainPart)
             {
@@ -57,14 +56,17 @@ class SqlQueryTranslator
             }
             else if (chainItem is ReferenceRowSourceChainPart referenceRowSourceChainPart)
             {
-                // That is parameter in lambda, ensure that it belongs to current table context.
-                if (!context.CurrentTable.TableChainParts.Contains((TableChainPart)referenceRowSourceChainPart.ReferenceRowSource))
-                    throw new NotSupportedException();
+                if (currentTable != null)
+                    throw new InvalidOperationException();
+                var tableNodeByReference = context.GetTableNodeByTablePart((TableChainPart)referenceRowSourceChainPart.ReferenceRowSource);
+                if (tableNodeByReference == null)
+                    throw new InvalidOperationException();
+                currentTable = tableNodeByReference;
                 continue;
             }
             else if (chainItem is ColumnAccessChainPart columnAccessChainPart)
             {
-                context.CurrentTable.AddField(columnAccessChainPart.ColumnName);
+                currentTable.AddField(columnAccessChainPart.ColumnName);
             }
             else
                 throw new NotSupportedException();
@@ -140,10 +142,26 @@ class SqlQueryTranslator
 
     class TranslationContext
     {
+        private Stack<TableNode2> _currentTableStack = new();
         private Dictionary<ISimplifiedLinqExpression, string> _variableNames = new();
 
         public TableNode2 RootTable { get; set; }
-        public TableNode2 CurrentTable { get; set; }
+
+        public TableNode2? GetTableNodeByTablePart(TableChainPart tableChainPart)
+        {
+            foreach (var tableNode in GetAllTableNodes(RootTable))
+                if (tableNode.TableChainParts.Contains(tableChainPart))
+                    return tableNode;
+            return null;
+
+            static IEnumerable<TableNode2> GetAllTableNodes(TableNode2 tableNode)
+            {
+                yield return tableNode;
+                foreach (var otherTable in tableNode.Connections.Select(s => s.OtherTable))
+                    foreach (var item in GetAllTableNodes(otherTable))
+                        yield return item;
+            }
+        }
 
         public string GetVariableName(ISimplifiedLinqExpression sle, string tableName)
         {
