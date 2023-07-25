@@ -173,10 +173,9 @@ class SqlQueryTranslator
 
         public TableNode2 GetTableNodeByTablePart(TableChainPart tableChainPart)
         {
-            foreach (var tableNode in RootTable.GetAllTableNodes())
-                if (Node2ChainParts.TryGetValue(tableNode, out var chainParts))
-                    if (chainParts.Contains(tableChainPart))
-                        return tableNode;
+            foreach (var (node, parts) in Node2ChainParts)
+                if (parts.Contains(tableChainPart))
+                    return node;
             return null;
         }
 
@@ -553,8 +552,9 @@ class TableNode2
 [DebuggerDisplay("To {OtherTable.Name}")]
 class Connection
 {
-    private string[] _tableFields;
-    private string[] _otherTableFields;
+    private List<string> _tableFields;
+    private List<string> _otherTableFields;
+
     public TableNode2 Table { get; private set; }
     public IEnumerable<string> TableFields => _tableFields;
     public TableNode2 OtherTable { get; private set; }
@@ -563,20 +563,34 @@ class Connection
     {
         get
         {
-            for (int i = 0; i < _tableFields.Length; i++)
+            for (int i = 0; i < _tableFields.Count; i++)
                 yield return (_tableFields[i], _otherTableFields[i]);
         }
     }
 
-
     public Connection(TableNode2 table, IEnumerable<string> tableFields, TableNode2 otherTable, IEnumerable<string> otherTableFields)
     {
         Table = table;
-        _tableFields = tableFields.OrderBy(f => f).ToArray();
+        _tableFields = tableFields.OrderBy(f => f).ToList();
         OtherTable = otherTable;
-        _otherTableFields = otherTableFields.OrderBy(f => f).ToArray();
+        _otherTableFields = otherTableFields.OrderBy(f => f).ToList();
         if (TableFields.Count() != OtherTableFields.Count())
             throw new ArgumentException();
+    }
+
+    /// <summary>
+    /// Add field to connection.
+    /// </summary>
+    /// <param name="fieldName"></param>
+    /// <param name="otherFiledName"></param>
+    public void AddFields(string fieldName, string otherFiledName)
+    {
+        if (MappedFields.Any(m => m.Field == fieldName && m.OtherField == otherFiledName))
+            return;
+        _tableFields.Add(fieldName);
+        _otherTableFields.Add(otherFiledName);
+        _tableFields.OrderBy(f => f).ToList();
+        _otherTableFields.OrderBy(f => f).ToList();
     }
 }
 
