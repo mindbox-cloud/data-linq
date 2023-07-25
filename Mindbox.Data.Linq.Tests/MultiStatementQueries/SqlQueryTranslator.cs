@@ -1,9 +1,8 @@
-﻿using Microsoft.VisualBasic;
-using System;
+﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Linq.Expressions;
-using System.Runtime.Intrinsics.X86;
 
 namespace Mindbox.Data.Linq.Tests.MultiStatementQueries;
 
@@ -12,6 +11,7 @@ class SqlQueryTranslator
     public static SqlQueryTranslatorResult Transalate(Expression node, IDbColumnTypeProvider columnTypeProvider)
     {
         var table = TranslateCore(node);
+        OptimizeTree(table);
 
         var command = SqlTreeCommandBuilder.Build(table, columnTypeProvider);
 
@@ -33,7 +33,7 @@ class SqlQueryTranslator
             if (chainItem is TableChainPart tableChainPart)
             {
                 currentTable = new TableNode2(tableChainPart.Name);
-                currentTable.TableChainParts.Add(tableChainPart);
+                context.AddChainPartForNode(currentTable, tableChainPart);
                 if (context.RootTable == null)
                     context.RootTable = currentTable;
             }
@@ -70,7 +70,6 @@ class SqlQueryTranslator
             }
             else
                 throw new NotSupportedException();
-
     }
 
     private static void TranslateTree(TranslationContext context, ITreeNodeSle sle)
@@ -139,28 +138,46 @@ class SqlQueryTranslator
         return visitorContext.Root;
     }
 
+    private static void OptimizeTree(TableNode2 root)
+    {
+        while (true)
+        {
+            bool hasOptimization = false;
+            foreach (var node in root.GetAllTableNodes())
+            {
+                hasOptimization = node.OptimizeConnections();
+                if (hasOptimization)
+                    break;
+            }
+
+            if (!hasOptimization)
+                break;
+        }
+
+    }
 
     class TranslationContext
     {
-        private Stack<TableNode2> _currentTableStack = new();
         private Dictionary<ISimplifiedLinqExpression, string> _variableNames = new();
+
+        public Dictionary<TableNode2, List<TableChainPart>> Node2ChainParts { get; } = new();
 
         public TableNode2 RootTable { get; set; }
 
-        public TableNode2? GetTableNodeByTablePart(TableChainPart tableChainPart)
+        public void AddChainPartForNode(TableNode2 tableNode, TableChainPart chainPart)
         {
-            foreach (var tableNode in GetAllTableNodes(RootTable))
-                if (tableNode.TableChainParts.Contains(tableChainPart))
-                    return tableNode;
-            return null;
+            if (!Node2ChainParts.ContainsKey(tableNode))
+                Node2ChainParts.Add(tableNode, new List<TableChainPart>());
+            Node2ChainParts[tableNode].Add(chainPart);
+        }
 
-            static IEnumerable<TableNode2> GetAllTableNodes(TableNode2 tableNode)
-            {
-                yield return tableNode;
-                foreach (var otherTable in tableNode.Connections.Select(s => s.OtherTable))
-                    foreach (var item in GetAllTableNodes(otherTable))
-                        yield return item;
-            }
+        public TableNode2 GetTableNodeByTablePart(TableChainPart tableChainPart)
+        {
+            foreach (var tableNode in RootTable.GetAllTableNodes())
+                if (Node2ChainParts.TryGetValue(tableNode, out var chainParts))
+                    if (chainParts.Contains(tableChainPart))
+                        return tableNode;
+            return null;
         }
 
         public string GetVariableName(ISimplifiedLinqExpression sle, string tableName)
@@ -184,221 +201,7 @@ class SqlQueryTranslator
         }
     }
 
-    /*
-    private static MultiStatementQuery TranslateCore(Expression expression, IDbColumnTypeProvider columntTypeProvider)
-    {
-        var context = new TranslationContext(columntTypeProvider);
-        var chains = ExpressionOrderFixer.GetExpressionChains(expression).ToArray();
-        foreach (var chain in chains)
-        {
-            context.ResetCurrentTable();
-            for (int i = 0; i < chain.Items.Count; i++)
-                MapToSqlNode(new ExpressionChainItem(chain, i), context);
-        }
 
-        context.FillJoinConditions();
-        context.OptmizeQuery();
-        return context.Query;
-    }
-
-    private static void MapToSqlNode(ExpressionChainItem chainItem, TranslationContext context)
-    {
-        switch (chainItem.Expression.NodeType)
-        {
-            case ExpressionType.Constant:
-                var tableName = ExpressionHelpers.GetTableName((ConstantExpression)chainItem.Expression);
-                if (string.IsNullOrEmpty(tableName))
-                {
-                    if (context.CurrentTable == null)
-                        throw new InvalidOperationException();
-                    return;
-                }
-                context.AddTable(tableName, chainItem.Expression);
-                return;
-            case ExpressionType.Call:
-                var callExpression = (MethodCallExpression)chainItem.Expression;
-                if (callExpression.Method.DeclaringType == typeof(Queryable) || callExpression.Method.DeclaringType == typeof(Enumerable))
-                    return;
-                throw new NotSupportedException();
-            case ExpressionType.Quote:
-                var quoteExpression = (UnaryExpression)chainItem.Expression;
-                if (quoteExpression.Method != null)
-                    throw new NotSupportedException();
-                if (chainItem.PreviousChainItem.Expression is MethodCallExpression quoteParentMethodExpression &&
-                    (quoteParentMethodExpression.Method.DeclaringType == typeof(Queryable) || quoteParentMethodExpression.Method.DeclaringType == typeof(Enumerable)))
-                {
-                    if (quoteParentMethodExpression.Method.GetParameters().Length == 2)
-                    {
-                        context.AddTableFilter(((LambdaExpression)quoteExpression.Operand).Body);
-                    }
-                }
-                return;
-            case ExpressionType.Lambda:
-                var lambdaExpression = (LambdaExpression)chainItem.Expression;
-                MethodCallExpression lambdCallExpression = null;
-                if (chainItem.PreviousChainItem.Expression is UnaryExpression)
-                    lambdCallExpression = chainItem.PreviousPreviousExpression as MethodCallExpression;
-                else
-                    lambdCallExpression = chainItem.PreviousChainItem.Expression as MethodCallExpression;
-
-                if (lambdCallExpression != null &&
-                        (lambdCallExpression.Method.DeclaringType == typeof(Queryable) || lambdCallExpression.Method.DeclaringType == typeof(Enumerable)))
-                {
-                    var filterParameterExpression = lambdCallExpression.Method switch
-                    {
-                        { Name: "Where" or "Any" or "Single" } when lambdaExpression.ReturnType == typeof(bool) && lambdCallExpression.Method.GetParameters().Length == 2
-                                => lambdaExpression.Parameters[0],
-                        { Name: "SelectMany" } when lambdCallExpression.Method.GetParameters().Length == 2
-                                => lambdaExpression.Parameters[0],
-                        _ => throw new NotSupportedException()
-                    };
-                    context.MapParameterToTable(filterParameterExpression);
-                    return;
-                }
-                throw new NotSupportedException();
-            case ExpressionType.And:
-            case ExpressionType.AndAlso:
-            case ExpressionType.Or:
-            case ExpressionType.OrElse:
-            case ExpressionType.LessThan:
-            case ExpressionType.LessThanOrEqual:
-            case ExpressionType.GreaterThan:
-            case ExpressionType.GreaterThanOrEqual:
-            case ExpressionType.Equal:
-            case ExpressionType.NotEqual:
-            case ExpressionType.Divide:
-            case ExpressionType.Multiply:
-            case ExpressionType.Add:
-            case ExpressionType.Subtract:
-                return;
-            case ExpressionType.Parameter:
-                context.SetCurrentTable(context.GetTableFromExpression((ParameterExpression)chainItem.Expression));
-                return;
-            case ExpressionType.MemberAccess:
-                var memberExpression = (MemberExpression)chainItem.Expression;
-                if (memberExpression.Member is PropertyInfo propertyInfo)
-                {
-                    // Column access. Like User.Name
-                    if (propertyInfo.CustomAttributes.Any(p => p.AttributeType == typeof(ColumnAttribute)))
-                    {
-                        context.CurrentTable.AddUsedField(propertyInfo.Name);
-                        return;
-                    }
-                    // Association access
-                    if (propertyInfo.CustomAttributes.Any(p => p.AttributeType == typeof(AssociationAttribute)))
-                    {
-                        var associationAttribute = propertyInfo.CustomAttributes.SingleOrDefault(p => p.AttributeType == typeof(AssociationAttribute));
-                        var propertyType = propertyInfo.PropertyType.IsArray ? propertyInfo.PropertyType.GetElementType() : propertyInfo.PropertyType;
-                        var nextTableName = propertyType.CustomAttributes.Single(c => c.AttributeType == typeof(TableAttribute)).NamedArguments
-                            .Single(a => a.MemberName == nameof(TableAttribute.Name)).TypedValue.Value.ToString();
-                        var currentTableField = associationAttribute.NamedArguments.Single(a => a.MemberName == nameof(AssociationAttribute.ThisKey)).TypedValue.Value.ToString();
-                        var associationTableField = associationAttribute.NamedArguments.Single(a => a.MemberName == nameof(AssociationAttribute.OtherKey)).TypedValue.Value.ToString();
-
-                        var currentTable = context.CurrentTable;
-                        var associationTable = context.AddTable(nextTableName, null);
-                        associationTable.AddJoinCondition(new JoinCondition(associationTableField, currentTable, currentTableField));
-                        return;
-                    }
-                }
-                else if (memberExpression.Expression is ConstantExpression memberConstantExpression)// Invocation of constant
-                {
-                    var memberConstantValue = Expression.Lambda(memberExpression).Compile().DynamicInvoke();
-                    if (memberConstantValue == null || memberConstantValue.GetType() == typeof(string))
-                        return;
-                    var memberTableName = ExpressionHelpers.GetTableNameFromObject(memberConstantValue);
-                    if (!string.IsNullOrEmpty(memberTableName))
-                    {
-                        context.AddTable(memberTableName, chainItem.Expression);
-                        return;
-                    }
-                }
-                throw new NotSupportedException();
-            case ExpressionType.Not:
-                var notExpression = (UnaryExpression)chainItem.Expression;
-                if (notExpression.IsLifted || notExpression.IsLiftedToNull || notExpression.Method != null)
-                    throw new NotSupportedException();
-                return;
-            case ExpressionType.Convert:
-                var convertExpression = (UnaryExpression)chainItem.Expression;
-                if (convertExpression.IsLifted || convertExpression.IsLiftedToNull || convertExpression.Method != null)
-                    throw new NotSupportedException();
-                return;
-            case ExpressionType.AddChecked:
-            case ExpressionType.ArrayLength:
-            case ExpressionType.ArrayIndex:
-            case ExpressionType.Coalesce:
-            case ExpressionType.Conditional:
-            case ExpressionType.ConvertChecked:
-            case ExpressionType.ExclusiveOr:
-            case ExpressionType.Invoke:
-            case ExpressionType.LeftShift:
-            case ExpressionType.ListInit:
-            case ExpressionType.MemberInit:
-            case ExpressionType.Modulo:
-            case ExpressionType.MultiplyChecked:
-            case ExpressionType.Negate:
-            case ExpressionType.UnaryPlus:
-            case ExpressionType.NegateChecked:
-            case ExpressionType.New:
-            case ExpressionType.NewArrayInit:
-            case ExpressionType.NewArrayBounds:
-            case ExpressionType.Power:
-            case ExpressionType.RightShift:
-            case ExpressionType.SubtractChecked:
-            case ExpressionType.TypeAs:
-            case ExpressionType.TypeIs:
-            case ExpressionType.Assign:
-            case ExpressionType.Block:
-            case ExpressionType.DebugInfo:
-            case ExpressionType.Decrement:
-            case ExpressionType.Dynamic:
-            case ExpressionType.Default:
-            case ExpressionType.Extension:
-            case ExpressionType.Goto:
-            case ExpressionType.Increment:
-            case ExpressionType.Index:
-            case ExpressionType.Label:
-            case ExpressionType.RuntimeVariables:
-            case ExpressionType.Loop:
-            case ExpressionType.Switch:
-            case ExpressionType.Throw:
-            case ExpressionType.Try:
-            case ExpressionType.Unbox:
-            case ExpressionType.AddAssign:
-            case ExpressionType.AndAssign:
-            case ExpressionType.DivideAssign:
-            case ExpressionType.ExclusiveOrAssign:
-            case ExpressionType.LeftShiftAssign:
-            case ExpressionType.ModuloAssign:
-            case ExpressionType.MultiplyAssign:
-            case ExpressionType.OrAssign:
-            case ExpressionType.PowerAssign:
-            case ExpressionType.RightShiftAssign:
-            case ExpressionType.SubtractAssign:
-            case ExpressionType.AddAssignChecked:
-            case ExpressionType.MultiplyAssignChecked:
-            case ExpressionType.SubtractAssignChecked:
-            case ExpressionType.PreIncrementAssign:
-            case ExpressionType.PreDecrementAssign:
-            case ExpressionType.PostIncrementAssign:
-            case ExpressionType.PostDecrementAssign:
-            case ExpressionType.TypeEqual:
-            case ExpressionType.OnesComplement:
-            case ExpressionType.IsTrue:
-            case ExpressionType.IsFalse:
-            default:
-                throw new NotSupportedException();
-        }
-    }
-
-    public record ExpressionChainItem(ExpressionChain Chain, int Index)
-    {
-        public Expression Expression => Chain.Items[Index];
-        public ExpressionChainItem PreviousChainItem => new ExpressionChainItem(Chain, Index - 1);
-        public ExpressionChainItem NextChainItem => Chain.Items.Count <= Index + 1 ? null : new ExpressionChainItem(Chain, Index + 1);
-        public Expression PreviousPreviousExpression => PreviousChainItem.PreviousChainItem.Expression;
-    }
-     */
 }
 /*
 class MultiStatementQuery
@@ -663,6 +466,7 @@ class TranslationContext
 }
 */
 
+[DebuggerDisplay("{Name}")]
 class TableNode2
 {
     private List<string> _usedFields = new();
@@ -671,8 +475,6 @@ class TableNode2
     public string Name { get; private set; }
     public IEnumerable<string> UsedFields => _usedFields;
     public IEnumerable<Connection> Connections => _connections;
-
-    public List<TableChainPart> TableChainParts { get; } = new();
 
     public TableNode2(string name)
     {
@@ -704,8 +506,51 @@ class TableNode2
 
         _connections.Add(new(this, fields, otherTable, otherTableFields));
     }
+
+    public bool OptimizeConnections()
+    {
+        bool hasChanges = false;
+        for (int i = 0; i < _connections.Count - 1; i++)
+            for (int j = i; j < _connections.Count; j++)
+            {
+                var connectionA = _connections[i];
+                var connectionB = _connections[j];
+                if (connectionA == connectionB)
+                    continue;
+                if (connectionA.OtherTable.Name != connectionB.OtherTable.Name)
+                    continue;
+                if (!connectionA.OtherTableFields.SequenceEqual(connectionB.OtherTableFields))
+                    continue;
+                _connections.Remove(connectionB);
+                j--;
+                hasChanges = true;
+                foreach (var connectionBOtherTableConnection in connectionB.OtherTable.Connections)
+                    connectionA.OtherTable.AddConnection(connectionBOtherTableConnection.TableFields, connectionBOtherTableConnection.OtherTable, connectionBOtherTableConnection.OtherTableFields);
+            }
+        return hasChanges;
+    }
+
+    public IEnumerable<TableNode2> GetAllTableNodes()
+    {
+        return GetAllTableNodes(this);
+
+        static IEnumerable<TableNode2> GetAllTableNodes(TableNode2 tableNode2)
+        {
+            yield return tableNode2;
+            foreach (var connection in tableNode2._connections)
+            {
+                yield return connection.OtherTable;
+                foreach (var table in GetAllTableNodes(connection.OtherTable))
+                {
+                    yield return table;
+
+                }
+            }
+        }
+    }
 }
 
+[DebuggerDisplay("To {OtherTable.Name}")]
 class Connection
 {
     private string[] _tableFields;
