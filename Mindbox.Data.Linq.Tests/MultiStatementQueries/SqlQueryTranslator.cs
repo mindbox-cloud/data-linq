@@ -23,10 +23,16 @@ class SqlQueryTranslator
         var rootSle = TranslateToSimplifiedExpression(expression);
         var context = new TranslationContext();
         TranslateChain(context, rootSle);
+
+        // Ensure that all tables are port of join
+        foreach (var table in context.Node2ChainParts.Keys)
+            if (!context.RootTable.GetAllTableNodes().Contains(table))
+                throw new InvalidOperationException($"No connection condition was found for table {table.Name}.");
+
         return context.RootTable;
     }
 
-    private static void TranslateChain(TranslationContext context, IChainSle chain)
+    private static void TranslateChain(TranslationContext context, ChainSle chain)
     {
         TableNode2 currentTable = null!;
         foreach (var chainItem in chain.Items)
@@ -70,16 +76,40 @@ class SqlQueryTranslator
             }
             else
                 throw new NotSupportedException();
+
     }
 
     private static void TranslateTree(TranslationContext context, ITreeNodeSle sle)
     {
         if (sle is FilterBinarySle filterBinary)
         {
+            // Processing only simple join conditions, like c.Id == b.CustomerId
+            if (filterBinary.IsTopLevelChainEqualityStatement())
+            {
+                var left = GetTableAndField(context, filterBinary);
+                var right = GetTableAndField(context, filterBinary);
+
+                if (left.HasValue && right.HasValue)
+                {
+                    if (context.RootTable.GetAllTableNodes().Contains(left.Value.Table))
+                    {
+                        throw new NotImplementedException();
+                    }
+                    else if (context.RootTable.GetAllTableNodes().Contains(left.Value.Table))
+                    {
+                        throw new NotImplementedException();
+                    }
+                    else
+                    {
+                        throw new NotImplementedException();
+                    }
+                }
+            }
+
             if (IsOperatorAgainstConstant(filterBinary, out var nonConstantSle))
             {
                 if (nonConstantSle is ChainSle nonConstantChainSle)
-                    TranslateChain(context, (IChainSle)nonConstantSle);
+                    TranslateChain(context, nonConstantChainSle);
                 else if (nonConstantSle is ITreeNodeSle treeNodeSle)
                     TranslateTree(context, treeNodeSle);
                 else
@@ -99,8 +129,13 @@ class SqlQueryTranslator
             if (expression is FilterBinarySle filterBinary)
                 TranslateTree(context, filterBinary);
             else
-                TranslateChain(context, (IChainSle)expression);
+                TranslateChain(context, (ChainSle)expression);
         }
+    }
+
+    private static (TableNode2 Table, string Field)? GetTableAndField(TranslationContext context, FilterBinarySle binarySle)
+    {
+        throw new NotImplementedException();
     }
 
     /// <summary>
@@ -127,10 +162,10 @@ class SqlQueryTranslator
         nonConstant = null;
         return false;
 
-        static bool IsConstant(IChainSle chain) => chain.Items.Count == 1 && chain.Items[0] is FixedValueChainPart;
+        static bool IsConstant(ChainSle chain) => chain.Items.Count == 1 && chain.Items[0] is FixedValueChainPart;
     }
 
-    private static IChainSle TranslateToSimplifiedExpression(Expression expression)
+    private static ChainSle TranslateToSimplifiedExpression(Expression expression)
     {
         var visitorContext = new VisitorContext(new DbColumnTypeProvider());
         var visitor = new ChainExpressionVisitor(visitorContext);
@@ -161,6 +196,7 @@ class SqlQueryTranslator
         private Dictionary<ISimplifiedLinqExpression, string> _variableNames = new();
 
         public Dictionary<TableNode2, List<TableChainPart>> Node2ChainParts { get; } = new();
+        public Dictionary<Connection, ChainSle> Connection2Chains { get; } = new();
 
         public TableNode2 RootTable { get; set; }
 

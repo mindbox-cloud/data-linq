@@ -6,6 +6,7 @@ using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Linq.Expressions;
 using System.Reflection;
+using System.Threading;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Snapshooter.MSTest;
 
@@ -316,7 +317,7 @@ interface ISimplifiedLinqExpression
 /// </summary>
 interface IChainPart
 {
-    IChainSle Chain { get; set; }
+    ChainSle Chain { get; set; }
 }
 
 static class ChainPartSleExtensions
@@ -343,15 +344,6 @@ static class ChainPartSleExtensions
 }
 
 /// <summary>
-/// Chain of chainparts.
-/// </summary>
-interface IChainSle : ITreeNodeSle
-{
-    List<IChainPart> Items { get; }
-    bool IsNegated { get; set; }
-}
-
-/// <summary>
 /// Tree like statement from tree statements. 
 /// Example:
 ///     Tree statement: (USer.Id == 10) || (User.Name == "asdf") 
@@ -363,6 +355,50 @@ interface ITreeNodeSle : ISimplifiedLinqExpression
 {
     ISimplifiedLinqExpression ParentExpression { get; set; }
 }
+
+static class TreeNodeSleExtensions
+{
+    public static ChainSle GetChain(this ITreeNodeSle node)
+    {
+        if (node is IChainPart chainPart)
+            return chainPart.Chain;
+        while (true)
+        {
+            if (node.ParentExpression == null)
+                throw new InvalidOperationException("Top of each node should be chain part");
+            if (node.ParentExpression is IChainPart parentChainPart)
+                return parentChainPart.Chain;
+            if (node.ParentExpression is not ITreeNodeSle parentNode)
+                throw new InvalidOperationException("Parent should be chain part or tree node");
+            node = parentNode;
+        }
+    }
+
+    /// <summary>
+    /// Shows that node is FilterBinarySle and represents top level equality statement
+    /// </summary>
+    /// <param name="node">Node.</param>
+    /// <returns>True - yes, false - not.</returns>
+    public static bool IsTopLevelChainEqualityStatement(this ITreeNodeSle node)
+    {
+        if (node is not FilterBinarySle filter)
+            return false;
+        if (filter.Operator != FilterBinaryOperator.ChainsEqual)
+            return false;
+
+        var parent = node.ParentExpression as FilterBinarySle;
+        while (parent != null)
+        {
+            if (parent.Operator != FilterBinaryOperator.FilterBinaryAnd)
+                return false;
+            parent = parent.ParentExpression as FilterBinarySle;
+        }
+
+        return true;
+    }
+
+}
+
 
 /// <summary>
 /// Chain with tree sle.
@@ -385,7 +421,7 @@ interface IRowSourceChainPart : IChainPart
 {
 }
 
-class ChainSle : IChainSle
+class ChainSle : ITreeNodeSle
 {
     public List<IChainPart> Items { get; } = new List<IChainPart>();
 
@@ -398,7 +434,7 @@ class TableChainPart : IRowSourceChainPart
 {
     public string Name { get; private set; }
 
-    public IChainSle Chain { get; set; }
+    public ChainSle Chain { get; set; }
 
     public TableChainPart(string name)
     {
@@ -408,19 +444,19 @@ class TableChainPart : IRowSourceChainPart
 
 class ReferenceRowSourceChainPart : IChainPart
 {
-    public IChainSle Chain { get; set; }
+    public ChainSle Chain { get; set; }
     public IChainPart ReferenceRowSource { get; set; }
 }
 
 class ColumnAccessChainPart : IChainPart
 {
-    public IChainSle Chain { get; set; }
+    public ChainSle Chain { get; set; }
     public string ColumnName { get; set; }
 }
 
 class FixedValueChainPart : IChainPart
 {
-    public IChainSle Chain { get; set; }
+    public ChainSle Chain { get; set; }
 }
 
 class AssociationChainPart : IRowSourceChainPart
@@ -428,12 +464,12 @@ class AssociationChainPart : IRowSourceChainPart
     public string ColumnName { get; set; }
     public string NextTableName { get; set; }
     public string NextTableColumnName { get; set; }
-    public IChainSle Chain { get; set; }
+    public ChainSle Chain { get; set; }
 }
 
 class FilterChainPart : IChainPartAndTreeNodeSle
 {
-    public IChainSle Chain { get; set; }
+    public ChainSle Chain { get; set; }
     public ISimplifiedLinqExpression ParentExpression { get; set; }
     public ISimplifiedLinqExpression InnerExpression { get; set; }
 }
@@ -472,7 +508,7 @@ enum FilterBinaryOperator
 
 class SelectChainPart : IRowSourceChainPart, IChainPartAndTreeNodeSle
 {
-    public IChainSle Chain { get; set; }
+    public ChainSle Chain { get; set; }
     public ISimplifiedLinqExpression ParentExpression { get; set; }
     public ISimplifiedLinqExpression InnerExpression { get; set; }
 }
@@ -482,10 +518,10 @@ delegate void SetTreeChildDelegate(ISimplifiedLinqExpression parent, ISimplified
 class VisitorContext
 {
     public Dictionary<ParameterExpression, IChainPart> ParameterToSle { get; private set; } = new();
-    public IChainSle Root { get; set; }
+    public ChainSle Root { get; set; }
     public IDbColumnTypeProvider ColumnTypeProvider { get; private set; }
 
-    public IChainSle CurrentChain { get; private set; }
+    public ChainSle CurrentChain { get; private set; }
     public ITreeNodeSle CurrentTreeSle { get; private set; }
     public SetTreeChildDelegate CurrentTreeSleSetChildFunc { get; private set; }
 
@@ -570,7 +606,7 @@ class VisitorContext
     /// Moves to existing chain sle.
     /// </summary>
     /// <param name="chain">Existing sle.</param>
-    public void MoveToChainSle(IChainSle chain)
+    public void MoveToChainSle(ChainSle chain)
     {
         CurrentChain = chain;
         CurrentTreeSle = null;
