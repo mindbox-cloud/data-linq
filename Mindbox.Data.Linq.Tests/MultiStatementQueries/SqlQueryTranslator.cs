@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Globalization;
 using System.Linq;
 using System.Linq.Expressions;
 
@@ -83,29 +84,6 @@ class SqlQueryTranslator
     {
         if (sle is FilterBinarySle filterBinary)
         {
-            // Processing only simple join conditions, like c.Id == b.CustomerId
-            if (filterBinary.IsTopLevelChainEqualityStatement())
-            {
-                var left = GetTableAndField(context, filterBinary);
-                var right = GetTableAndField(context, filterBinary);
-
-                if (left.HasValue && right.HasValue)
-                {
-                    if (context.RootTable.GetAllTableNodes().Contains(left.Value.Table))
-                    {
-                        throw new NotImplementedException();
-                    }
-                    else if (context.RootTable.GetAllTableNodes().Contains(left.Value.Table))
-                    {
-                        throw new NotImplementedException();
-                    }
-                    else
-                    {
-                        throw new NotImplementedException();
-                    }
-                }
-            }
-
             if (IsOperatorAgainstConstant(filterBinary, out var nonConstantSle))
             {
                 if (nonConstantSle is ChainSle nonConstantChainSle)
@@ -120,9 +98,45 @@ class SqlQueryTranslator
                 TranslateCore(context, filterBinary.LeftExpression);
                 TranslateCore(context, filterBinary.RightExpression);
             }
+            DetectConnections(context, filterBinary);
         }
         else
             throw new NotSupportedException();
+        
+
+
+        static void DetectConnections(TranslationContext context, FilterBinarySle filterBinary)
+        {
+            // Processing only simple join conditions, like c.Id == b.CustomerId
+            if (!filterBinary.IsTopLevelChainEqualityStatement())
+                return;
+            var left = GetTableAndField(context, filterBinary.LeftExpression);
+            var right = GetTableAndField(context, filterBinary.RightExpression);
+
+            if (!left.HasValue || !right.HasValue)
+                return;
+            if (context.RootTable.GetAllTableNodes().Contains(left.Value.Table))
+            {
+                var existingConnection = left.Value.Table.Connections.FirstOrDefault(c => c.OtherTable == right.Value.Table);
+                if (existingConnection != null)
+                    existingConnection.AddFields(left.Value.Field, right.Value.Field);
+                else
+                    left.Value.Table.AddConnection(new[] { left.Value.Field }, right.Value.Table, new[] { right.Value.Field });
+            }
+            else if (context.RootTable.GetAllTableNodes().Contains(right.Value.Table))
+            {
+                var existingConnection = right.Value.Table.Connections.FirstOrDefault(c => c.OtherTable == left.Value.Table);
+                if (existingConnection != null)
+                    existingConnection.AddFields(right.Value.Field, left.Value.Field);
+                else
+                    right.Value.Table.AddConnection(new[] { right.Value.Field }, left.Value.Table, new[] { left.Value.Field });
+            }
+            else
+            {
+                throw new NotImplementedException();
+            }
+
+        }
 
         static void TranslateCore(TranslationContext context, ISimplifiedLinqExpression expression)
         {
@@ -133,9 +147,21 @@ class SqlQueryTranslator
         }
     }
 
-    private static (TableNode2 Table, string Field)? GetTableAndField(TranslationContext context, FilterBinarySle binarySle)
+    private static (TableNode2 Table, string Field)? GetTableAndField(TranslationContext context, ISimplifiedLinqExpression sle)
     {
-        throw new NotImplementedException();
+        // So far only [variable].[fieldName] parsing is supported
+        if (sle is not ChainSle chain)
+            return null;
+        if (chain.Items.Count != 2)
+            return null;
+        if (chain.Items[0] is not ReferenceRowSourceChainPart referenceChainPart)
+            return null;
+        if (chain.Items[1] is not ColumnAccessChainPart columnAccessChain)
+            return null;
+        var tableNodeByReference = context.GetTableNodeByTablePart((TableChainPart)referenceChainPart.ReferenceRowSource);
+        if (tableNodeByReference == null)
+            throw new InvalidOperationException();
+        return (tableNodeByReference, columnAccessChain.ColumnName);
     }
 
     /// <summary>

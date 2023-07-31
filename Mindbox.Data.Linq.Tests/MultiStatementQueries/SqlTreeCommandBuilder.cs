@@ -16,9 +16,9 @@ internal class SqlTreeCommandBuilder
         List<string> variableDefinitions = new();
 
         var rootVariableName = context.CreateVariableName(query);
-        variableDefinitions.Add(BuildTableVariableDefinition(rootVariableName, query, columnTypeProvider));
+        variableDefinitions.Add(BuildTableVariableDefinition(rootVariableName, query, columnTypeProvider, true));
         queryParts.Add($"""
-            INSERT INTO {rootVariableName}({string.Join(", ", GetUsedColumns(query))})
+            INSERT INTO {rootVariableName}({string.Join(", ", GetUsedColumns(query, true))})
                 SELECT {string.Join(", ", GetUsedColumns(query).Order().Select(c => $"current.{c}"))}
                     FROM {query.Name} AS current
                         WHERE Id = @__id
@@ -69,17 +69,17 @@ internal class SqlTreeCommandBuilder
         }
     }
 
-    private static IEnumerable<string> GetUsedColumns(TableNode2 table)
+    private static IEnumerable<string> GetUsedColumns(TableNode2 table, bool addIdColumn = false)
     {
-        if (table.Connections.Count() == 0)
+        if (addIdColumn)
             return table.UsedFields.Concat(new[] { "Id" }).Distinct().Order();
         return table.UsedFields.Order();
     }
 
 
-    private static string BuildTableVariableDefinition(string variableName, TableNode2 table, IDbColumnTypeProvider columntTypeProvider)
+    private static string BuildTableVariableDefinition(string variableName, TableNode2 table, IDbColumnTypeProvider columntTypeProvider, bool addIdColumn = false)
     {
-        var columnsWithTypes = GetUsedColumns(table).Order().Select(c => $"{c} {columntTypeProvider.GetSqlType(table.Name, c)}").ToArray();
+        var columnsWithTypes = GetUsedColumns(table, addIdColumn).Order().Select(c => $"{c} {columntTypeProvider.GetSqlType(table.Name, c)}").ToArray();
         return
             $"""
             DECLARE {variableName} TABLE(

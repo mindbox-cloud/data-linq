@@ -6,14 +6,14 @@ DECLARE @tabledirectcrm_CustomerActions TABLE(
     CustomerId int not null
 )
 
-INSERT INTO @tabledirectcrm_Customers
-    SELECT current.Id 
+INSERT INTO @tabledirectcrm_Customers(Id)
+    SELECT current.Id
         FROM directcrm.Customers AS current
-        WHERE Id = @pKeyId
+            WHERE Id = @__id
 SELECT * FROM @tabledirectcrm_Customers
 
-INSERT INTO @tabledirectcrm_CustomerActions
-    SELECT current.ActionTemplateId, current.CustomerId 
+INSERT INTO @tabledirectcrm_CustomerActions(ActionTemplateId, ,CustomerId)
+    SELECT current.ActionTemplateId, current.CustomerId
         FROM directcrm.CustomerActions AS current
             INNER JOIN @tabledirectcrm_Customers AS previous ON
                 previous.Id = current.CustomerId
