@@ -50,9 +50,20 @@ class SqlQueryTranslator
             }
             else if (chainItem is AssociationChainPart associationChainPart)
             {
-                var associationTable = new TableNode2(associationChainPart.NextTableName);
-                currentTable.AddConnection(new[] { associationChainPart.ColumnName }, associationTable, new string[] { associationChainPart.NextTableColumnName });
-                currentTable = associationTable;
+                // Pick connection only if there are further staments in chian. Otherwise we don't need connection at all, as that is most likely
+                // just join conidtion
+                // Example when we don't want to pick connection from association ca.Customer
+                //  ....Where(c => customerActions.Where(ca => ca.Customer == c).Any())
+                // Still we do want to pick connection from assocition CustomerAction.Area lik
+                //  ....Where(c => customerActions.Where(ca => ca.Area.Size == 10).Any
+                if (associationChainPart.Chain.Items[^1] != associationChainPart)
+                {
+                    var associationTable = new TableNode2(associationChainPart.NextTableName);
+                    currentTable.AddConnection(new[] { associationChainPart.ColumnName }, associationTable, new string[] { associationChainPart.NextTableColumnName });
+                    currentTable = associationTable;
+                }
+                else
+                    currentTable.AddField(associationChainPart.ColumnName);
             }
             else if (chainItem is FilterChainPart filterChainPart)
             {
@@ -609,30 +620,30 @@ class TableNode2
                     connectionA.OtherTable.AddConnection(connectionBOtherTableConnection.TableFields, connectionBOtherTableConnection.OtherTable, connectionBOtherTableConnection.OtherTableFields);
             }
 
-        // if we have connections of like Customer->CustomerAction->Customer->SomeOtherTable
-        // We can actually remove second Customer connection(move all its connections to top Customer) and have something like this
-        // Custmoer -> CustomerAction
-        //        \ -> SomeOtherTable
+        //// if we have connections of like Customer->CustomerAction->Customer->SomeOtherTable
+        //// We can actually remove second Customer connection(move all its connections to top Customer) and have something like this
+        //// Custmoer -> CustomerAction
+        ////        \ -> SomeOtherTable
+        //bool lifted = false;
+        //foreach (var connection in _connections)
+        //{
+        //    foreach (var subConnection in connection.OtherTable.Connections)
+        //    {
 
-        bool lifted = false;
-        foreach (var connection in _connections)
-        {
-            foreach (var subConnection in connection.OtherTable.Connections)
-            {
+        //        if (!subConnection.IsSame(connection))
+        //            continue;
+        //        connection.OtherTable._connections.Remove(subConnection);
+        //        foreach (var movedConnection in subConnection.OtherTable.Connections)
+        //            _connections.Add(movedConnection);
+        //        lifted = true;
+        //        break;
+        //    }
+        //    if (lifted)
+        //        break;
+        //}
+        //hasChanges |= lifted;
 
-                if (!subConnection.IsSame(connection))
-                    continue;
-                connection.OtherTable._connections.Remove(subConnection);
-                foreach (var movedConnection in subConnection.OtherTable.Connections)
-                    _connections.Add(movedConnection);
-                lifted = true;
-                break;
-            }
-            if (lifted)
-                break;
-        }
-
-        return hasChanges || lifted;
+        return hasChanges;
     }
 
     public IEnumerable<TableNode2> GetAllTableNodes()
