@@ -160,7 +160,11 @@ class SqlQueryTranslator
 
     private static (TableNode2 Table, string Field)? GetTableAndField(TranslationContext context, ISimplifiedLinqExpression sle)
     {
-        // So far only [variable].[fieldName] parsing is supported
+        // So far only supported
+        // - [variable] - assumes PK access
+        // - [variable].[fieldName] 
+        // - [variable].[association] 
+        // - [variable].[association].[fieldName] - fieldName is PK
         if (sle is not ChainSle chain)
             return null;
         switch (chain.Items.Count)
@@ -170,13 +174,27 @@ class SqlQueryTranslator
                     return (GetTableNode(context, variableAsReference), context.ColumnTypeProvider.GetPKFields(GetTableNode(context, variableAsReference).Name).Single());
                 return null;
             case 2:
-                if (chain.Items[0] is not ReferenceRowSourceChainPart referenceChainPart)
+                {
+                    if (chain.Items[0] is not ReferenceRowSourceChainPart referenceChainPart)
+                        return null;
+                    if (chain.Items[1] is ColumnAccessChainPart columnAccessChain)
+                        return (GetTableNode(context, referenceChainPart), columnAccessChain.ColumnName);
+                    else if (chain.Items[1] is AssociationChainPart associationChainPart)
+                        return (GetTableNode(context, referenceChainPart), associationChainPart.ColumnName);
                     return null;
-                if (chain.Items[1] is ColumnAccessChainPart columnAccessChain)
-                    return (GetTableNode(context, referenceChainPart), columnAccessChain.ColumnName);
-                else if (chain.Items[1] is AssociationChainPart associationChainPart)
+                }
+            case 3:
+                {
+                    if (chain.Items[0] is not ReferenceRowSourceChainPart referenceChainPart)
+                        return null;
+                    if (chain.Items[1] is not AssociationChainPart associationChainPart)
+                        return null;
+                    if (chain.Items[2] is not ColumnAccessChainPart columnAccessChain)
+                        return null;
+                    if (columnAccessChain.ColumnName != context.ColumnTypeProvider.GetPKFields(associationChainPart.NextTableName).Single())
+                        return null;
                     return (GetTableNode(context, referenceChainPart), associationChainPart.ColumnName);
-                return null;
+                }
             default:
                 return null;
         }
@@ -620,28 +638,28 @@ class TableNode2
                     connectionA.OtherTable.AddConnection(connectionBOtherTableConnection.TableFields, connectionBOtherTableConnection.OtherTable, connectionBOtherTableConnection.OtherTableFields);
             }
 
-        //// if we have connections of like Customer->CustomerAction->Customer->SomeOtherTable
-        //// We can actually remove second Customer connection(move all its connections to top Customer) and have something like this
-        //// Custmoer -> CustomerAction
-        ////        \ -> SomeOtherTable
-        //bool lifted = false;
-        //foreach (var connection in _connections)
-        //{
-        //    foreach (var subConnection in connection.OtherTable.Connections)
-        //    {
+        // if we have connections of like Customer->CustomerAction->Customer->SomeOtherTable
+        // We can actually remove second Customer connection(move all its connections to top Customer) and have something like this
+        // Custmoer -> CustomerAction
+        //        \ -> SomeOtherTable
+        bool lifted = false;
+        foreach (var connection in _connections)
+        {
+            foreach (var subConnection in connection.OtherTable.Connections)
+            {
 
-        //        if (!subConnection.IsSame(connection))
-        //            continue;
-        //        connection.OtherTable._connections.Remove(subConnection);
-        //        foreach (var movedConnection in subConnection.OtherTable.Connections)
-        //            _connections.Add(movedConnection);
-        //        lifted = true;
-        //        break;
-        //    }
-        //    if (lifted)
-        //        break;
-        //}
-        //hasChanges |= lifted;
+                if (!subConnection.IsSame(connection))
+                    continue;
+                connection.OtherTable._connections.Remove(subConnection);
+                foreach (var movedConnection in subConnection.OtherTable.Connections)
+                    _connections.Add(movedConnection);
+                lifted = true;
+                break;
+            }
+            if (lifted)
+                break;
+        }
+        hasChanges |= lifted;
 
         return hasChanges;
     }
