@@ -12,7 +12,7 @@ INSERT INTO @tabledirectcrm_Customers(Id)
             WHERE Id = @__id
 SELECT * FROM @tabledirectcrm_Customers
 
-INSERT INTO @tabledirectcrm_CustomerActions(ActionTemplateId, ,CustomerId)
+INSERT INTO @tabledirectcrm_CustomerActions(ActionTemplateId, CustomerId)
     SELECT current.ActionTemplateId, current.CustomerId
         FROM directcrm.CustomerActions AS current
             INNER JOIN @tabledirectcrm_Customers AS previous ON

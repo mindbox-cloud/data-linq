@@ -55,7 +55,7 @@ internal class SqlTreeCommandBuilder
 
 
             var query = $"""
-                INSERT INTO {variableName}({string.Join(", ,", GetUsedColumns(otherTable))})
+                INSERT INTO {variableName}({string.Join(", ", GetUsedColumns(otherTable))})
                     SELECT {string.Join(", ", GetUsedColumns(otherTable).Order().Select(c => $"current.{c}"))}
                         FROM {otherTable.Name} AS current
                             INNER JOIN {previousSource} AS previous ON

@@ -203,23 +203,23 @@ public class MultiStatementQueryTests
         query.CommandText.MatchSnapshot();
     }
 
-    //[TestMethod]
-    //public void Translate_TableJoinByAssociationFieldViaWhere_Success()
-    //{
-    //    // Arrange
-    //    using var contextAndConnection = new DataContextAndConnection();
+    [TestMethod]
+    public void Translate_TableJoinByAssociationFieldViaWhere_Success()
+    {
+        // Arrange
+        using var contextAndConnection = new DataContextAndConnection();
 
-    //    // Act
-    //    var customerActions = contextAndConnection.DataContext.GetTable<CustomerAction>();
-    //    var queryExpression = contextAndConnection.DataContext
-    //        .GetTable<Customer>()
-    //        .Where(c => customerActions.Where(ca => ca.ActionTemplateId == 10).Where(ca => ca.Customer == c).Any())
-    //        .Expression;
-    //    var query = SqlQueryTranslator.Transalate(queryExpression, new DbColumnTypeProvider());
+        // Act
+        var customerActions = contextAndConnection.DataContext.GetTable<CustomerAction>();
+        var queryExpression = contextAndConnection.DataContext
+            .GetTable<Customer>()
+            .Where(c => customerActions.Where(ca => ca.ActionTemplateId == 10).Where(ca => ca.Customer == c).Any())
+            .Expression;
+        var query = SqlQueryTranslator.Transalate(queryExpression, new DbColumnTypeProvider());
 
-    //    // Assert
-    //    query.CommandText.MatchSnapshot();
-    //}
+        // Assert
+        query.CommandText.MatchSnapshot();
+    }
 
     //[TestMethod]
     //public void Translate_TableJoinByAssociationFieldPlusDataViaWhere_Success()

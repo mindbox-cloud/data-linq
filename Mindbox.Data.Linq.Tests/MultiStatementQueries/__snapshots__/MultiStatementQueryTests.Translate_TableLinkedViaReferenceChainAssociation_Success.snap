@@ -17,14 +17,14 @@ INSERT INTO @tabledirectcrm_Customers(AreaId, Id)
             WHERE Id = @__id
 SELECT * FROM @tabledirectcrm_Customers
 
-INSERT INTO @tabledirectcrm_Areas(Id, ,SubAreaId)
+INSERT INTO @tabledirectcrm_Areas(Id, SubAreaId)
     SELECT current.Id, current.SubAreaId
         FROM directcrm.Areas AS current
             INNER JOIN (SELECT DISTINCT AreaId FROM @tabledirectcrm_Customers) AS previous ON
                 previous.AreaId = current.Id
 SELECT * FROM @tabledirectcrm_Areas
 
-INSERT INTO @tabledirectcrm_SubAreas(Id, ,Name)
+INSERT INTO @tabledirectcrm_SubAreas(Id, Name)
     SELECT current.Id, current.Name
         FROM directcrm.SubAreas AS current
             INNER JOIN (SELECT DISTINCT SubAreaId FROM @tabledirectcrm_Areas) AS previous ON

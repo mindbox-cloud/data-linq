@@ -11,7 +11,7 @@ class SqlQueryTranslator
 {
     public static SqlQueryTranslatorResult Transalate(Expression node, IDbColumnTypeProvider columnTypeProvider)
     {
-        var table = TranslateCore(node);
+        var table = TranslateCore(node, columnTypeProvider);
         OptimizeTree(table);
 
         var command = SqlTreeCommandBuilder.Build(table, columnTypeProvider);
@@ -19,10 +19,10 @@ class SqlQueryTranslator
         return new SqlQueryTranslatorResult(command);
     }
 
-    private static TableNode2 TranslateCore(Expression expression)
+    private static TableNode2 TranslateCore(Expression expression, IDbColumnTypeProvider columnTypeProvider)
     {
         var rootSle = TranslateToSimplifiedExpression(expression);
-        var context = new TranslationContext();
+        var context = new TranslationContext(columnTypeProvider);
         TranslateChain(context, rootSle);
 
         // Ensure that all tables are port of join
@@ -102,7 +102,7 @@ class SqlQueryTranslator
         }
         else
             throw new NotSupportedException();
-        
+
 
 
         static void DetectConnections(TranslationContext context, FilterBinarySle filterBinary)
@@ -152,16 +152,31 @@ class SqlQueryTranslator
         // So far only [variable].[fieldName] parsing is supported
         if (sle is not ChainSle chain)
             return null;
-        if (chain.Items.Count != 2)
-            return null;
-        if (chain.Items[0] is not ReferenceRowSourceChainPart referenceChainPart)
-            return null;
-        if (chain.Items[1] is not ColumnAccessChainPart columnAccessChain)
-            return null;
-        var tableNodeByReference = context.GetTableNodeByTablePart((TableChainPart)referenceChainPart.ReferenceRowSource);
-        if (tableNodeByReference == null)
-            throw new InvalidOperationException();
-        return (tableNodeByReference, columnAccessChain.ColumnName);
+        switch (chain.Items.Count)
+        {
+            case 1:
+                if (chain.Items[0] is ReferenceRowSourceChainPart variableAsReference)
+                    return (GetTableNode(context, variableAsReference), context.ColumnTypeProvider.GetPKFields(GetTableNode(context, variableAsReference).Name).Single());
+                return null;
+            case 2:
+                if (chain.Items[0] is not ReferenceRowSourceChainPart referenceChainPart)
+                    return null;
+                if (chain.Items[1] is ColumnAccessChainPart columnAccessChain)
+                    return (GetTableNode(context, referenceChainPart), columnAccessChain.ColumnName);
+                else if (chain.Items[1] is AssociationChainPart associationChainPart)
+                    return (GetTableNode(context, referenceChainPart), associationChainPart.ColumnName);
+                return null;
+            default:
+                return null;
+        }
+
+        static TableNode2 GetTableNode(TranslationContext context, ReferenceRowSourceChainPart referenceRowSourceChainPart)
+        {
+            var tableNodeReference = context.GetTableNodeByTablePart((TableChainPart)referenceRowSourceChainPart.ReferenceRowSource);
+            if (tableNodeReference == null)
+                throw new InvalidOperationException();
+            return tableNodeReference;
+        }
     }
 
     /// <summary>
@@ -223,8 +238,14 @@ class SqlQueryTranslator
 
         public Dictionary<TableNode2, List<TableChainPart>> Node2ChainParts { get; } = new();
         public Dictionary<Connection, ChainSle> Connection2Chains { get; } = new();
+        public IDbColumnTypeProvider ColumnTypeProvider { get; private set; }
 
         public TableNode2 RootTable { get; set; }
+
+        public TranslationContext(IDbColumnTypeProvider columnTypeProvider)
+        {
+            ColumnTypeProvider = columnTypeProvider;
+        }
 
         public void AddChainPartForNode(TableNode2 tableNode, TableChainPart chainPart)
         {
@@ -570,6 +591,7 @@ class TableNode2
 
     public bool OptimizeConnections()
     {
+        // Merge duplicated connections
         bool hasChanges = false;
         for (int i = 0; i < _connections.Count - 1; i++)
             for (int j = i; j < _connections.Count; j++)
@@ -578,9 +600,7 @@ class TableNode2
                 var connectionB = _connections[j];
                 if (connectionA == connectionB)
                     continue;
-                if (connectionA.OtherTable.Name != connectionB.OtherTable.Name)
-                    continue;
-                if (!connectionA.OtherTableFields.SequenceEqual(connectionB.OtherTableFields))
+                if (!connectionA.Equals(connectionB))
                     continue;
                 _connections.Remove(connectionB);
                 j--;
@@ -588,7 +608,31 @@ class TableNode2
                 foreach (var connectionBOtherTableConnection in connectionB.OtherTable.Connections)
                     connectionA.OtherTable.AddConnection(connectionBOtherTableConnection.TableFields, connectionBOtherTableConnection.OtherTable, connectionBOtherTableConnection.OtherTableFields);
             }
-        return hasChanges;
+
+        // if we have connections of like Customer->CustomerAction->Customer->SomeOtherTable
+        // We can actually remove second Customer connection(move all its connections to top Customer) and have something like this
+        // Custmoer -> CustomerAction
+        //        \ -> SomeOtherTable
+
+        bool lifted = false;
+        foreach (var connection in _connections)
+        {
+            foreach (var subConnection in connection.OtherTable.Connections)
+            {
+
+                if (!subConnection.IsSame(connection))
+                    continue;
+                connection.OtherTable._connections.Remove(subConnection);
+                foreach (var movedConnection in subConnection.OtherTable.Connections)
+                    _connections.Add(movedConnection);
+                lifted = true;
+                break;
+            }
+            if (lifted)
+                break;
+        }
+
+        return hasChanges || lifted;
     }
 
     public IEnumerable<TableNode2> GetAllTableNodes()
@@ -616,28 +660,24 @@ class Connection
 {
     private List<string> _tableFields;
     private List<string> _otherTableFields;
+    private List<(string Field, string OtherField)> _sortedMappedFields = new();
 
     public TableNode2 Table { get; private set; }
     public IEnumerable<string> TableFields => _tableFields;
     public TableNode2 OtherTable { get; private set; }
     public IEnumerable<string> OtherTableFields => _otherTableFields;
-    public IEnumerable<(string Field, string OtherField)> MappedFields
-    {
-        get
-        {
-            for (int i = 0; i < _tableFields.Count; i++)
-                yield return (_tableFields[i], _otherTableFields[i]);
-        }
-    }
+    public IEnumerable<(string Field, string OtherField)> MappedFields => _sortedMappedFields;
 
     public Connection(TableNode2 table, IEnumerable<string> tableFields, TableNode2 otherTable, IEnumerable<string> otherTableFields)
     {
         Table = table;
-        _tableFields = tableFields.OrderBy(f => f).ToList();
+        _tableFields = tableFields.ToList();
         OtherTable = otherTable;
-        _otherTableFields = otherTableFields.OrderBy(f => f).ToList();
+        _otherTableFields = otherTableFields.ToList();
         if (TableFields.Count() != OtherTableFields.Count())
             throw new ArgumentException();
+
+        UpdateMappedFields();
     }
 
     /// <summary>
@@ -651,8 +691,38 @@ class Connection
             return;
         _tableFields.Add(fieldName);
         _otherTableFields.Add(otherFiledName);
-        _tableFields.OrderBy(f => f).ToList();
-        _otherTableFields.OrderBy(f => f).ToList();
+        UpdateMappedFields();
+    }
+
+    private void UpdateMappedFields()
+    {
+        _sortedMappedFields.Clear();
+        for (int i = 0; i < _otherTableFields.Count; i++)
+            _sortedMappedFields.Add((_tableFields[i], _otherTableFields[i]));
+        _sortedMappedFields.Sort((a, b) => a.Field.CompareTo(b.Field));
+    }
+
+    /// <summary>
+    /// Checks for equality.
+    /// </summary>
+    /// <param name="connection">Connection.</param>
+    /// <returns>True - equals, false - not.</returns>
+    public bool Equals(Connection connection)
+    {
+        return Table.Name == connection.Table.Name && OtherTable.Name == connection.OtherTable.Name &&
+            MappedFields.SequenceEqual(connection.MappedFields);
+    }
+
+    /// <summary>
+    /// Shows that it is same connection exactly or reveresed connection.
+    /// </summary>
+    /// <param name="connection">Connection to check.</param>
+    /// <returns>True - same or same-reversed, false - not same.</returns>
+    public bool IsSame(Connection connection)
+    {
+        if (Table.Name == connection.OtherTable.Name && OtherTable.Name == connection.Table.Name)
+            return MappedFields.SequenceEqual(connection.MappedFields.Select(m => (m.OtherField, m.Field)));
+        return Equals(connection);
     }
 }
 
