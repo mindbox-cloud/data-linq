@@ -24,7 +24,7 @@ public class MultiStatementQueryTests
         // Act
         var queryExpression = contextAndConnection.DataContext
             .GetTable<Customer>().AsQueryable().Expression;
-        var query = SqlQueryTranslator.Transalate(queryExpression, new DbColumnTypeProvider());
+        var query = SqlQueryTranslator.Translate(queryExpression, new DbColumnTypeProvider());
 
         // Assert
         query.CommandText.MatchSnapshot();
@@ -39,7 +39,7 @@ public class MultiStatementQueryTests
         // Act
         var queryExpression = contextAndConnection.DataContext
             .GetTable<Customer>().Where(c2 => c2.TempPasswordEmail == "123").Expression;
-        var query = SqlQueryTranslator.Transalate(queryExpression, new DbColumnTypeProvider());
+        var query = SqlQueryTranslator.Translate(queryExpression, new DbColumnTypeProvider());
 
         // Assert
         query.CommandText.MatchSnapshot();
@@ -54,7 +54,7 @@ public class MultiStatementQueryTests
         // Act
         var queryExpression = contextAndConnection.DataContext
             .GetTable<Customer>().Where(c1 => c1.AreaId == 10).Where(c2 => c2.TempPasswordEmail == "123").Expression;
-        var query = SqlQueryTranslator.Transalate(queryExpression, new DbColumnTypeProvider());
+        var query = SqlQueryTranslator.Translate(queryExpression, new DbColumnTypeProvider());
 
         // Assert
         query.CommandText.MatchSnapshot();
@@ -70,7 +70,7 @@ public class MultiStatementQueryTests
         var someEmail = "123";
         var queryExpression = contextAndConnection.DataContext
             .GetTable<Customer>().Where(c => c.TempPasswordEmail == someEmail).Expression;
-        var query = SqlQueryTranslator.Transalate(queryExpression, new DbColumnTypeProvider());
+        var query = SqlQueryTranslator.Translate(queryExpression, new DbColumnTypeProvider());
 
         // Assert
         query.CommandText.MatchSnapshot();
@@ -85,7 +85,7 @@ public class MultiStatementQueryTests
         // Act
         var queryExpression = contextAndConnection.DataContext
             .GetTable<Customer>().Where(c => c.IsDeleted).Expression;
-        var query = SqlQueryTranslator.Transalate(queryExpression, new DbColumnTypeProvider());
+        var query = SqlQueryTranslator.Translate(queryExpression, new DbColumnTypeProvider());
 
         // Assert
         query.CommandText.MatchSnapshot();
@@ -100,7 +100,7 @@ public class MultiStatementQueryTests
         // Act
         var queryExpression = contextAndConnection.DataContext
             .GetTable<Customer>().Where(c => !c.IsDeleted).Expression;
-        var query = SqlQueryTranslator.Transalate(queryExpression, new DbColumnTypeProvider());
+        var query = SqlQueryTranslator.Translate(queryExpression, new DbColumnTypeProvider());
 
         // Assert
         query.CommandText.MatchSnapshot();
@@ -116,7 +116,7 @@ public class MultiStatementQueryTests
         var someEmail = "123";
         var queryExpression = contextAndConnection.DataContext
             .GetTable<Customer>().Where(c => c.TempPasswordEmail == someEmail && c.Id > 10 && !c.IsDeleted).Expression;
-        var query = SqlQueryTranslator.Transalate(queryExpression, new DbColumnTypeProvider());
+        var query = SqlQueryTranslator.Translate(queryExpression, new DbColumnTypeProvider());
 
         // Assert
         query.CommandText.MatchSnapshot();
@@ -132,7 +132,7 @@ public class MultiStatementQueryTests
         var someEmail = "123";
         var queryExpression = contextAndConnection.DataContext
             .GetTable<Customer>().Where(c => c.TempPasswordEmail == someEmail).Where(c => c.Id > 10).Where(c => c.Id > 10 && !c.IsDeleted).Expression;
-        var query = SqlQueryTranslator.Transalate(queryExpression, new DbColumnTypeProvider());
+        var query = SqlQueryTranslator.Translate(queryExpression, new DbColumnTypeProvider());
 
         // Assert
         query.CommandText.MatchSnapshot();
@@ -147,7 +147,7 @@ public class MultiStatementQueryTests
         // Act
         var queryExpression = contextAndConnection.DataContext
             .GetTable<Customer>().Where(c => c.Area.Name == "SomeArea").Expression;
-        var query = SqlQueryTranslator.Transalate(queryExpression, new DbColumnTypeProvider());
+        var query = SqlQueryTranslator.Translate(queryExpression, new DbColumnTypeProvider());
 
         // Assert
         query.CommandText.MatchSnapshot();
@@ -162,7 +162,7 @@ public class MultiStatementQueryTests
         // Act
         var queryExpression = contextAndConnection.DataContext
             .GetTable<Customer>().Where(c => c.Area.SubArea.Name == "SomeSubArea").Expression;
-        var query = SqlQueryTranslator.Transalate(queryExpression, new DbColumnTypeProvider());
+        var query = SqlQueryTranslator.Translate(queryExpression, new DbColumnTypeProvider());
 
         // Assert
         query.CommandText.MatchSnapshot();
@@ -179,7 +179,7 @@ public class MultiStatementQueryTests
             .GetTable<Customer>()
             .Where(c => c.Area.Name == "SomeArea")
             .Where(c => c.Area.SubArea.Name == "SomeSubArea").Expression;
-        var query = SqlQueryTranslator.Transalate(queryExpression, new DbColumnTypeProvider());
+        var query = SqlQueryTranslator.Translate(queryExpression, new DbColumnTypeProvider());
 
         // Assert
         query.CommandText.MatchSnapshot();
@@ -197,7 +197,7 @@ public class MultiStatementQueryTests
             .GetTable<Customer>()
             .Where(c => customerActions.Where(ca => ca.CustomerId == c.Id).Any(ca => ca.ActionTemplateId == 10))
             .Expression;
-        var query = SqlQueryTranslator.Transalate(queryExpression, new DbColumnTypeProvider());
+        var query = SqlQueryTranslator.Translate(queryExpression, new DbColumnTypeProvider());
 
         // Assert
         query.CommandText.MatchSnapshot();
@@ -215,7 +215,7 @@ public class MultiStatementQueryTests
             .GetTable<Customer>()
             .Where(c => customerActions.Where(ca => ca.ActionTemplateId == 10).Where(ca => ca.Customer == c).Any())
             .Expression;
-        var query = SqlQueryTranslator.Transalate(queryExpression, new DbColumnTypeProvider());
+        var query = SqlQueryTranslator.Translate(queryExpression, new DbColumnTypeProvider());
 
         // Assert
         query.CommandText.MatchSnapshot();

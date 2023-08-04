@@ -9,7 +9,7 @@ namespace Mindbox.Data.Linq.Tests.MultiStatementQueries;
 
 class SqlQueryTranslator
 {
-    public static SqlQueryTranslatorResult Transalate(Expression node, IDbColumnTypeProvider columnTypeProvider)
+    public static SqlQueryTranslatorResult Translate(Expression node, IDbColumnTypeProvider columnTypeProvider)
     {
         var table = TranslateCore(node, columnTypeProvider);
         OptimizeTree(table);
