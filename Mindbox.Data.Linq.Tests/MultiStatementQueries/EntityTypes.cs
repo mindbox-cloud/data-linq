@@ -125,6 +125,9 @@ public sealed class RetailOrder
     [Column]
     public int CustomerId { get; set; }
 
+    [Column]
+    public decimal TotalSum { get; set; }
+
     [Association(ThisKey = nameof(Id), OtherKey = nameof(RetailOrderHistoryItem.RetailOrderId))]
     public RetailOrderHistoryItem[] History { get; set; }
 

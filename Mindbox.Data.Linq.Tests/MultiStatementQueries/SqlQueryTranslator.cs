@@ -46,24 +46,15 @@ class SqlQueryTranslator
             }
             else if (chainItem is SelectChainPart selectChainPart)
             {
+                var selectChain = (ChainSle)selectChainPart.InnerExpression;
+
                 throw new NotSupportedException();
             }
             else if (chainItem is AssociationChainPart associationChainPart)
             {
-                // Pick connection only if there are further staments in chian. Otherwise we don't need connection at all, as that is most likely
-                // just join conidtion
-                // Example when we don't want to pick connection from association ca.Customer
-                //  ....Where(c => customerActions.Where(ca => ca.Customer == c).Any())
-                // Still we do want to pick connection from assocition CustomerAction.Area lik
-                //  ....Where(c => customerActions.Where(ca => ca.Area.Size == 10).Any
-                if (associationChainPart.Chain.Items[^1] != associationChainPart)
-                {
-                    var associationTable = new TableNode2(associationChainPart.NextTableName);
-                    currentTable.AddConnection(new[] { associationChainPart.ColumnName }, associationTable, new string[] { associationChainPart.NextTableColumnName });
-                    currentTable = associationTable;
-                }
-                else
-                    currentTable.AddField(associationChainPart.ColumnName);
+                var associationTable = new TableNode2(associationChainPart.NextTableName);
+                currentTable.AddConnection(new[] { associationChainPart.ColumnName }, associationTable, new string[] { associationChainPart.NextTableColumnName });
+                currentTable = associationTable;
             }
             else if (chainItem is FilterChainPart filterChainPart)
             {
@@ -811,6 +802,7 @@ public class DbColumnTypeProvider : IDbColumnTypeProvider
             ("directcrm.SubAreas", "Name") => "nvarchar(64) not null",
             ("directcrm.RetailOrders", "Id") => "int not null",
             ("directcrm.RetailOrders", "CustomerId") => "int null",
+            ("directcrm.RetailOrders", "TotalSum") => "float not null",
             _ => throw new NotSupportedException()
         };
     }

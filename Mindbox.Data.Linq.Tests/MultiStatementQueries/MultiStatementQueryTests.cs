@@ -239,28 +239,100 @@ public class MultiStatementQueryTests
         query.CommandText.MatchSnapshot();
     }
 
-    //[TestMethod]
-    //public void Translate_TableJoinByAssociationFollowedBySelectMany_Success()
-    //{
-    //    // Arrange
-    //    using var contextAndConnection = new DataContextAndConnection();
+    [TestMethod]
+    public void Translate_TableJoinWithSelectFollowedByWhere_Success()
+    {
+        // Arrange
+        using var contextAndConnection = new DataContextAndConnection();
 
-    //    // Act
-    //    var orders = contextAndConnection.DataContext.GetTable<RetailOrder>();
-    //    var queryExpression = contextAndConnection.DataContext
-    //        .GetTable<Customer>()
-    //        .Where(c =>
-    //            orders.Where(o => o.CurrentCustomer == c)
-    //               .SelectMany(o => o.History.Single(hi => hi.IsCurrentOtherwiseNull != null).Purchases)
-    //               .Where(p => p.PriceForCustomerOfLine / p.Count != null && p.PriceForCustomerOfLine / p.Count >= 123)
-    //               .Any()
-    //        )
-    //        .Expression;
-    //    var query = SqlQueryTranslator.Transalate(queryExpression, new DbColumnTypeProvider());
+        // Act
+        var customerActions = contextAndConnection.DataContext.GetTable<CustomerAction>();
+        var queryExpression = contextAndConnection.DataContext
+            .GetTable<Customer>()
+            .Select(c => customerActions.Where(ca => ca.Customer == c).FirstOrDefault())
+            .Where(c => c.ActionTemplateId == 10)
+            .Expression;
+        var query = SqlQueryTranslator.Translate(queryExpression, new DbColumnTypeProvider());
 
-    //    // Assert
-    //    query.CommandText.MatchSnapshot();
-    //}
+        // Assert
+        query.CommandText.MatchSnapshot();
+    }
+
+    [TestMethod]
+    public void Translate_TableJoinWithSelectAnonymousFollowedByWhere_Success()
+    {
+        // Arrange
+        using var contextAndConnection = new DataContextAndConnection();
+
+        // Act
+        var customerActions = contextAndConnection.DataContext.GetTable<CustomerAction>();
+        var queryExpression = contextAndConnection.DataContext
+            .GetTable<Customer>()
+            .Select(c => new
+            {
+                CA = customerActions.Where(ca => ca.Customer == c).FirstOrDefault(),
+                CAArea = c.Area
+            })
+            .Where(c => c.CA.ActionTemplateId == 10)
+            .Where(c => c.CAArea.Id == 20)
+            .Expression;
+        var query = SqlQueryTranslator.Translate(queryExpression, new DbColumnTypeProvider());
+
+        // Assert
+        query.CommandText.MatchSnapshot();
+    }
+
+    [TestMethod]
+    public void Translate_TableJoinByAssociationFollowedBySelectMany_Success()
+    {
+        // Arrange
+        using var contextAndConnection = new DataContextAndConnection();
+
+        // Act
+        var orders = contextAndConnection.DataContext.GetTable<RetailOrder>();
+        var queryExpression = contextAndConnection.DataContext
+            .GetTable<Customer>()
+            .Where(c =>
+                orders.Where(o => o.CurrentCustomer == c)
+                   .SelectMany(o => o.History.Single(hi => hi.IsCurrentOtherwiseNull != null).Purchases)
+                   .Where(p => p.PriceForCustomerOfLine / p.Count != null && p.PriceForCustomerOfLine / p.Count >= 123)
+                   .Any()
+            )
+            .Expression;
+        var query = SqlQueryTranslator.Translate(queryExpression, new DbColumnTypeProvider());
+
+        // Assert
+        query.CommandText.MatchSnapshot();
+    }
+
+    [TestMethod]
+    public void Translate_TableJoinByAssociationFollowedBySelectWithAnonymousType_Success()
+    {
+        // Arrange
+        using var contextAndConnection = new DataContextAndConnection();
+
+        // Act
+        var orders = contextAndConnection.DataContext.GetTable<RetailOrder>();
+        var queryExpression = contextAndConnection.DataContext
+            .GetTable<Customer>()
+            .Where(c =>
+                orders.Where(o => o.CurrentCustomer == c)
+                   .Select(o =>
+                       new
+                       {
+                           o.History.Single(hi => hi.IsCurrentOtherwiseNull != null).Purchases,
+                           Order = o
+                       })
+                   .Where(p => p.Purchases.Any(p => p.PriceForCustomerOfLine > 0))
+                   .Where(p => p.Order.Id > 100)
+                   .Any()
+            )
+            .Expression;
+        var query = SqlQueryTranslator.Translate(queryExpression, new DbColumnTypeProvider());
+
+        // Assert
+        query.CommandText.MatchSnapshot();
+    }
 
     // Several neested joins
     // Querable join
@@ -327,7 +399,7 @@ static class ChainPartSleExtensions
         for (int i = 0; i < chainPart.Chain.Items.Count; i++)
         {
             if (chainPart == chainPart.Chain.Items[i])
-                return i == 0 ? null : chainPart.Chain.Items[i-1];
+                return i == 0 ? null : chainPart.Chain.Items[i - 1];
         }
         throw new InvalidOperationException();
     }
@@ -337,7 +409,7 @@ static class ChainPartSleExtensions
         for (int i = 0; i < chainPart.Chain.Items.Count; i++)
         {
             if (chainPart == chainPart.Chain.Items[i])
-                return i + 1 >= chainPart.Chain.Items.Count ? null : chainPart.Chain.Items[i+1];
+                return i + 1 >= chainPart.Chain.Items.Count ? null : chainPart.Chain.Items[i + 1];
         }
         throw new InvalidOperationException();
     }
@@ -654,6 +726,22 @@ class ChainExpressionVisitor
     private Expression UnwrapNot(Expression expression, out bool isNegated)
     {
         isNegated = false;
+        while (true)
+        {
+            switch (expression.NodeType)
+            {
+                case ExpressionType.Not:
+                    isNegated = !isNegated;
+                    expression = (expression as UnaryExpression).Operand;
+                    continue;
+                case ExpressionType.Convert:
+                    expression = (expression as UnaryExpression).Operand;
+                    continue;
+            }
+            return expression;
+        }
+
+
         if (expression.NodeType != ExpressionType.Not)
             return expression;
         var unary = expression as UnaryExpression;
@@ -674,7 +762,7 @@ class ChainExpressionVisitor
         {
             tableName = ExpressionHelpers.GetTableName(chainCalls[1]);
             if (!string.IsNullOrEmpty(tableName))
-                chainCalls  = chainCalls.Skip(2).ToArray();
+                chainCalls = chainCalls.Skip(2).ToArray();
         }
 
         if (string.IsNullOrEmpty(tableName) && UnwrpaNode(chainCalls[0]) is ConstantExpression) // plain constant or variable
