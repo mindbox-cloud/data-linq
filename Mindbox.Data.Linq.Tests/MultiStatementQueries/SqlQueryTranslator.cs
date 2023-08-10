@@ -761,8 +761,10 @@ public class DbColumnTypeProvider : IDbColumnTypeProvider
         {
             "directcrm.Customers" => new[] { "Id" },
             "directcrm.CustomerActions" => new[] { "Id" },
-            "directcrm.CustomFieldValues" => new[] { "Id" },
+            "directcrm.CustomerCustomFieldValues" => new[] { "Id" },
+            "directcrm.CustomerActionCustomFieldValues" => new[] { "Id" },
             "directcrm.Areas" => new[] { "Id" },
+            "directcrm.ActionTemplates" => new[] { "Id" },
             "directcrm.SubAreas" => new[] { "Id" },
             "directcrm.RetailOrders" => new[] { "Id" },
             _ => throw new NotSupportedException()
@@ -802,6 +804,8 @@ public class DbColumnTypeProvider : IDbColumnTypeProvider
             ("directcrm.Areas", "Id") => "int not null",
             ("directcrm.Areas", "Name") => "nvarchar(32) not null",
             ("directcrm.Areas", "SubAreaId") => "int null",
+            ("directcrm.ActionTemplates", "Id") => "int not null",
+            ("directcrm.ActionTemplates", "Name") => "nvarchar(32) not null",
             ("directcrm.SubAreas", "Id") => "int not null",
             ("directcrm.SubAreas", "Name") => "nvarchar(64) not null",
             ("directcrm.RetailOrders", "Id") => "int not null",

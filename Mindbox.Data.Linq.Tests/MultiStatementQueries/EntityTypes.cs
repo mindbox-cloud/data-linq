@@ -58,6 +58,9 @@ public sealed class CustomerAction
     [Column]
     public int ActionTemplateId { get; set; }
 
+    [Association(ThisKey = nameof(ActionTemplateId), OtherKey = nameof(MultiStatementQueries.ActionTemplate.Id))]
+    public ActionTemplate ActionTemplate { get; set; }
+
     [Column]
     public int CustomerId { get; set; }
 
@@ -76,6 +79,16 @@ public sealed class CustomerAction
     [Association(ThisKey = nameof(Id), OtherKey = nameof(CustomerActionCustomFieldValue.CustomerActionId))]
     public CustomerActionCustomFieldValue[] CustomFieldValues { get; set; }
 
+}
+
+[Table(Name = "directcrm.ActionTemplates")]
+public sealed class ActionTemplate
+{
+    [Column(IsPrimaryKey = true)]
+    public int Id { get; set; }
+
+    [Column]
+    public string Name { get; set; }
 }
 
 [Table(Name = "directcrm.CustomerActionCustomFieldValues")]

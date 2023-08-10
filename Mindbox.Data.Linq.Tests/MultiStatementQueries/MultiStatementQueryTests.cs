@@ -239,43 +239,24 @@ public class MultiStatementQueryTests
         query.CommandText.MatchSnapshot();
     }
 
-    // TODO
     [TestMethod]
-    public void Translate_TwoTableJoinedByAssociationFieldPlusDataViaWhere_Success()
+    public void Translate_TableJoinWithSelectFollowedByWhere_Success()
     {
         // Arrange
         using var contextAndConnection = new DataContextAndConnection();
 
         // Act
-        var customFields = contextAndConnection.DataContext.GetTable<CustomerActionCustomFieldValue>();
+        var customerActions = contextAndConnection.DataContext.GetTable<CustomerAction>();
         var queryExpression = contextAndConnection.DataContext
             .GetTable<Customer>()
-            .Where(c => customFields.Where(cf => cf.CustomerAction.Customer == c).Where(cf => cf.FieldValue == "VVV").Any())
+            .Select(c => customerActions.Where(ca => ca.Customer == c).FirstOrDefault())
+            .Where(c => c.ActionTemplate.Name == "dummy")
             .Expression;
         var query = SqlQueryTranslator.Translate(queryExpression, new DbColumnTypeProvider());
 
         // Assert
         query.CommandText.MatchSnapshot();
     }
-
-    //[TestMethod]
-    //public void Translate_TableJoinWithSelectFollowedByWhere_Success()
-    //{
-    //    // Arrange
-    //    using var contextAndConnection = new DataContextAndConnection();
-
-    //    // Act
-    //    var customerActions = contextAndConnection.DataContext.GetTable<CustomerAction>();
-    //    var queryExpression = contextAndConnection.DataContext
-    //        .GetTable<Customer>()
-    //        .Select(c => customerActions.Where(ca => ca.Customer == c).FirstOrDefault())
-    //        .Where(c => c.ActionTemplateId == 10)
-    //        .Expression;
-    //    var query = SqlQueryTranslator.Translate(queryExpression, new DbColumnTypeProvider());
-
-    //    // Assert
-    //    query.CommandText.MatchSnapshot();
-    //}
 
     //[TestMethod]
     //public void Translate_TableJoinWithSelectAnonymousFollowedByWhere_Success()
