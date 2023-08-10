@@ -31,7 +31,7 @@ public sealed class Customer
     public long? TempPasswordMobilePhone { get; set; }
 
     [Association(ThisKey = nameof(Id), OtherKey = nameof(CustomerCustomFieldValue.CustomerId))]
-    public CustomerCustomFieldValue[] CustomerFieldValues { get; set; }
+    public CustomerCustomFieldValue[] CustomFieldValues { get; set; }
 
     [Column]
     public int AreaId { get; set; }
@@ -72,9 +72,32 @@ public sealed class CustomerAction
 
     [Column]
     public long? TransactionalId { get; set; }
+
+    [Association(ThisKey = nameof(Id), OtherKey = nameof(CustomerActionCustomFieldValue.CustomerActionId))]
+    public CustomerActionCustomFieldValue[] CustomFieldValues { get; set; }
+
 }
 
-[Table(Name = "directcrm.CustomFieldValues")]
+[Table(Name = "directcrm.CustomerActionCustomFieldValues")]
+public sealed class CustomerActionCustomFieldValue
+{
+    [Column(IsPrimaryKey = true)]
+    public int Id { get; set; }
+
+    [Column]
+    public long CustomerActionId { get; set; }
+
+    [Association(ThisKey = nameof(CustomerActionId), OtherKey = nameof(MultiStatementQueries.CustomerAction.Id))]
+    public CustomerAction CustomerAction { get; set; }
+
+    [Column]
+    public string FieldName { get; set; }
+
+    [Column]
+    public string FieldValue { get; set; }
+}
+
+[Table(Name = "directcrm.CustomerCustomFieldValues")]
 public sealed class CustomerCustomFieldValue
 {
     [Column(IsPrimaryKey = true)]

@@ -46,7 +46,7 @@ class SqlQueryTranslator
             }
             else if (chainItem is SelectChainPart selectChainPart)
             {
-                var selectChain = (ChainSle)selectChainPart.InnerExpression;
+                // var selectChain = (ChainSle)selectChainPart.InnerExpression;
 
                 throw new NotSupportedException();
             }
@@ -791,10 +791,14 @@ public class DbColumnTypeProvider : IDbColumnTypeProvider
             ("directcrm.CustomerActions", "StaffId") => "int null",
             ("directcrm.CustomerActions", "OriginalCustomerId") => "int not null",
             ("directcrm.CustomerActions", "TransactionalId") => "bigint null",
-            ("directcrm.CustomFieldValues", "Id") => "int not null",
-            ("directcrm.CustomFieldValues", "CustomerId") => "bigint not null",
-            ("directcrm.CustomFieldValues", "FieldName") => "nvarchar(32) not null",
-            ("directcrm.CustomFieldValues", "FieldValue") => "nvarchar(32) not null",
+            ("directcrm.CustomerActionCustomFieldValues", "Id") => "int not null",
+            ("directcrm.CustomerActionCustomFieldValues", "CustomerActionId") => "bigint not null",
+            ("directcrm.CustomerActionCustomFieldValues", "FieldName") => "nvarchar(32) not null",
+            ("directcrm.CustomerActionCustomFieldValues", "FieldValue") => "nvarchar(32) not null",
+            ("directcrm.CustomerCustomFieldValues", "Id") => "int not null",
+            ("directcrm.CustomerCustomFieldValues", "CustomerId") => "int not null",
+            ("directcrm.CustomerCustomFieldValues", "FieldName") => "nvarchar(32) not null",
+            ("directcrm.CustomerCustomFieldValues", "FieldValue") => "nvarchar(32) not null",
             ("directcrm.Areas", "Id") => "int not null",
             ("directcrm.Areas", "Name") => "nvarchar(32) not null",
             ("directcrm.Areas", "SubAreaId") => "int null",
