@@ -258,24 +258,25 @@ public class MultiStatementQueryTests
         query.CommandText.MatchSnapshot();
     }
 
-    //[TestMethod]
-    //public void Translate_TableJoinWithSelectFollowedByWhere_Success()
-    //{
-    //    // Arrange
-    //    using var contextAndConnection = new DataContextAndConnection();
+    // TODO
+    [TestMethod]
+    public void Translate_TableJoinWithSelectFollowedByWhere_Success()
+    {
+        // Arrange
+        using var contextAndConnection = new DataContextAndConnection();
 
-    //    // Act
-    //    var customerActions = contextAndConnection.DataContext.GetTable<CustomerAction>();
-    //    var queryExpression = contextAndConnection.DataContext
-    //        .GetTable<Customer>()
-    //        .Select(c => customerActions.Where(ca => ca.Customer == c).FirstOrDefault())
-    //        .Where(c => c.ActionTemplate.Name == "dummy")
-    //        .Expression;
-    //    var query = SqlQueryTranslator.Translate(queryExpression, new DbColumnTypeProvider());
+        // Act
+        var customerActions = contextAndConnection.DataContext.GetTable<CustomerAction>();
+        var queryExpression = contextAndConnection.DataContext
+            .GetTable<Customer>()
+            .Select(c => customerActions.Where(ca => ca.Customer == c).FirstOrDefault())
+            .Where(c => c.ActionTemplate.Name == "dummy")
+            .Expression;
+        var query = SqlQueryTranslator.Translate(queryExpression, new DbColumnTypeProvider());
 
-    //    // Assert
-    //    query.CommandText.MatchSnapshot();
-    //}
+        // Assert
+        query.CommandText.MatchSnapshot();
+    }
 
     //[TestMethod]
     //public void Translate_TableJoinWithSelectAnonymousFollowedByWhere_Success()

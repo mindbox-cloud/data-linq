@@ -1,0 +1,31 @@
+﻿DECLARE @tabledirectcrm_Customers TABLE(
+    Id int not null
+)
+DECLARE @tabledirectcrm_CustomerActions TABLE(
+    ActionTemplateId int not null,
+    CustomerId int not null
+)
+DECLARE @tabledirectcrm_ActionTemplates TABLE(
+    Id int not null,
+    Name nvarchar(32) not null
+)
+
+INSERT INTO @tabledirectcrm_Customers(Id)
+    SELECT current.Id
+        FROM directcrm.Customers AS current
+            WHERE Id = @__id
+SELECT * FROM @tabledirectcrm_Customers
+
+INSERT INTO @tabledirectcrm_CustomerActions(ActionTemplateId, CustomerId)
+    SELECT current.ActionTemplateId, current.CustomerId
+        FROM directcrm.CustomerActions AS current
+            INNER JOIN @tabledirectcrm_Customers AS previous ON
+                previous.Id = current.CustomerId
+SELECT * FROM @tabledirectcrm_CustomerActions
+
+INSERT INTO @tabledirectcrm_ActionTemplates(Id, Name)
+    SELECT current.Id, current.Name
+        FROM directcrm.ActionTemplates AS current
+            INNER JOIN (SELECT DISTINCT ActionTemplateId FROM @tabledirectcrm_CustomerActions) AS previous ON
+                previous.ActionTemplateId = current.Id
+SELECT * FROM @tabledirectcrm_ActionTemplates

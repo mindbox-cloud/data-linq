@@ -27,7 +27,7 @@ class SqlQueryTranslator
         TranslateChain(context, rootSle);
 
         // Ensure that all tables are port of join
-        foreach (var table in context.Node2ChainPart.Keys)
+        foreach (var table in context.Node2ChainParts.Keys)
             if (!context.RootTable.GetAllTableNodes().Contains(table))
                 throw new InvalidOperationException($"No connection condition was found for table {table.Name}.");
 
@@ -39,6 +39,7 @@ class SqlQueryTranslator
         SelectChainPart currentSelectChainPart = null;
         TableNode2 currentTable = null!;
         foreach (var chainItem in chain.Items)
+        {
             if (chainItem is TableChainPart tableChainPart)
             {
                 currentTable = new TableNode2(tableChainPart.Name);
@@ -54,12 +55,35 @@ class SqlQueryTranslator
             }
             else if (chainItem is AssociationChainPart associationChainPart)
             {
-                var associationTable = new TableNode2(associationChainPart.NextTableName);
-                currentTable.AddConnection(new[] { associationChainPart.ColumnName }, associationTable, new string[] { associationChainPart.NextTableColumnName });
-                currentTable = associationTable;
-                currentSelectChainPart = null;
-                if (associationChainPart.IsLast())
-                    context.AddChainPartForNode(currentTable, associationChainPart);
+                if (currentSelectChainPart != null)
+                    switch (currentSelectChainPart.ChainPartType)
+                    {
+                        case SelectChainPartType.Simple:
+                            currentTable = context.GetTableNodeByTablePart(currentSelectChainPart.NamedChains[""].Items.Last());
+                            if (currentTable == null)
+                                throw new NotSupportedException();
+                            currentSelectChainPart = null;
+                            var associationTable = new TableNode2(associationChainPart.NextTableName);
+                            currentTable.AddConnection(new[] { associationChainPart.ColumnName }, associationTable, new string[] { associationChainPart.NextTableColumnName });
+                            currentTable = associationTable;
+                            currentSelectChainPart = null;
+                            break;
+                        case SelectChainPartType.Complex:
+                            throw new NotSupportedException();
+                        default:
+                            throw new NotSupportedException();
+                    }
+                else
+                {
+                    if (currentTable == null)
+                        throw new NotSupportedException();
+                    var associationTable = new TableNode2(associationChainPart.NextTableName);
+                    currentTable.AddConnection(new[] { associationChainPart.ColumnName }, associationTable, new string[] { associationChainPart.NextTableColumnName });
+                    currentTable = associationTable;
+                    currentSelectChainPart = null;
+                }
+
+                
             }
             else if (chainItem is FilterChainPart filterChainPart)
             {
@@ -108,14 +132,15 @@ class SqlQueryTranslator
                 {
                     if (currentTable == null)
                         throw new NotSupportedException();
-                    if (currentTable != null)
-                        currentTable.AddField(columnAccessChainPart.ColumnName);
-                    if (columnAccessChainPart.IsLast())
-                        context.AddChainPartForNode(currentTable, currentSelectChainPart);
+                    currentTable.AddField(columnAccessChainPart.ColumnName);
                 }
             }
             else
                 throw new NotSupportedException();
+
+            if (currentTable != null && chainItem.IsLast())
+                context.AddChainPartForNode(currentTable, chainItem);
+        }
     }
 
     private static void TranslateTree(TranslationContext context, ITreeNodeSle sle)
@@ -312,7 +337,7 @@ class SqlQueryTranslator
     {
         private Dictionary<ISimplifiedLinqExpression, string> _variableNames = new();
 
-        public Dictionary<TableNode2, IChainPart> Node2ChainPart { get; } = new();
+        public Dictionary<TableNode2, List<IChainPart>> Node2ChainParts { get; } = new();
         public Dictionary<Connection, ChainSle> Connection2Chains { get; } = new();
         public IDbColumnTypeProvider ColumnTypeProvider { get; private set; }
 
@@ -325,18 +350,19 @@ class SqlQueryTranslator
 
         public void AddChainPartForNode(TableNode2 tableNode, IChainPart chainPart)
         {
-            if (Node2ChainPart.ContainsKey(tableNode) && Node2ChainPart[tableNode] != chainPart)
-                throw new NotSupportedException();
-            if (Node2ChainPart.ContainsKey(tableNode))
+            if (!Node2ChainParts.ContainsKey(tableNode))
+                Node2ChainParts.Add(tableNode, new());
+            if (Node2ChainParts[tableNode].Contains(chainPart))
                 return;
-            Node2ChainPart.Add(tableNode, chainPart);
+            Node2ChainParts[tableNode].Add(chainPart);
         }
 
         public TableNode2 GetTableNodeByTablePart(IChainPart tableChainPart)
         {
-            foreach (var (node, part) in Node2ChainPart)
-                if (part == tableChainPart)
-                    return node;
+            foreach (var (node, parts) in Node2ChainParts)
+                foreach (var part in parts)
+                    if (part == tableChainPart)
+                        return node;
             return null;
         }
 
