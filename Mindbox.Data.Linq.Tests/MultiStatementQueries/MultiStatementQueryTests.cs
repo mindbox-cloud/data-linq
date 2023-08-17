@@ -240,7 +240,7 @@ public class MultiStatementQueryTests
     }
 
     [TestMethod]
-    public void Translate_TableJoinWithSelectFollowedByWhere_Success()
+    public void Translate_TableJoinWithSelectFollowedByWhere_SelectSwitchesType_Success()
     {
         // Arrange
         using var contextAndConnection = new DataContextAndConnection();
@@ -249,14 +249,33 @@ public class MultiStatementQueryTests
         var customerActions = contextAndConnection.DataContext.GetTable<CustomerAction>();
         var queryExpression = contextAndConnection.DataContext
             .GetTable<Customer>()
-            .Select(c => customerActions.Where(ca => ca.Customer == c).FirstOrDefault())
-            .Where(c => c.ActionTemplate.Name == "dummy")
+            .Select(c => customerActions.Where(ca => ca.Customer == c).FirstOrDefault().ActionTemplate)
+            .Where(c => c.Name == "dummy")
             .Expression;
         var query = SqlQueryTranslator.Translate(queryExpression, new DbColumnTypeProvider());
 
         // Assert
         query.CommandText.MatchSnapshot();
     }
+
+    //[TestMethod]
+    //public void Translate_TableJoinWithSelectFollowedByWhere_Success()
+    //{
+    //    // Arrange
+    //    using var contextAndConnection = new DataContextAndConnection();
+
+    //    // Act
+    //    var customerActions = contextAndConnection.DataContext.GetTable<CustomerAction>();
+    //    var queryExpression = contextAndConnection.DataContext
+    //        .GetTable<Customer>()
+    //        .Select(c => customerActions.Where(ca => ca.Customer == c).FirstOrDefault())
+    //        .Where(c => c.ActionTemplate.Name == "dummy")
+    //        .Expression;
+    //    var query = SqlQueryTranslator.Translate(queryExpression, new DbColumnTypeProvider());
+
+    //    // Assert
+    //    query.CommandText.MatchSnapshot();
+    //}
 
     //[TestMethod]
     //public void Translate_TableJoinWithSelectAnonymousFollowedByWhere_Success()
@@ -273,7 +292,7 @@ public class MultiStatementQueryTests
     //            CA = customerActions.Where(ca => ca.Customer == c).FirstOrDefault(),
     //            CAArea = c.Area
     //        })
-    //        .Where(c => c.CA.ActionTemplateId == 10)
+    //        .Where(c => c.CA.ActionTemplate.Name == "dummy" && c.StuffId = 10
     //        .Where(c => c.CAArea.Id == 20)
     //        .Expression;
     //    var query = SqlQueryTranslator.Translate(queryExpression, new DbColumnTypeProvider());
@@ -413,6 +432,9 @@ static class ChainPartSleExtensions
         }
         throw new InvalidOperationException();
     }
+
+    public static bool IsLast(this IChainPart chainPart)
+        => chainPart.Chain.Items.Last() == chainPart;
 }
 
 /// <summary>
@@ -583,7 +605,7 @@ class SelectChainPart : IRowSourceChainPart, IChainPartAndTreeNodeSle
     public ChainSle Chain { get; set; }
     public ISimplifiedLinqExpression ParentExpression { get; set; }
     public SelectChainPartType ChainPartType { get; set; } = SelectChainPartType.Simple;
-    public Dictionary<string, ISimplifiedLinqExpression> NamedChains { get; } = new Dictionary<string, ISimplifiedLinqExpression>();
+    public Dictionary<string, ChainSle> NamedChains { get; } = new Dictionary<string, ChainSle>();
 }
 
 enum SelectChainPartType
@@ -821,9 +843,7 @@ class ChainExpressionVisitor
                     _visitorContext.MoveToChainSle(selectVisitor.SelectSle.Chain);
                     continue;
                 }
-                else if (new[] { "Any" }.Contains(chainCallExpression.Method.Name) && chainCallExpression.Arguments.Count == 1)
-                    continue;
-                else if (new[] { "Single" }.Contains(chainCallExpression.Method.Name) && chainCallExpression.Arguments.Count == 1)
+                else if (new[] { "Any", "Single", "SingleOrDefault", "First", "FirstOrDefault" }.Contains(chainCallExpression.Method.Name) && chainCallExpression.Arguments.Count == 1)
                     continue;
                 else
                     throw new NotSupportedException();
@@ -917,7 +937,7 @@ class SelectExpressoinVisitor
     {
         SelectSle = new SelectChainPart();
         _visitorContext = context;
-        _visitorContext.AddChainWithTreeRoot(SelectSle, (p, c) => ((SelectChainPart)p).NamedChains.Add(string.Empty, c));
+        _visitorContext.AddChainWithTreeRoot(SelectSle, (p, c) => ((SelectChainPart)p).NamedChains.Add(string.Empty, (ChainSle)c));
     }
 
     public void Visit(Expression expression)
