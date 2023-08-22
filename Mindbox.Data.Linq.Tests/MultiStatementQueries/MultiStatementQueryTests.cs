@@ -258,7 +258,6 @@ public class MultiStatementQueryTests
         query.CommandText.MatchSnapshot();
     }
 
-    // TODO
     [TestMethod]
     public void Translate_TableJoinWithSelectFollowedByWhere_Success()
     {
@@ -278,29 +277,30 @@ public class MultiStatementQueryTests
         query.CommandText.MatchSnapshot();
     }
 
-    //[TestMethod]
-    //public void Translate_TableJoinWithSelectAnonymousFollowedByWhere_Success()
-    //{
-    //    // Arrange
-    //    using var contextAndConnection = new DataContextAndConnection();
+    // TODO
+    [TestMethod]
+    public void Translate_TableJoinWithSelectAnonymousFollowedByWhere_Success()
+    {
+        // Arrange
+        using var contextAndConnection = new DataContextAndConnection();
 
-    //    // Act
-    //    var customerActions = contextAndConnection.DataContext.GetTable<CustomerAction>();
-    //    var queryExpression = contextAndConnection.DataContext
-    //        .GetTable<Customer>()
-    //        .Select(c => new
-    //        {
-    //            CA = customerActions.Where(ca => ca.Customer == c).FirstOrDefault(),
-    //            CAArea = c.Area
-    //        })
-    //        .Where(c => c.CA.ActionTemplate.Name == "dummy" && c.StuffId = 10
-    //        .Where(c => c.CAArea.Id == 20)
-    //        .Expression;
-    //    var query = SqlQueryTranslator.Translate(queryExpression, new DbColumnTypeProvider());
+        // Act
+        var customerActions = contextAndConnection.DataContext.GetTable<CustomerAction>();
+        var queryExpression = contextAndConnection.DataContext
+            .GetTable<Customer>()
+            .Select(c => new
+            {
+                CA = customerActions.Where(ca => ca.Customer == c).FirstOrDefault(),
+                CAArea = c.Area
+            })
+            .Where(c => c.CA.ActionTemplate.Name == "dummy" && c.CA.StaffId == 10)
+            .Where(c => c.CAArea.Id == 20)
+            .Expression;
+        var query = SqlQueryTranslator.Translate(queryExpression, new DbColumnTypeProvider());
 
-    //    // Assert
-    //    query.CommandText.MatchSnapshot();
-    //}
+        // Assert
+        query.CommandText.MatchSnapshot();
+    }
 
     //[TestMethod]
     //public void Translate_TableJoinByAssociationFollowedBySelectMany_Success()
@@ -700,7 +700,7 @@ class VisitorContext
 
         // Set link in chain
         if (CurrentChain == null)
-            throw new InvalidOperationException("Tree root if usualy filter and selector which is part of chain. There is something wrong if no chain exits");
+            throw new InvalidOperationException("Tree root if usually filter and selector which is part of chain. There is something wrong if no chain exits");
         CurrentChain.Items.Add(newChainWithTree);
         newChainWithTree.Chain = CurrentChain;
 
@@ -725,7 +725,7 @@ class VisitorContext
     /// Moves to existing sle.
     /// </summary>
     /// <param name="existingSle">Existing sle.</param>
-    /// <param name="childSetFunc">Child set funnc.</param>
+    /// <param name="childSetFunc">Child set func.</param>
     public void MoveToTreeSle(ITreeNodeSle existingSle, SetTreeChildDelegate childSetFunc)
     {
         if (existingSle is IChainPart)
@@ -741,12 +741,14 @@ class ChainExpressionVisitor
 {
     private readonly VisitorContext _visitorContext;
 
+    public ChainSle Chain { get; private set; }
+
     public ChainExpressionVisitor(VisitorContext context)
     {
         _visitorContext = context;
     }
 
-    private Expression UnwrpaNode(Expression node)
+    private Expression UnwrapNode(Expression node)
     {
         // Removes all converters.
         while (true)
@@ -794,7 +796,7 @@ class ChainExpressionVisitor
                 chainCalls = chainCalls.Skip(2).ToArray();
         }
 
-        if (string.IsNullOrEmpty(tableName) && UnwrpaNode(chainCalls[0]) is ConstantExpression) // plain constant or variable
+        if (string.IsNullOrEmpty(tableName) && UnwrapNode(chainCalls[0]) is ConstantExpression) // plain constant or variable
         {
             _visitorContext.AddChainPart(new FixedValueChainPart());
             return node;
@@ -817,6 +819,7 @@ class ChainExpressionVisitor
 
         _visitorContext.AddChainPart(lastRowSourceSle);
         _visitorContext.CurrentChain.IsNegated = isNegated;
+        Chain = _visitorContext.CurrentChain;
 
         // Visit all chain parts
         foreach (var chainItemExpression in chainCalls)
@@ -838,7 +841,7 @@ class ChainExpressionVisitor
                 {
                     var filterParameter = ExtractParameterVaribleFromSelectExpression(chainCallExpression.Arguments[1]);
                     _visitorContext.ParameterToSle.Add(filterParameter, lastRowSourceSle);
-                    var selectVisitor = new SelectExpressoinVisitor(_visitorContext);
+                    var selectVisitor = new SelectExpressionVisitor(_visitorContext);
                     selectVisitor.Visit(chainCallExpression.Arguments[1]);
                     lastRowSourceSle = selectVisitor.SelectSle;
                     _visitorContext.MoveToChainSle(selectVisitor.SelectSle.Chain);
@@ -922,28 +925,45 @@ class ChainExpressionVisitor
         }
         return ((LambdaExpression)expression).Body;
     }
-
-    private Expression ExtractSelectLambdaBody(Expression expression)
-        => ExtractFilterLambdaBody(expression);
 }
 
-class SelectExpressoinVisitor
+class SelectExpressionVisitor
 {
     private readonly VisitorContext _visitorContext;
 
 
     public SelectChainPart SelectSle { get; }
 
-    public SelectExpressoinVisitor(VisitorContext context)
+    public SelectExpressionVisitor(VisitorContext context)
     {
         SelectSle = new SelectChainPart();
         _visitorContext = context;
-        _visitorContext.AddChainWithTreeRoot(SelectSle, (p, c) => ((SelectChainPart)p).NamedChains.Add(string.Empty, (ChainSle)c));
+
     }
 
     public void Visit(Expression expression)
     {
-        new ChainExpressionVisitor(_visitorContext).Visit(ExtractSelectLambdaBody(expression));
+        expression = ExtractSelectLambdaBody(expression);
+        switch (expression.NodeType)
+        {
+            case ExpressionType.New:
+                _visitorContext.AddChainWithTreeRoot(SelectSle, (p, c) => { });
+                SelectSle.ChainPartType = SelectChainPartType.Complex;
+                var newExpression = (NewExpression)expression;
+                for (int i = 0; i < newExpression.Members.Count; i++)
+                {
+                    var member = newExpression.Members[i];
+                    var arg = newExpression.Arguments[i];
+                    var visitor = new ChainExpressionVisitor(_visitorContext);
+                    visitor.Visit(arg);
+                    SelectSle.NamedChains.Add(member.Name, visitor.Chain);
+                }
+                break;
+            default:
+                _visitorContext.AddChainWithTreeRoot(SelectSle, (p, c) => ((SelectChainPart)p).NamedChains.Add(string.Empty, (ChainSle)c));
+                new ChainExpressionVisitor(_visitorContext).Visit(expression);
+                break;
+        }
     }
 
     private Expression ExtractSelectLambdaBody(Expression expression)
