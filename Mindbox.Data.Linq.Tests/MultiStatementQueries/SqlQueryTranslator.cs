@@ -83,7 +83,7 @@ class SqlQueryTranslator
                     currentSelectChainPart = null;
                 }
 
-                
+
             }
             else if (chainItem is FilterChainPart filterChainPart)
             {
@@ -310,9 +310,9 @@ class SqlQueryTranslator
     private static ChainSle TranslateToSimplifiedExpression(Expression expression)
     {
         var visitorContext = new VisitorContext(new DbColumnTypeProvider());
-        var visitor = new ChainExpressionVisitor(visitorContext);
+        var visitor = new ChainExpressionVisitor(null, visitorContext);
         visitor.Visit(expression);
-        return visitorContext.Root;
+        return visitor.Chain;
     }
 
     private static void OptimizeTree(TableNode2 root)
