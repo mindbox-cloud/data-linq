@@ -1,0 +1,44 @@
+﻿DECLARE @tabledirectcrm_Customers TABLE(
+    Id int not null
+)
+DECLARE @tabledirectcrm_RetailOrders TABLE(
+    CustomerId int null,
+    Id int not null
+)
+DECLARE @tabledirectcrm_RetailOrderHistoryItems TABLE(
+    Id int not null,
+    IsCurrentOtherwiseNull bit null,
+    RetailOrderId int not null
+)
+DECLARE @tabledirectcrm_RetailOrderPurchases TABLE(
+    Count decimal(18,2) not null,
+    PriceForCustomerOfLine decimal(18,2) not null,
+    RetailOrderHistoryItemId bigint not null
+)
+
+INSERT INTO @tabledirectcrm_Customers(Id)
+    SELECT current.Id
+        FROM directcrm.Customers AS current
+            WHERE Id = @__id
+SELECT * FROM @tabledirectcrm_Customers
+
+INSERT INTO @tabledirectcrm_RetailOrders(CustomerId, Id)
+    SELECT current.CustomerId, current.Id
+        FROM directcrm.RetailOrders AS current
+            INNER JOIN @tabledirectcrm_Customers AS previous ON
+                previous.Id = current.CustomerId
+SELECT * FROM @tabledirectcrm_RetailOrders
+
+INSERT INTO @tabledirectcrm_RetailOrderHistoryItems(Id, IsCurrentOtherwiseNull, RetailOrderId)
+    SELECT current.Id, current.IsCurrentOtherwiseNull, current.RetailOrderId
+        FROM directcrm.RetailOrderHistoryItems AS current
+            INNER JOIN @tabledirectcrm_RetailOrders AS previous ON
+                previous.Id = current.RetailOrderId
+SELECT * FROM @tabledirectcrm_RetailOrderHistoryItems
+
+INSERT INTO @tabledirectcrm_RetailOrderPurchases(Count, PriceForCustomerOfLine, RetailOrderHistoryItemId)
+    SELECT current.Count, current.PriceForCustomerOfLine, current.RetailOrderHistoryItemId
+        FROM directcrm.RetailOrderPurchases AS current
+            INNER JOIN @tabledirectcrm_RetailOrderHistoryItems AS previous ON
+                previous.Id = current.RetailOrderHistoryItemId
+SELECT * FROM @tabledirectcrm_RetailOrderPurchases

@@ -298,29 +298,29 @@ public class MultiStatementQueryTests
         // Assert
         query.CommandText.MatchSnapshot();
     }
+    
+    [TestMethod]
+    public void Translate_TableJoinByAssociationFollowedBySelectMany_Success()
+    {
+        // Arrange
+        using var contextAndConnection = new DataContextAndConnection();
 
-    //[TestMethod]
-    //public void Translate_TableJoinByAssociationFollowedBySelectMany_Success()
-    //{
-    //    // Arrange
-    //    using var contextAndConnection = new DataContextAndConnection();
+        // Act
+        var orders = contextAndConnection.DataContext.GetTable<RetailOrder>();
+        var queryExpression = contextAndConnection.DataContext
+            .GetTable<Customer>()
+            .Where(c =>
+                orders.Where(o => o.CurrentCustomer == c)
+                   .SelectMany(o => o.History.Single(hi => hi.IsCurrentOtherwiseNull != null).Purchases)
+                   .Where(p => p.PriceForCustomerOfLine / p.Count != null && p.PriceForCustomerOfLine / p.Count >= 123)
+                   .Any()
+            )
+            .Expression;
+        var query = SqlQueryTranslator.Translate(queryExpression, new DbColumnTypeProvider());
 
-    //    // Act
-    //    var orders = contextAndConnection.DataContext.GetTable<RetailOrder>();
-    //    var queryExpression = contextAndConnection.DataContext
-    //        .GetTable<Customer>()
-    //        .Where(c =>
-    //            orders.Where(o => o.CurrentCustomer == c)
-    //               .SelectMany(o => o.History.Single(hi => hi.IsCurrentOtherwiseNull != null).Purchases)
-    //               .Where(p => p.PriceForCustomerOfLine / p.Count != null && p.PriceForCustomerOfLine / p.Count >= 123)
-    //               .Any()
-    //        )
-    //        .Expression;
-    //    var query = SqlQueryTranslator.Translate(queryExpression, new DbColumnTypeProvider());
-
-    //    // Assert
-    //    query.CommandText.MatchSnapshot();
-    //}
+        // Assert
+        query.CommandText.MatchSnapshot();
+    }
 
     //[TestMethod]
     //public void Translate_TableJoinByAssociationFollowedBySelectWithAnonymousType_Success()

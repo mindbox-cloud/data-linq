@@ -107,6 +107,14 @@ class SqlQueryTranslator
                     currentTable = null;
                     currentSelectChainPart = selectReferenceRowSource;
                 }
+                else if (referenceRowSourceChainPart.ReferenceRowSource is AssociationChainPart associationReferenceRowSource)
+                {
+                    var tableNodeByReference = context.GetTableNodeByTablePart(associationReferenceRowSource);
+                    if (tableNodeByReference == null)
+                        throw new InvalidOperationException();
+                    currentTable = tableNodeByReference;
+                    currentSelectChainPart = null;
+                }
                 continue;
             }
             else if (chainItem is ColumnAccessChainPart columnAccessChainPart)
@@ -148,7 +156,7 @@ class SqlQueryTranslator
             else
                 throw new NotSupportedException();
 
-            if (currentTable != null && chainItem.IsLast())
+            if (currentTable != null)
                 context.AddChainPartForNode(currentTable, chainItem);
         }
     }
@@ -284,6 +292,13 @@ class SqlQueryTranslator
                     default:
                         throw new NotSupportedException();
                 }
+            }
+            else if (referenceRowSourceChainPart.ReferenceRowSource is AssociationChainPart associationChainPart)
+            {
+                var tableNodeReference = context.GetTableNodeByTablePart(associationChainPart);
+                if (tableNodeReference == null)
+                    throw new InvalidOperationException();
+                return tableNodeReference;
             }
             else
                 throw new NotSupportedException();
@@ -861,6 +876,8 @@ public class DbColumnTypeProvider : IDbColumnTypeProvider
             "directcrm.ActionTemplates" => new[] { "Id" },
             "directcrm.SubAreas" => new[] { "Id" },
             "directcrm.RetailOrders" => new[] { "Id" },
+            "directcrm.RetailOrderHistoryItems" => new[] { "Id" },
+            "directcrm.RetailOrderPurchases" => new[] { "Id" },
             _ => throw new NotSupportedException()
         };
     }
@@ -905,6 +922,12 @@ public class DbColumnTypeProvider : IDbColumnTypeProvider
             ("directcrm.RetailOrders", "Id") => "int not null",
             ("directcrm.RetailOrders", "CustomerId") => "int null",
             ("directcrm.RetailOrders", "TotalSum") => "float not null",
+            ("directcrm.RetailOrderHistoryItems", "Id") => "int not null",
+            ("directcrm.RetailOrderHistoryItems", "IsCurrentOtherwiseNull") => "bit null",
+            ("directcrm.RetailOrderHistoryItems", "RetailOrderId") => "int not null",
+            ("directcrm.RetailOrderPurchases", "Count") => "decimal(18,2) not null",
+            ("directcrm.RetailOrderPurchases", "PriceForCustomerOfLine") => "decimal(18,2) not null",
+            ("directcrm.RetailOrderPurchases", "RetailOrderHistoryItemId") => "bigint not null",
             _ => throw new NotSupportedException()
         };
     }
