@@ -275,8 +275,6 @@ public class MultiStatementQueryTests
         query.CommandText.MatchSnapshot();
     }
 
-    // TODO
-    /*
     [TestMethod]
     public void Translate_TableJoinWithSelectAnonymousFollowedByWhere_Success()
     {
@@ -290,16 +288,16 @@ public class MultiStatementQueryTests
             .Select(c => new
             {
                 CA = customerActions.Where(ca => ca.Customer == c).FirstOrDefault(),
-                CAArea = c.Area
+                CustomerArea = c.Area
             })
             .Where(c => c.CA.ActionTemplate.Name == "dummy" && c.CA.StaffId == 10)
-            .Where(c => c.CAArea.Id == 20)
+            .Where(c => c.CustomerArea.Id == 20)
             .Expression;
         var query = SqlQueryTranslator.Translate(queryExpression, new DbColumnTypeProvider());
 
         // Assert
         query.CommandText.MatchSnapshot();
-    } */
+    }
 
     //[TestMethod]
     //public void Translate_TableJoinByAssociationFollowedBySelectMany_Success()
@@ -552,6 +550,12 @@ class ReferenceRowSourceChainPart : IChainPart
     public IChainPart ReferenceRowSource { get; set; }
 }
 
+class PropertyAccessChainPart : IChainPart
+{
+    public ChainSle Chain { get; set; }
+    public string PropertyName { get; set; }
+}
+
 class ColumnAccessChainPart : IChainPart
 {
     public ChainSle Chain { get; set; }
@@ -782,6 +786,9 @@ class ChainExpressionVisitor
                         lastRowSourceSle = associationSle;
                         Chain.AddChainPart(associationSle);
                     }
+                    else
+                        Chain.AddChainPart(new PropertyAccessChainPart() { PropertyName = memberProperty.Name });
+
                 }
                 else
                     throw new InvalidOperationException();

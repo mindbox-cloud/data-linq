@@ -82,8 +82,6 @@ class SqlQueryTranslator
                     currentTable = associationTable;
                     currentSelectChainPart = null;
                 }
-
-
             }
             else if (chainItem is FilterChainPart filterChainPart)
             {
@@ -134,6 +132,18 @@ class SqlQueryTranslator
                         throw new NotSupportedException();
                     currentTable.AddField(columnAccessChainPart.ColumnName);
                 }
+            }
+            else if (chainItem is PropertyAccessChainPart propertyAccessChainPart)
+            {
+                if (currentSelectChainPart != null && currentSelectChainPart.NamedChains.ContainsKey(propertyAccessChainPart.PropertyName))
+                {
+                    currentTable = context.GetTableNodeByTablePart(currentSelectChainPart.NamedChains[propertyAccessChainPart.PropertyName].Items.Last());
+                    if (currentTable == null)
+                        throw new NotSupportedException();
+                    currentSelectChainPart = null;
+                }
+                else
+                    throw new NotSupportedException();
             }
             else
                 throw new NotSupportedException();
