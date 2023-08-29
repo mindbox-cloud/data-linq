@@ -115,6 +115,22 @@ class SqlQueryTranslator
                     currentTable = tableNodeByReference;
                     currentSelectChainPart = null;
                 }
+                else if (referenceRowSourceChainPart.ReferenceRowSource is PropertyAccessChainPart propertyAccessChainPart)
+                {
+                    if (UnwrapReferenceSources(propertyAccessChainPart.GetPrevious()) is SelectChainPart propertyForSelect)
+                    {
+                        if (!propertyForSelect.NamedChains.ContainsKey(propertyAccessChainPart.PropertyName))
+                            throw new NotSupportedException();
+                        currentTable = context.GetTableNodeByTablePart(propertyForSelect.NamedChains[propertyAccessChainPart.PropertyName].Items.Last());
+                        if (currentTable == null)
+                            throw new NotSupportedException();
+                        currentSelectChainPart = null;
+                    }
+                    else
+                        throw new NotSupportedException();
+                }
+                else
+                    throw new NotSupportedException();
                 continue;
             }
             else if (chainItem is ColumnAccessChainPart columnAccessChainPart)
@@ -145,7 +161,7 @@ class SqlQueryTranslator
             {
                 if (currentSelectChainPart != null && currentSelectChainPart.NamedChains.ContainsKey(propertyAccessChainPart.PropertyName))
                 {
-                    currentTable = context.GetTableNodeByTablePart(currentSelectChainPart.NamedChains[propertyAccessChainPart.PropertyName].Items.Last());
+                    currentTable = context.GetTableNodeByTablePart(UnwrapReferenceSources(currentSelectChainPart.NamedChains[propertyAccessChainPart.PropertyName].Items.Last()));
                     if (currentTable == null)
                         throw new NotSupportedException();
                     currentSelectChainPart = null;
@@ -158,6 +174,17 @@ class SqlQueryTranslator
 
             if (currentTable != null)
                 context.AddChainPartForNode(currentTable, chainItem);
+        }
+    }
+
+    private static IChainPart UnwrapReferenceSources(IChainPart chainPart)
+    {
+        while (true)
+        {
+            if (chainPart is ReferenceRowSourceChainPart referenceRowSourceChainPart)
+                chainPart = referenceRowSourceChainPart.ReferenceRowSource;
+            else
+                return chainPart;
         }
     }
 
@@ -299,6 +326,22 @@ class SqlQueryTranslator
                 if (tableNodeReference == null)
                     throw new InvalidOperationException();
                 return tableNodeReference;
+            }
+            else if (referenceRowSourceChainPart.ReferenceRowSource is PropertyAccessChainPart propertyAccessChainPart)
+            {
+                if (UnwrapReferenceSources(propertyAccessChainPart.GetPrevious()) is SelectChainPart propertyForSelect)
+                {
+                    if (!propertyForSelect.NamedChains.ContainsKey(propertyAccessChainPart.PropertyName))
+                        throw new NotSupportedException();
+                    var tableReferenceSimple = context.GetTableNodeByTablePart(propertyForSelect.NamedChains[propertyAccessChainPart.PropertyName].Items.Last());
+                    if (tableReferenceSimple == null)
+                        throw new InvalidOperationException();
+                    return tableReferenceSimple;
+                }
+                else
+                    throw new NotSupportedException();
+                throw new NotSupportedException();
+
             }
             else
                 throw new NotSupportedException();

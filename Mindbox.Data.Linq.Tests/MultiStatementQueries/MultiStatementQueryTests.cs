@@ -7,6 +7,7 @@ using System.Data.Linq.Mapping;
 using System.Linq;
 using System.Linq.Expressions;
 using System.Reflection;
+using System.Security.Policy;
 
 namespace Mindbox.Data.Linq.Tests.MultiStatementQueries;
 
@@ -298,7 +299,7 @@ public class MultiStatementQueryTests
         // Assert
         query.CommandText.MatchSnapshot();
     }
-    
+
     [TestMethod]
     public void Translate_TableJoinByAssociationFollowedBySelectMany_Success()
     {
@@ -322,45 +323,8 @@ public class MultiStatementQueryTests
         query.CommandText.MatchSnapshot();
     }
 
-    //[TestMethod]
-    //public void Translate_TableJoinByAssociationFollowedBySelectWithAnonymousType_Success()
-    //{
-    //    // Arrange
-    //    using var contextAndConnection = new DataContextAndConnection();
-
-    //    // Act
-    //    var orders = contextAndConnection.DataContext.GetTable<RetailOrder>();
-    //    var queryExpression = contextAndConnection.DataContext
-    //        .GetTable<Customer>()
-    //        .Where(c =>
-    //            orders.Where(o => o.CurrentCustomer == c)
-    //               .Select(o =>
-    //                   new
-    //                   {
-    //                       o.History.Single(hi => hi.IsCurrentOtherwiseNull != null).Purchases,
-    //                       Order = o
-    //                   })
-    //               .Where(p => p.Purchases.Any(p => p.PriceForCustomerOfLine > 0))
-    //               .Where(p => p.Order.Id > 100)
-    //               .Any()
-    //        )
-    //        .Expression;
-    //    var query = SqlQueryTranslator.Translate(queryExpression, new DbColumnTypeProvider());
-
-    //    // Assert
-    //    query.CommandText.MatchSnapshot();
-    //}
-
-    // Several nested joins
-    // Querable join
-    // Select with anonymous types
-    // SelectMany
-
-    // See sample for more cases
-
-    /*
     [TestMethod]
-    public void Translate_TableJoinReversedByAssociationFollowedBySelectMany_Success()
+    public void Translate_TableJoinByAssociationFollowedBySelectWithAnonymousType_Success()
     {
         // Arrange
         using var contextAndConnection = new DataContextAndConnection();
@@ -371,8 +335,14 @@ public class MultiStatementQueryTests
             .GetTable<Customer>()
             .Where(c =>
                 orders.Where(o => o.CurrentCustomer == c)
-                   .SelectMany(o => o.History.Single(hi => hi.IsCurrentOtherwiseNull != null).Purchases)
-                   .Where(p => p.PriceForCustomerOfLine / p.Count != null && p.PriceForCustomerOfLine / p.Count >= 123)
+                   .Select(o =>
+                       new
+                       {
+                           o.History.Single(hi => hi.IsCurrentOtherwiseNull != null).Purchases,
+                           Order = o
+                       })
+                   .Where(p => p.Purchases.Any(pur => pur.PriceForCustomerOfLine > 0))
+                   .Where(p => p.Order.Id > 100)
                    .Any()
             )
             .Expression;
@@ -380,15 +350,11 @@ public class MultiStatementQueryTests
 
         // Assert
         query.CommandText.MatchSnapshot();
+    }
 
-        var visitorContext = new VisitorContext(new DbColumnTypeProvider());
-        var visitor = new ChainExpressionVisitor(visitorContext);
-        visitor.Visit(queryExpression);
-
-        //Console.WriteLine();
-        //Console.WriteLine("Query:");
-        //Console.WriteLine(visitor.Query.Dump());
-    }*/
+    // Several nested joins
+    // Querable join
+    // See sample for more cases
 }
 
 /// <summary>
@@ -423,12 +389,20 @@ static class ChainPartSleExtensions
 
     public static IChainPart GetPrevious(this IChainPart chainPart)
     {
+        var index = -1;
         for (int i = 0; i < chainPart.Chain.Items.Count; i++)
         {
-            if (chainPart == chainPart.Chain.Items[i])
-                return i + 1 >= chainPart.Chain.Items.Count ? null : chainPart.Chain.Items[i + 1];
+            if (chainPart.Chain.Items[i] == chainPart)
+            {
+                index = i;
+                break;
+            }
         }
-        throw new InvalidOperationException();
+        if (index == -1)
+            throw new InvalidOperationException();
+        if (index == 0)
+            return null;
+        return chainPart.Chain.Items[index - 1];
     }
 
     public static bool IsLast(this IChainPart chainPart)
@@ -550,7 +524,7 @@ class ReferenceRowSourceChainPart : IChainPart
     public IChainPart ReferenceRowSource { get; set; }
 }
 
-class PropertyAccessChainPart : IChainPart
+class PropertyAccessChainPart : IRowSourceChainPart
 {
     public ChainSle Chain { get; set; }
     public string PropertyName { get; set; }
@@ -787,8 +761,11 @@ class ChainExpressionVisitor
                         Chain.AddChainPart(associationSle);
                     }
                     else
-                        Chain.AddChainPart(new PropertyAccessChainPart() { PropertyName = memberProperty.Name });
-
+                    {
+                        var propertyAccessChainPart = new PropertyAccessChainPart() { PropertyName = memberProperty.Name };
+                        Chain.AddChainPart(propertyAccessChainPart);
+                        lastRowSourceSle = propertyAccessChainPart;
+                    }
                 }
                 else
                     throw new InvalidOperationException();
