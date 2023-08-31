@@ -190,7 +190,7 @@ class SqlQueryTranslator
         var right = GetTableAndField(context, joinPart.OuterKeySelectorSle);
 
         if (!left.HasValue || !right.HasValue)
-            return;
+            throw new NotImplementedException();
         if (context.RootTable.GetAllTableNodes().Contains(left.Value.Table))
         {
             var existingConnection = left.Value.Table.Connections.FirstOrDefault(c => c.OtherTable == right.Value.Table);
