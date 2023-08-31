@@ -36,7 +36,7 @@ class SqlQueryTranslator
 
     private static void TranslateChain(TranslationContext context, ChainSle chain)
     {
-        SelectChainPart currentSelectChainPart = null;
+        ISelectChainPart currentSelectChainPart = null;
         TableNode2 currentTable = null!;
         foreach (var chainItem in chain.Items)
         {
@@ -52,6 +52,13 @@ class SqlQueryTranslator
             {
                 foreach (var innerChain in selectChainPart.NamedChains.Values)
                     TranslateChain(context, innerChain);
+            }
+            else if (chainItem is JoinChainPart joinChainPart)
+            {
+                TranslateChain(context, joinChainPart.Inner);
+                foreach (var innerChain in joinChainPart.NamedChains.Values)
+                    TranslateChain(context, innerChain);
+                DetectConnections(context, joinChainPart);
             }
             else if (chainItem is AssociationChainPart associationChainPart)
             {
@@ -102,7 +109,7 @@ class SqlQueryTranslator
                     currentTable = tableNodeByReference;
                     currentSelectChainPart = null;
                 }
-                else if (referenceRowSourceChainPart.ReferenceRowSource is SelectChainPart selectReferenceRowSource)
+                else if (referenceRowSourceChainPart.ReferenceRowSource is ISelectChainPart selectReferenceRowSource)
                 {
                     currentTable = null;
                     currentSelectChainPart = selectReferenceRowSource;
@@ -175,6 +182,36 @@ class SqlQueryTranslator
             if (currentTable != null)
                 context.AddChainPartForNode(currentTable, chainItem);
         }
+    }
+
+    static void DetectConnections(TranslationContext context, JoinChainPart joinPart)
+    {
+        var left = GetTableAndField(context, joinPart.InnerKeySelectorSle);
+        var right = GetTableAndField(context, joinPart.OuterKeySelectorSle);
+
+        if (!left.HasValue || !right.HasValue)
+            return;
+        if (context.RootTable.GetAllTableNodes().Contains(left.Value.Table))
+        {
+            var existingConnection = left.Value.Table.Connections.FirstOrDefault(c => c.OtherTable == right.Value.Table);
+            if (existingConnection != null)
+                existingConnection.AddFields(left.Value.Field, right.Value.Field);
+            else
+                left.Value.Table.AddConnection(new[] { left.Value.Field }, right.Value.Table, new[] { right.Value.Field });
+        }
+        else if (context.RootTable.GetAllTableNodes().Contains(right.Value.Table))
+        {
+            var existingConnection = right.Value.Table.Connections.FirstOrDefault(c => c.OtherTable == left.Value.Table);
+            if (existingConnection != null)
+                existingConnection.AddFields(right.Value.Field, left.Value.Field);
+            else
+                right.Value.Table.AddConnection(new[] { right.Value.Field }, left.Value.Table, new[] { left.Value.Field });
+        }
+        else
+        {
+            throw new NotImplementedException();
+        }
+
     }
 
     private static IChainPart UnwrapReferenceSources(IChainPart chainPart)

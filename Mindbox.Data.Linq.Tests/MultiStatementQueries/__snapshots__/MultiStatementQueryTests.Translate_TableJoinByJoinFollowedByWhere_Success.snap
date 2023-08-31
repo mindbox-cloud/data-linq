@@ -1,0 +1,21 @@
+﻿DECLARE @tabledirectcrm_Customers TABLE(
+    AreaId int not null,
+    Id int not null
+)
+DECLARE @tabledirectcrm_RetailOrders TABLE(
+    CustomerId int null,
+    TotalSum float not null
+)
+
+INSERT INTO @tabledirectcrm_Customers(AreaId, Id)
+    SELECT current.AreaId, current.Id
+        FROM directcrm.Customers AS current
+            WHERE Id = @__id
+SELECT * FROM @tabledirectcrm_Customers
+
+INSERT INTO @tabledirectcrm_RetailOrders(CustomerId, TotalSum)
+    SELECT current.CustomerId, current.TotalSum
+        FROM directcrm.RetailOrders AS current
+            INNER JOIN @tabledirectcrm_Customers AS previous ON
+                previous.Id = current.CustomerId
+SELECT * FROM @tabledirectcrm_RetailOrders
