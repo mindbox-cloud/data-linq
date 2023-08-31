@@ -1,5 +1,6 @@
 ﻿using Microsoft.VisualStudio.TestPlatform.ObjectModel;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
+using Newtonsoft.Json.Linq;
 using Snapshooter.MSTest;
 using System;
 using System.Collections.Generic;
@@ -373,6 +374,44 @@ public class MultiStatementQueryTests
         query.CommandText.MatchSnapshot();
     }
 
+    [TestMethod]
+    public void Translate_WithFunction_Success()
+    {
+        // Arrange
+        using var contextAndConnection = new DataContextWithFunctionsAndConnection();
+
+        // Act
+        var orders = contextAndConnection.DataContext.GetTable<RetailOrder>();
+        var history = contextAndConnection.DataContext.GetTable<RetailOrderHistoryItem>();
+        var queryExpression = contextAndConnection.DataContext
+            .GetTable<Customer>()
+            .Where(c =>
+                contextAndConnection.DataContext.ValueAsQueryableDecimal(
+                        orders
+                            .Where(o => o.CurrentCustomer == c)
+                            .Join(
+                                history,
+                                order => order.Id,
+                                history => history.RetailOrderId,
+                                (order, history) => new RetailOrderCurrentHistoryItemData
+                                {
+                                    RetailOrder = order,
+                                    RetailOrderHistoryItem = history
+                                })
+                            .Where(x => x.RetailOrderHistoryItem.IsCurrentOtherwiseNull != null)
+                            .Where(
+                                item => item.RetailOrderHistoryItem.Purchases.Where(item => item.Count != null).Any())
+                        .Select(entity => (decimal?)entity.RetailOrderHistoryItem.Amount)
+                        .Sum())
+                    .Any(v => v.Value > 10)
+            )
+            .Expression;
+        var query = SqlQueryTranslator.Translate(queryExpression, new DbColumnTypeProvider());
+
+        // Assert
+        query.CommandText.MatchSnapshot();
+    }
+
     // ValueAsQueryableNullableDecimal
 }
 
@@ -624,7 +663,7 @@ enum FilterBinaryOperator
 
 interface ISelectChainPart : IRowSourceChainPart, IChainPartAndTreeNodeSle
 {
-    SelectChainPartType ChainPartType { get; set; } 
+    SelectChainPartType ChainPartType { get; set; }
     Dictionary<string, ChainSle> NamedChains { get; }
 }
 
@@ -724,10 +763,19 @@ class ChainExpressionVisitor
     public void Visit(Expression node)
     {
         node = UnwrapNot(node, out var isNegated);
+
         Chain.IsNegated = isNegated;
         var chainCalls = ExpressionOrderFixer.GetReorderedChainCall(node).ToArray();
         if (chainCalls.Length == 0)
             throw new InvalidOperationException();
+
+        if (chainCalls[0] is MethodCallExpression functionMethodCallExpression && functionMethodCallExpression.Method.Name.StartsWith("ValueAsQueryable"))
+        {
+            chainCalls = ExpressionOrderFixer.GetReorderedChainCall(functionMethodCallExpression.Arguments[0]).ToArray();
+            if (chainCalls.Length == 0)
+                throw new InvalidOperationException();
+        }
+
         var tableName = ExpressionHelpers.GetTableName(chainCalls[0]);
         if (!string.IsNullOrEmpty(tableName))
             chainCalls = chainCalls.Skip(1).ToArray();
@@ -777,7 +825,7 @@ class ChainExpressionVisitor
                     Chain.AddChainPart(filterVisitor.FilterSle);
                     filterVisitor.FilterSle.ParentExpression = Chain;
                 }
-                else if ((new[] { "Select" }.Contains(chainCallExpression.Method.Name) && chainCallExpression.Arguments.Count == 2) ||
+                else if ((new[] { "Select", "Sum", "Avg" }.Contains(chainCallExpression.Method.Name) && chainCallExpression.Arguments.Count == 2) ||
                     (new[] { "SelectMany" }.Contains(chainCallExpression.Method.Name) && chainCallExpression.Arguments.Count == 2))
                 {
                     var filterParameter = ExtractParameterVariableFromSelectExpression(chainCallExpression.Arguments[1]);
@@ -788,7 +836,7 @@ class ChainExpressionVisitor
                     Chain.AddChainPart(selectVisitor.SelectSle);
                     selectVisitor.SelectSle.ParentExpression = Chain;
                 }
-                else if (new[] { "Any", "Single", "SingleOrDefault", "First", "FirstOrDefault" }.Contains(chainCallExpression.Method.Name) && chainCallExpression.Arguments.Count == 1)
+                else if (new[] { "Any", "Single", "SingleOrDefault", "First", "FirstOrDefault", "Sum", "Avg" }.Contains(chainCallExpression.Method.Name) && chainCallExpression.Arguments.Count == 1)
                     continue;
                 else if (new[] { "Join" }.Contains(chainCallExpression.Method.Name) && chainCallExpression.Arguments.Count == 5)
                 {
@@ -928,6 +976,16 @@ class JoinExpressionVisitor
                     JoinSle.NamedChains.Add(member.Name, visitor.Chain);
                 }
                 break;
+            case ExpressionType.MemberInit:
+                var memberInitExpression = (MemberInitExpression)resultSelector;
+                for (int i = 0; i < memberInitExpression.Bindings.Count; i++)
+                {
+                    var binding = (MemberAssignment)memberInitExpression.Bindings[i];
+                    var visitor = new ChainExpressionVisitor(JoinSle, _visitorContext);
+                    visitor.Visit(binding.Expression);
+                    JoinSle.NamedChains.Add(binding.Member.Name, visitor.Chain);
+                }
+                break;
             default:
                 var simpleVisitor = new ChainExpressionVisitor(JoinSle, _visitorContext);
                 simpleVisitor.Visit(resultSelector);
@@ -1004,6 +1062,16 @@ class SelectExpressionVisitor
                     var visitor = new ChainExpressionVisitor(SelectSle, _visitorContext);
                     visitor.Visit(arg);
                     SelectSle.NamedChains.Add(member.Name, visitor.Chain);
+                }
+                break;
+            case ExpressionType.MemberInit:
+                var memberInitExpression = (MemberInitExpression)expression;
+                for (int i = 0; i < memberInitExpression.Bindings.Count; i++)
+                {
+                    var binding = (MemberAssignment)memberInitExpression.Bindings[i];
+                    var visitor = new ChainExpressionVisitor(SelectSle, _visitorContext);
+                    visitor.Visit(binding.Expression);
+                    SelectSle.NamedChains.Add(binding.Member.Name, visitor.Chain);
                 }
                 break;
             default:

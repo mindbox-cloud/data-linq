@@ -1005,6 +1005,7 @@ public class DbColumnTypeProvider : IDbColumnTypeProvider
             ("directcrm.RetailOrderHistoryItems", "Id") => "int not null",
             ("directcrm.RetailOrderHistoryItems", "IsCurrentOtherwiseNull") => "bit null",
             ("directcrm.RetailOrderHistoryItems", "RetailOrderId") => "int not null",
+            ("directcrm.RetailOrderHistoryItems", "Amount") => "decimal(18,2) null",
             ("directcrm.RetailOrderPurchases", "Count") => "decimal(18,2) not null",
             ("directcrm.RetailOrderPurchases", "PriceForCustomerOfLine") => "decimal(18,2) not null",
             ("directcrm.RetailOrderPurchases", "RetailOrderHistoryItemId") => "bigint not null",

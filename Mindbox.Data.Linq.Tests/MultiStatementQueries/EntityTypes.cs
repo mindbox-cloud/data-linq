@@ -185,6 +185,9 @@ public sealed class RetailOrderHistoryItem
     public RetailOrderPurchase[] Purchases { get; set; }
 
     [Column]
+    public decimal Amount { get; set; }
+
+    [Column]
     public bool? IsCurrentOtherwiseNull { get; set; }
 }
 

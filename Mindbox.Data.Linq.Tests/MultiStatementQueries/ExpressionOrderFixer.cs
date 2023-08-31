@@ -124,7 +124,11 @@ internal static class ExpressionOrderFixer
                         expression = callExpression.Arguments[0];
                     }
                     else
-                        throw new NotSupportedException();
+                    {
+                        toReturn.Add(expression);
+                        toReturn.Reverse();
+                        return toReturn;
+                    }
                     break;
                 case ExpressionType.MemberAccess:
                     var memberExpression = (MemberExpression)expression;
