@@ -628,7 +628,7 @@ interface ISelectChainPart : IRowSourceChainPart, IChainPartAndTreeNodeSle
     Dictionary<string, ChainSle> NamedChains { get; }
 }
 
-class SelectChainPart : IRowSourceChainPart, IChainPartAndTreeNodeSle
+class SelectChainPart : ISelectChainPart
 {
     public ChainSle Chain { get; set; }
     public ISimplifiedLinqExpression ParentExpression { get; set; }
