@@ -5,7 +5,7 @@ using System.Linq;
 using System.Linq.Expressions;
 using System.Reflection;
 
-namespace Mindbox.Data.Linq.Tests.MultiStatementQueries;
+namespace Mindbox.Data.Linq.Tests.MultiStatementQueries.SleTypes;
 
 internal static class ExpressionHelpers
 {

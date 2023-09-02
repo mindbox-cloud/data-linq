@@ -3,11 +3,11 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 
-namespace Mindbox.Data.Linq.Tests.MultiStatementQueries;
+namespace Mindbox.Data.Linq.Tests.MultiStatementQueries.SqlTranslatorTypes;
 
 internal class SqlTreeCommandBuilder
 {
-    public static string Build(TableNode2 query, IDbColumnTypeProvider columnTypeProvider)
+    public static string Build(TableNode query, IDbColumnTypeProvider columnTypeProvider)
     {
         query.AddField("Id");
 
@@ -69,7 +69,7 @@ internal class SqlTreeCommandBuilder
         }
     }
 
-    private static IEnumerable<string> GetUsedColumns(TableNode2 table, bool addIdColumn = false)
+    private static IEnumerable<string> GetUsedColumns(TableNode table, bool addIdColumn = false)
     {
         if (addIdColumn)
             return table.UsedFields.Concat(new[] { "Id" }).Distinct().Order();
@@ -77,7 +77,7 @@ internal class SqlTreeCommandBuilder
     }
 
 
-    private static string BuildTableVariableDefinition(string variableName, TableNode2 table, IDbColumnTypeProvider columntTypeProvider, bool addIdColumn = false)
+    private static string BuildTableVariableDefinition(string variableName, TableNode table, IDbColumnTypeProvider columntTypeProvider, bool addIdColumn = false)
     {
         var columnsWithTypes = GetUsedColumns(table, addIdColumn).Order().Select(c => $"{c} {columntTypeProvider.GetSqlType(table.Name, c)}").ToArray();
         return
@@ -96,17 +96,17 @@ internal class SqlTreeCommandBuilder
 
     private class BuilderContext
     {
-        private Dictionary<TableNode2, string> _variableNames = new();
+        private Dictionary<TableNode, string> _variableNames = new();
         public StringBuilder StringBuilder { get; } = new StringBuilder();
 
-        public string GetVariableName(TableNode2 table)
+        public string GetVariableName(TableNode table)
         {
             if (!_variableNames.TryGetValue(table, out var name))
                 throw new ArgumentException();
             return name;
         }
 
-        public string CreateVariableName(TableNode2 table)
+        public string CreateVariableName(TableNode table)
         {
             if (_variableNames.ContainsKey(table))
                 throw new ArgumentException();

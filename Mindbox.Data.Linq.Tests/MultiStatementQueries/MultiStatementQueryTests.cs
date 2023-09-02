@@ -1,5 +1,6 @@
 ﻿using Microsoft.VisualStudio.TestPlatform.ObjectModel;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
+using Mindbox.Data.Linq.Tests.MultiStatementQueries.SqlTranslatorTypes;
 using Newtonsoft.Json.Linq;
 using Snapshooter.MSTest;
 using System;
@@ -411,7 +412,5 @@ public class MultiStatementQueryTests
         // Assert
         query.CommandText.MatchSnapshot();
     }
-
-    // ValueAsQueryableNullableDecimal
 }
 

@@ -1,5 +1,6 @@
 ﻿using System.Collections.Generic;
 using System.Linq.Expressions;
+using Mindbox.Data.Linq.Tests.MultiStatementQueries.SqlTranslatorTypes;
 
 namespace Mindbox.Data.Linq.Tests.MultiStatementQueries.SleTypes;
 

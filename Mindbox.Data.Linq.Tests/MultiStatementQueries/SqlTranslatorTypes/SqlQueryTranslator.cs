@@ -2,11 +2,10 @@
 using Mindbox.Data.Linq.Tests.MultiStatementQueries.SleTypes.Visitors;
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.Linq;
 using System.Linq.Expressions;
 
-namespace Mindbox.Data.Linq.Tests.MultiStatementQueries;
+namespace Mindbox.Data.Linq.Tests.MultiStatementQueries.SqlTranslatorTypes;
 
 class SqlQueryTranslator
 {
@@ -20,7 +19,7 @@ class SqlQueryTranslator
         return new SqlQueryTranslatorResult(command);
     }
 
-    private static TableNode2 TranslateCore(Expression expression, IDbColumnTypeProvider columnTypeProvider)
+    private static TableNode TranslateCore(Expression expression, IDbColumnTypeProvider columnTypeProvider)
     {
         var rootSle = TranslateToSimplifiedExpression(expression);
         var context = new TranslationContext(columnTypeProvider);
@@ -37,12 +36,12 @@ class SqlQueryTranslator
     private static void TranslateChain(TranslationContext context, ChainSle chain)
     {
         ISelectChainPart currentSelectChainPart = null;
-        TableNode2 currentTable = null!;
+        TableNode currentTable = null!;
         foreach (var chainItem in chain.Items)
         {
             if (chainItem is TableChainPart tableChainPart)
             {
-                currentTable = new TableNode2(tableChainPart.Name);
+                currentTable = new TableNode(tableChainPart.Name);
                 currentSelectChainPart = null;
                 context.AddChainPartForNode(currentTable, tableChainPart);
                 if (context.RootTable == null)
@@ -70,7 +69,7 @@ class SqlQueryTranslator
                             if (currentTable == null)
                                 throw new NotSupportedException();
                             currentSelectChainPart = null;
-                            var associationTable = new TableNode2(associationChainPart.NextTableName);
+                            var associationTable = new TableNode(associationChainPart.NextTableName);
                             currentTable.AddConnection(new[] { associationChainPart.ColumnName }, associationTable, new string[] { associationChainPart.NextTableColumnName });
                             currentTable = associationTable;
                             currentSelectChainPart = null;
@@ -84,7 +83,7 @@ class SqlQueryTranslator
                 {
                     if (currentTable == null)
                         throw new NotSupportedException();
-                    var associationTable = new TableNode2(associationChainPart.NextTableName);
+                    var associationTable = new TableNode(associationChainPart.NextTableName);
                     currentTable.AddConnection(new[] { associationChainPart.ColumnName }, associationTable, new string[] { associationChainPart.NextTableColumnName });
                     currentTable = associationTable;
                     currentSelectChainPart = null;
@@ -292,7 +291,7 @@ class SqlQueryTranslator
         }
     }
 
-    private static (TableNode2 Table, string Field)? GetTableAndField(TranslationContext context, ISimplifiedLinqExpression sle)
+    private static (TableNode Table, string Field)? GetTableAndField(TranslationContext context, ISimplifiedLinqExpression sle)
     {
         // So far only supported
         // - [variable] - assumes PK access
@@ -333,7 +332,7 @@ class SqlQueryTranslator
                 return null;
         }
 
-        static TableNode2 GetTableNode(TranslationContext context, ReferenceRowSourceChainPart referenceRowSourceChainPart)
+        static TableNode GetTableNode(TranslationContext context, ReferenceRowSourceChainPart referenceRowSourceChainPart)
         {
             if (referenceRowSourceChainPart.ReferenceRowSource is TableChainPart tableChainPart)
             {
@@ -420,7 +419,7 @@ class SqlQueryTranslator
         return visitor.Chain;
     }
 
-    private static void OptimizeTree(TableNode2 root)
+    private static void OptimizeTree(TableNode root)
     {
         while (true)
         {
@@ -442,18 +441,18 @@ class SqlQueryTranslator
     {
         private Dictionary<ISimplifiedLinqExpression, string> _variableNames = new();
 
-        public Dictionary<TableNode2, List<IChainPart>> Node2ChainParts { get; } = new();
+        public Dictionary<TableNode, List<IChainPart>> Node2ChainParts { get; } = new();
         public Dictionary<Connection, ChainSle> Connection2Chains { get; } = new();
         public IDbColumnTypeProvider ColumnTypeProvider { get; private set; }
 
-        public TableNode2 RootTable { get; set; }
+        public TableNode RootTable { get; set; }
 
         public TranslationContext(IDbColumnTypeProvider columnTypeProvider)
         {
             ColumnTypeProvider = columnTypeProvider;
         }
 
-        public void AddChainPartForNode(TableNode2 tableNode, IChainPart chainPart)
+        public void AddChainPartForNode(TableNode tableNode, IChainPart chainPart)
         {
             if (!Node2ChainParts.ContainsKey(tableNode))
                 Node2ChainParts.Add(tableNode, new());
@@ -462,7 +461,7 @@ class SqlQueryTranslator
             Node2ChainParts[tableNode].Add(chainPart);
         }
 
-        public TableNode2 GetTableNodeByTablePart(IChainPart tableChainPart)
+        public TableNode GetTableNodeByTablePart(IChainPart tableChainPart)
         {
             foreach (var (node, parts) in Node2ChainParts)
                 foreach (var part in parts)
@@ -490,263 +489,5 @@ class SqlQueryTranslator
             }
             return name;
         }
-    }
-}
-
-
-[DebuggerDisplay("{Name}")]
-class TableNode2
-{
-    private List<string> _usedFields = new();
-    private List<Connection> _connections = new();
-
-    public string Name { get; private set; }
-    public IEnumerable<string> UsedFields => _usedFields;
-    public IEnumerable<Connection> Connections => _connections;
-
-    public TableNode2(string name)
-    {
-        Name = name;
-    }
-
-    public void AddField(string name)
-    {
-        if (_usedFields.Contains(name))
-            return;
-        _usedFields.Add(name);
-        _usedFields.Sort();
-    }
-
-    public void AddConnection(IEnumerable<string> fields, TableNode2 otherTable, IEnumerable<string> otherTableFields)
-    {
-        foreach (var connection in _connections)
-        {
-            if ((connection.Table == this && connection.TableFields.SequenceEqual(fields) &&
-                connection.OtherTable == otherTable && connection.OtherTableFields.SequenceEqual(otherTableFields)) ||
-                (connection.Table == otherTable && connection.TableFields.SequenceEqual(otherTableFields) &&
-                connection.OtherTable == this && connection.OtherTableFields.SequenceEqual(fields)))
-                return;
-        }
-        foreach (var field in fields)
-            AddField(field);
-        foreach (var otherField in otherTableFields)
-            otherTable.AddField(otherField);
-
-        _connections.Add(new(this, fields, otherTable, otherTableFields));
-    }
-
-    public bool OptimizeConnections()
-    {
-        // Merge duplicated connections
-        bool hasChanges = false;
-        for (int i = 0; i < _connections.Count - 1; i++)
-            for (int j = i; j < _connections.Count; j++)
-            {
-                var connectionA = _connections[i];
-                var connectionB = _connections[j];
-                if (connectionA == connectionB)
-                    continue;
-                if (!connectionA.Equals(connectionB))
-                    continue;
-                _connections.Remove(connectionB);
-                j--;
-                hasChanges = true;
-                foreach (var connectionBOtherTableConnection in connectionB.OtherTable.Connections)
-                    connectionA.OtherTable.AddConnection(connectionBOtherTableConnection.TableFields, connectionBOtherTableConnection.OtherTable, connectionBOtherTableConnection.OtherTableFields);
-            }
-
-        // if we have connections like Customer->CustomerAction->Customer->SomeOtherTable
-        // We can actually remove second Customer connection(move all its connections to top Customer) and have something like this
-        // Custmoer -> CustomerAction
-        //        \ -> SomeOtherTable
-        bool lifted = false;
-        foreach (var connection in _connections)
-        {
-            foreach (var subConnection in connection.OtherTable.Connections)
-            {
-
-                if (!subConnection.IsSame(connection))
-                    continue;
-                connection.OtherTable._connections.Remove(subConnection);
-                foreach (var movedConnection in subConnection.OtherTable.Connections)
-                    _connections.Add(movedConnection);
-                lifted = true;
-                break;
-            }
-            if (lifted)
-                break;
-        }
-        hasChanges |= lifted;
-
-        return hasChanges;
-    }
-
-    public IEnumerable<TableNode2> GetAllTableNodes()
-    {
-        return GetAllTableNodes(this);
-
-        static IEnumerable<TableNode2> GetAllTableNodes(TableNode2 tableNode2)
-        {
-            yield return tableNode2;
-            foreach (var connection in tableNode2._connections)
-            {
-                yield return connection.OtherTable;
-                foreach (var table in GetAllTableNodes(connection.OtherTable))
-                {
-                    yield return table;
-
-                }
-            }
-        }
-    }
-}
-
-[DebuggerDisplay("To {OtherTable.Name}")]
-class Connection
-{
-    private List<string> _tableFields;
-    private List<string> _otherTableFields;
-    private List<(string Field, string OtherField)> _sortedMappedFields = new();
-
-    public TableNode2 Table { get; private set; }
-    public IEnumerable<string> TableFields => _tableFields;
-    public TableNode2 OtherTable { get; private set; }
-    public IEnumerable<string> OtherTableFields => _otherTableFields;
-    public IEnumerable<(string Field, string OtherField)> MappedFields => _sortedMappedFields;
-
-    public Connection(TableNode2 table, IEnumerable<string> tableFields, TableNode2 otherTable, IEnumerable<string> otherTableFields)
-    {
-        Table = table;
-        _tableFields = tableFields.ToList();
-        OtherTable = otherTable;
-        _otherTableFields = otherTableFields.ToList();
-        if (TableFields.Count() != OtherTableFields.Count())
-            throw new ArgumentException();
-
-        UpdateMappedFields();
-    }
-
-    /// <summary>
-    /// Add field to connection.
-    /// </summary>
-    /// <param name="fieldName"></param>
-    /// <param name="otherFiledName"></param>
-    public void AddFields(string fieldName, string otherFiledName)
-    {
-        if (MappedFields.Any(m => m.Field == fieldName && m.OtherField == otherFiledName))
-            return;
-        _tableFields.Add(fieldName);
-        _otherTableFields.Add(otherFiledName);
-        UpdateMappedFields();
-    }
-
-    private void UpdateMappedFields()
-    {
-        _sortedMappedFields.Clear();
-        for (int i = 0; i < _otherTableFields.Count; i++)
-            _sortedMappedFields.Add((_tableFields[i], _otherTableFields[i]));
-        _sortedMappedFields.Sort((a, b) => a.Field.CompareTo(b.Field));
-    }
-
-    /// <summary>
-    /// Checks for equality.
-    /// </summary>
-    /// <param name="connection">Connection.</param>
-    /// <returns>True - equals, false - not.</returns>
-    public bool Equals(Connection connection)
-    {
-        return Table.Name == connection.Table.Name && OtherTable.Name == connection.OtherTable.Name &&
-            MappedFields.SequenceEqual(connection.MappedFields);
-    }
-
-    /// <summary>
-    /// Shows that it is same connection exactly or reversed connection.
-    /// </summary>
-    /// <param name="connection">Connection to check.</param>
-    /// <returns>True - same or same-reversed, false - not same.</returns>
-    public bool IsSame(Connection connection)
-    {
-        if (Table.Name == connection.OtherTable.Name && OtherTable.Name == connection.Table.Name)
-            return MappedFields.SequenceEqual(connection.MappedFields.Select(m => (m.OtherField, m.Field)));
-        return Equals(connection);
-    }
-}
-
-public interface IDbColumnTypeProvider
-{
-    public string[] GetPKFields(string tableName);
-
-    public string GetSqlType(string tableName, string columnName);
-}
-
-public class DbColumnTypeProvider : IDbColumnTypeProvider
-{
-    public string[] GetPKFields(string tableName)
-    {
-        return tableName switch
-        {
-            "directcrm.Customers" => new[] { "Id" },
-            "directcrm.CustomerActions" => new[] { "Id" },
-            "directcrm.CustomerCustomFieldValues" => new[] { "Id" },
-            "directcrm.CustomerActionCustomFieldValues" => new[] { "Id" },
-            "directcrm.Areas" => new[] { "Id" },
-            "directcrm.ActionTemplates" => new[] { "Id" },
-            "directcrm.SubAreas" => new[] { "Id" },
-            "directcrm.RetailOrders" => new[] { "Id" },
-            "directcrm.RetailOrderHistoryItems" => new[] { "Id" },
-            "directcrm.RetailOrderPurchases" => new[] { "Id" },
-            _ => throw new NotSupportedException()
-        };
-    }
-
-    public string GetSqlType(string tableName, string columnName)
-    {
-        return (tableName, columnName) switch
-        {
-            ("directcrm.Customers", "Id") => "int not null",
-            ("directcrm.Customers", "PasswordHash") => "nvarchar(32) not null",
-            ("directcrm.Customers", "PasswordHashSalt") => "varbinary(16) null",
-            ("directcrm.Customers", "TempPasswordHash") => "nvarchar(32) not null",
-            ("directcrm.Customers", "TempPasswordHashSalt") => "varbinary(16) null",
-            ("directcrm.Customers", "IsDeleted") => "bit not null",
-            ("directcrm.Customers", "TempPasswordEmail") => "nvarchar(256) not null",
-            ("directcrm.Customers", "TempPasswordMobilePhone") => "bigint null",
-            ("directcrm.Customers", "AreaId") => "int not null",
-            ("directcrm.CustomerActions", "Id") => "bigint not null",
-            ("directcrm.CustomerActions", "DateTimeUtc") => "datetime2(7) not null",
-            ("directcrm.CustomerActions", "CreationDateTimeUtc") => "datetime2(7) not null",
-            ("directcrm.CustomerActions", "PointOfContactId") => "int not null",
-            ("directcrm.CustomerActions", "ActionTemplateId") => "int not null",
-            ("directcrm.CustomerActions", "CustomerId") => "int not null",
-            ("directcrm.CustomerActions", "StaffId") => "int null",
-            ("directcrm.CustomerActions", "OriginalCustomerId") => "int not null",
-            ("directcrm.CustomerActions", "TransactionalId") => "bigint null",
-            ("directcrm.CustomerActionCustomFieldValues", "Id") => "int not null",
-            ("directcrm.CustomerActionCustomFieldValues", "CustomerActionId") => "bigint not null",
-            ("directcrm.CustomerActionCustomFieldValues", "FieldName") => "nvarchar(32) not null",
-            ("directcrm.CustomerActionCustomFieldValues", "FieldValue") => "nvarchar(32) not null",
-            ("directcrm.CustomerCustomFieldValues", "Id") => "int not null",
-            ("directcrm.CustomerCustomFieldValues", "CustomerId") => "int not null",
-            ("directcrm.CustomerCustomFieldValues", "FieldName") => "nvarchar(32) not null",
-            ("directcrm.CustomerCustomFieldValues", "FieldValue") => "nvarchar(32) not null",
-            ("directcrm.Areas", "Id") => "int not null",
-            ("directcrm.Areas", "Name") => "nvarchar(32) not null",
-            ("directcrm.Areas", "SubAreaId") => "int null",
-            ("directcrm.ActionTemplates", "Id") => "int not null",
-            ("directcrm.ActionTemplates", "Name") => "nvarchar(32) not null",
-            ("directcrm.SubAreas", "Id") => "int not null",
-            ("directcrm.SubAreas", "Name") => "nvarchar(64) not null",
-            ("directcrm.RetailOrders", "Id") => "int not null",
-            ("directcrm.RetailOrders", "CustomerId") => "int null",
-            ("directcrm.RetailOrders", "TotalSum") => "float not null",
-            ("directcrm.RetailOrderHistoryItems", "Id") => "int not null",
-            ("directcrm.RetailOrderHistoryItems", "IsCurrentOtherwiseNull") => "bit null",
-            ("directcrm.RetailOrderHistoryItems", "RetailOrderId") => "int not null",
-            ("directcrm.RetailOrderHistoryItems", "Amount") => "decimal(18,2) null",
-            ("directcrm.RetailOrderPurchases", "Count") => "decimal(18,2) not null",
-            ("directcrm.RetailOrderPurchases", "PriceForCustomerOfLine") => "decimal(18,2) not null",
-            ("directcrm.RetailOrderPurchases", "RetailOrderHistoryItemId") => "bigint not null",
-            _ => throw new NotSupportedException()
-        };
     }
 }
