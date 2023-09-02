@@ -1,16 +1,8 @@
-﻿using Microsoft.VisualStudio.TestPlatform.ObjectModel;
-using Microsoft.VisualStudio.TestTools.UnitTesting;
+﻿using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Mindbox.Data.Linq.Tests.MultiStatementQueries.SqlTranslatorTypes;
-using Newtonsoft.Json.Linq;
 using Snapshooter.MSTest;
-using System;
-using System.Collections.Generic;
 using System.Data;
-using System.Data.Linq.Mapping;
 using System.Linq;
-using System.Linq.Expressions;
-using System.Reflection;
-using System.Security.Policy;
 
 namespace Mindbox.Data.Linq.Tests.MultiStatementQueries;
 
