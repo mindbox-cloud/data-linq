@@ -1,4 +1,6 @@
-﻿using System;
+﻿using Mindbox.Data.Linq.Tests.MultiStatementQueries.SleTypes;
+using Mindbox.Data.Linq.Tests.MultiStatementQueries.SleTypes.Visitors;
+using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
