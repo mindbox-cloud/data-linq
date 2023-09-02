@@ -7,8 +7,6 @@ namespace Mindbox.Data.Linq.Tests.MultiStatementQueries.SqlTranslatorTypes;
 class SqlQueryTranslatorResult
 {
     private List<string> _tableReadOrder = new();
-    private IDbColumnTypeProvider _columnTypeProvider;
-
 
     /// <summary>
     /// Command text.
@@ -19,13 +17,11 @@ class SqlQueryTranslatorResult
     /// Constructor.
     /// </summary>
     /// <param name="commandText">Command text</param>
-    /// <param name="columnTypeProvider">Column type provider.</param>
     /// <param name="tableReadOrder">Table read order.</param>
-    public SqlQueryTranslatorResult(string commandText, IDbColumnTypeProvider columnTypeProvider, IEnumerable<string> tableReadOrder)
+    public SqlQueryTranslatorResult(string commandText, IEnumerable<string> tableReadOrder)
     {
         CommandText = commandText;
         _tableReadOrder.AddRange(tableReadOrder);
-        _columnTypeProvider = columnTypeProvider;
     }
 
     /// <summary>
