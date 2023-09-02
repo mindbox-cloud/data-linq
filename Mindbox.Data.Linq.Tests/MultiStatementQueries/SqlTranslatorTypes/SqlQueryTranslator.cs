@@ -21,7 +21,7 @@ class SqlQueryTranslator
 
     private static TableNode TranslateCore(Expression expression, IDbColumnTypeProvider columnTypeProvider)
     {
-        var rootSle = TranslateToSimplifiedExpression(expression);
+        var rootSle = TranslateToSimplifiedExpression(expression, columnTypeProvider);
         var context = new TranslationContext(columnTypeProvider);
         TranslateChain(context, rootSle);
 
@@ -411,9 +411,9 @@ class SqlQueryTranslator
         static bool IsConstant(ChainSle chain) => chain.Items.Count == 1 && chain.Items[0] is FixedValueChainPart;
     }
 
-    private static ChainSle TranslateToSimplifiedExpression(Expression expression)
+    private static ChainSle TranslateToSimplifiedExpression(Expression expression, IDbColumnTypeProvider columnTypeProvider)
     {
-        var visitorContext = new VisitorContext(new DbColumnTypeProvider());
+        var visitorContext = new VisitorContext(columnTypeProvider);
         var visitor = new ChainExpressionVisitor(null, visitorContext);
         visitor.Visit(expression);
         return visitor.Chain;

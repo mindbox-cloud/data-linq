@@ -1,4 +1,6 @@
 ﻿using Microsoft.VisualStudio.TestTools.UnitTesting;
+using Mindbox.Data.Linq.Tests.MultiStatementQueries.SampleEnvironment;
+using Mindbox.Data.Linq.Tests.MultiStatementQueries.SampleEnvironment.EntityTypes;
 using Mindbox.Data.Linq.Tests.MultiStatementQueries.SqlTranslatorTypes;
 using Snapshooter.MSTest;
 using System.Data;

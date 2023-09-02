@@ -1,7 +1,7 @@
 ﻿using Mindbox.Data.Linq.Tests.MultiStatementQueries.SqlTranslatorTypes;
 using System;
 
-namespace Mindbox.Data.Linq.Tests.MultiStatementQueries;
+namespace Mindbox.Data.Linq.Tests.MultiStatementQueries.SampleEnvironment;
 
 public class DbColumnTypeProvider : IDbColumnTypeProvider
 {
