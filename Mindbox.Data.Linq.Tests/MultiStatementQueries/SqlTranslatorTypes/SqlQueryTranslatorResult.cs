@@ -125,6 +125,7 @@ class ResultTable
 {
     private Dictionary<string, Dictionary<string, List<ResultRow>>> _stringColumnIndexes = new();
     private Dictionary<string, Dictionary<long, List<ResultRow>>> _numberColumnIndexes = new();
+    private HashSet<string> _uniqueColumns = new();
     private List<ResultRow> _rows = new List<ResultRow>();
 
     /// <summary>
@@ -215,6 +216,8 @@ class ResultTable
                     rows = new List<ResultRow>();
                     index.Add(value, rows);
                 }
+                else if (_uniqueColumns.Contains(columnName))
+                    continue;
                 rows.Add(row);
             }
 
@@ -226,6 +229,8 @@ class ResultTable
                     rows = new List<ResultRow>();
                     index.Add(value, rows);
                 }
+                else if (_uniqueColumns.Contains(columnName))
+                    continue;
                 rows.Add(row);
             }
         }
@@ -235,7 +240,8 @@ class ResultTable
     /// Adds index by column.
     /// </summary>
     /// <param name="columnName">Column name.</param>
-    public void AddIndex(string columnName)
+    /// <param name="isUnique">Shows that index is unique.</param>
+    public void AddIndex(string columnName, bool isUnique)
     {
         if (_rows.Count > 0)
             throw new InvalidOperationException();
@@ -246,6 +252,8 @@ class ResultTable
             _stringColumnIndexes.Add(columnName, new());
         else
             throw new NotSupportedException();
+        if (isUnique)
+            _uniqueColumns.Add(columnName);
     }
 }
 

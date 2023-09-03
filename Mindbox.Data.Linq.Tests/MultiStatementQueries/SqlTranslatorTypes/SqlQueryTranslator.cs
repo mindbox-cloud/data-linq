@@ -14,9 +14,9 @@ class SqlQueryTranslator
         var table = TranslateCore(node, columnTypeProvider);
         OptimizeTree(table);
 
-        var command = SqlTreeCommandBuilder.Build(table, columnTypeProvider);
+        var result = SqlTreeCommandBuilder.Build(table, columnTypeProvider);
 
-        return new SqlQueryTranslatorResult(command);
+        return new SqlQueryTranslatorResult(result.CommandText, result.TableReadOrder);
     }
 
     private static TableNode TranslateCore(Expression expression, IDbColumnTypeProvider columnTypeProvider)

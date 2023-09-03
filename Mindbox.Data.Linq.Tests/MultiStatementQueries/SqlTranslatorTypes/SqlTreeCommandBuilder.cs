@@ -7,15 +7,20 @@ namespace Mindbox.Data.Linq.Tests.MultiStatementQueries.SqlTranslatorTypes;
 
 internal class SqlTreeCommandBuilder
 {
-    public static string Build(TableNode query, IDbColumnTypeProvider columnTypeProvider)
+    public static SqlTreeCommandBuilderResult Build(TableNode query, IDbColumnTypeProvider columnTypeProvider)
     {
+        // Unify columns across same tables
+        UnifySameTableFields(query);
+
         query.AddField("Id");
 
         var context = new BuilderContext();
         List<string> queryParts = new();
         List<string> variableDefinitions = new();
+        List<string> tableReadOrder = new();
 
         var rootVariableName = context.CreateVariableName(query);
+        tableReadOrder.Add(query.Name);
         variableDefinitions.Add(BuildTableVariableDefinition(rootVariableName, query, columnTypeProvider, true));
         queryParts.Add($"""
             INSERT INTO {rootVariableName}({string.Join(", ", GetUsedColumns(query, true))})
@@ -27,15 +32,16 @@ internal class SqlTreeCommandBuilder
 
 
         foreach (var connection in query.Connections)
-            BuildCore(context, queryParts, variableDefinitions, connection, columnTypeProvider);
+            BuildCore(context, queryParts, variableDefinitions, connection, columnTypeProvider, tableReadOrder);
 
         var variableDefinition = string.Join("\r\n", variableDefinitions);
         var queries = string.Join("\r\n\r\n", queryParts);
-        return string.Join("\r\n\r\n", new[] { variableDefinition, queries });
+        return new(string.Join("\r\n\r\n", new[] { variableDefinition, queries }), tableReadOrder);
 
-        static void BuildCore(BuilderContext context, List<string> queryParts, List<string> variableDefinitions, Connection connection, IDbColumnTypeProvider columnTypeProvider)
+        static void BuildCore(BuilderContext context, List<string> queryParts, List<string> variableDefinitions, Connection connection, IDbColumnTypeProvider columnTypeProvider, List<string> tableReadOrder)
         {
             var otherTable = connection.OtherTable;
+            tableReadOrder.Add(otherTable.Name);
             var variableName = context.CreateVariableName(otherTable);
             variableDefinitions.Add(BuildTableVariableDefinition(variableName, otherTable, columnTypeProvider));
 
@@ -65,8 +71,24 @@ internal class SqlTreeCommandBuilder
             queryParts.Add(query);
 
             foreach (var nextConnection in connection.OtherTable.Connections)
-                BuildCore(context, queryParts, variableDefinitions, nextConnection, columnTypeProvider);
+                BuildCore(context, queryParts, variableDefinitions, nextConnection, columnTypeProvider, tableReadOrder);
         }
+    }
+
+    private static void UnifySameTableFields(TableNode query)
+    {
+        Dictionary<string, HashSet<string>> table2Fields = new();
+        foreach (var table in query.GetAllTableNodes())
+        {
+            if (!table2Fields.ContainsKey(table.Name))
+                table2Fields.Add(table.Name, new HashSet<string>());
+            foreach (var usedField in table.UsedFields)
+                table2Fields[table.Name].Add(usedField);
+        }
+
+        foreach (var table in query.GetAllTableNodes())
+            foreach (var usedField in table2Fields[table.Name])
+                table.AddField(usedField);
     }
 
     private static IEnumerable<string> GetUsedColumns(TableNode table, bool addIdColumn = false)
@@ -77,9 +99,9 @@ internal class SqlTreeCommandBuilder
     }
 
 
-    private static string BuildTableVariableDefinition(string variableName, TableNode table, IDbColumnTypeProvider columntTypeProvider, bool addIdColumn = false)
+    private static string BuildTableVariableDefinition(string variableName, TableNode table, IDbColumnTypeProvider columnTypeProvider, bool addIdColumn = false)
     {
-        var columnsWithTypes = GetUsedColumns(table, addIdColumn).Order().Select(c => $"{c} {columntTypeProvider.GetSqlType(table.Name, c)}").ToArray();
+        var columnsWithTypes = GetUsedColumns(table, addIdColumn).Order().Select(c => $"{c} {columnTypeProvider.GetSqlType(table.Name, c)}").ToArray();
         return
             $"""
             DECLARE {variableName} TABLE(
@@ -126,3 +148,5 @@ internal class SqlTreeCommandBuilder
         }
     }
 }
+
+record SqlTreeCommandBuilderResult(string CommandText, IReadOnlyList<string> TableReadOrder);
