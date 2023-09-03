@@ -1,10 +1,14 @@
 ﻿using Microsoft.VisualStudio.TestTools.UnitTesting;
+using Mindbox.Data.Linq.Tests.MultiStatementQueries.RewriterTypes;
 using Mindbox.Data.Linq.Tests.MultiStatementQueries.SampleEnvironment;
 using Mindbox.Data.Linq.Tests.MultiStatementQueries.SampleEnvironment.EntityTypes;
 using Mindbox.Data.Linq.Tests.MultiStatementQueries.SqlTranslatorTypes;
 using Snapshooter.MSTest;
+using System;
 using System.Data;
 using System.Linq;
+using System.Linq.Expressions;
+using System.Text;
 
 namespace Mindbox.Data.Linq.Tests.MultiStatementQueries;
 
@@ -21,9 +25,10 @@ public class MultiStatementQueryTests
         var queryExpression = contextAndConnection.DataContext
             .GetTable<Customer>().AsQueryable().Expression;
         var query = SqlQueryTranslator.Translate(queryExpression, new DbColumnTypeProvider());
+        var rewrittenExpression = new Rewriter().Rewrite(queryExpression);
 
         // Assert
-        query.CommandText.MatchSnapshot();
+        MatchSnapshot(query.CommandText, queryExpression, rewrittenExpression);
     }
 
     [TestMethod]
@@ -405,6 +410,23 @@ public class MultiStatementQueryTests
 
         // Assert
         query.CommandText.MatchSnapshot();
+    }
+
+
+    private void MatchSnapshot(string commandText, Expression expression, Expression rewrittenExpression)
+    {
+        StringBuilder sb = new();
+        sb.AppendLine("****************************** Original expression **********************************");
+        sb.AppendLine(expression.ToString());
+        sb.AppendLine();
+        sb.AppendLine("****************************** SQL result *******************************************");
+        sb.AppendLine(commandText);
+        sb.AppendLine();
+        sb.AppendLine("****************************** Rewritten expression **********************************");
+        sb.AppendLine(rewrittenExpression.ToString());
+        sb.ToString().MatchSnapshot();
+
+
     }
 }
 
