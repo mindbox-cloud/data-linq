@@ -41,9 +41,10 @@ public class MultiStatementQueryTests
         var queryExpression = contextAndConnection.DataContext
             .GetTable<Customer>().Where(c2 => c2.TempPasswordEmail == "123").Expression;
         var query = SqlQueryTranslator.Translate(queryExpression, new DbColumnTypeProvider());
+        var rewrittenExpression = new Rewriter().Rewrite(queryExpression);
 
         // Assert
-        query.CommandText.MatchSnapshot();
+        MatchSnapshot(query.CommandText, queryExpression, rewrittenExpression);
     }
 
     [TestMethod]
@@ -413,7 +414,7 @@ public class MultiStatementQueryTests
     }
 
 
-    private void MatchSnapshot(string commandText, Expression expression, Expression rewrittenExpression)
+    private void MatchSnapshot(string commandText, Expression expression, Expression<Func<ResultSet, bool>> rewrittenExpression)
     {
         StringBuilder sb = new();
         sb.AppendLine("****************************** Original expression **********************************");
@@ -426,7 +427,7 @@ public class MultiStatementQueryTests
         sb.AppendLine(rewrittenExpression.ToString());
         sb.ToString().MatchSnapshot();
 
-
+        rewrittenExpression.Compile();
     }
 }
 

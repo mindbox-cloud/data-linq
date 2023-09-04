@@ -1,4 +1,8 @@
-﻿DECLARE @tabledirectcrm_Customers TABLE(
+﻿****************************** Original expression **********************************
+Table(Customer)
+
+****************************** SQL result *******************************************
+DECLARE @tabledirectcrm_Customers TABLE(
     Id int not null
 )
 
@@ -7,3 +11,6 @@ INSERT INTO @tabledirectcrm_Customers(Id)
         FROM directcrm.Customers AS current
             WHERE Id = @__id
 SELECT * FROM @tabledirectcrm_Customers
+
+****************************** Rewritten expression **********************************
+resultSet => resultSet.GetTable("directcrm.Customers").Any()
