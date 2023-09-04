@@ -1,4 +1,8 @@
-﻿DECLARE @tabledirectcrm_Customers TABLE(
+﻿****************************** Original expression **********************************
+Table(Customer).Where(c2 => (c2.TempPasswordEmail == "123"))
+
+****************************** SQL result *******************************************
+DECLARE @tabledirectcrm_Customers TABLE(
     Id int not null,
     TempPasswordEmail nvarchar(256) not null
 )
@@ -8,3 +12,6 @@ INSERT INTO @tabledirectcrm_Customers(Id, TempPasswordEmail)
         FROM directcrm.Customers AS current
             WHERE Id = @__id
 SELECT * FROM @tabledirectcrm_Customers
+
+****************************** Rewritten expression **********************************
+resultSet => resultSet.GetTable("directcrm.Customers").Where(c2 => (c2.GetValue("TempPasswordEmail") == "123")).Any()
