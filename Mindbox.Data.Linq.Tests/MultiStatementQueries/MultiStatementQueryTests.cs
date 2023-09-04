@@ -287,9 +287,10 @@ public class MultiStatementQueryTests
             .Where(c => c.ActionTemplate.Name == "dummy")
             .Expression;
         var query = SqlQueryTranslator.Translate(queryExpression, new DbColumnTypeProvider());
+        var rewrittenExpression = new Rewriter().Rewrite(queryExpression);
 
         // Assert
-        query.CommandText.MatchSnapshot();
+        AssertTranslation(query.CommandText, queryExpression, rewrittenExpression);
     }
 
     [TestMethod]
@@ -311,9 +312,10 @@ public class MultiStatementQueryTests
             .Where(c => c.CustomerArea.Id == 20)
             .Expression;
         var query = SqlQueryTranslator.Translate(queryExpression, new DbColumnTypeProvider());
+        var rewrittenExpression = new Rewriter().Rewrite(queryExpression);
 
         // Assert
-        query.CommandText.MatchSnapshot();
+        AssertTranslation(query.CommandText, queryExpression, rewrittenExpression);
     }
 
     [TestMethod]
