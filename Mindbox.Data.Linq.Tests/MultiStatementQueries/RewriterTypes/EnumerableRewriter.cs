@@ -152,8 +152,6 @@ internal class EnumerableRewriter : ExpressionVisitor
         return expression;
     }
 
-    protected override Expression VisitLambda<T>(Expression<T> node) => node;
-
     private static Type GetPublicType(Type t)
     {
         // If we create a constant explicitly typed to be a private nested type,

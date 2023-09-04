@@ -1,4 +1,8 @@
-﻿DECLARE @tabledirectcrm_Customers TABLE(
+﻿****************************** Original expression **********************************
+Table(Customer).Where(c => value(Mindbox.Data.Linq.Tests.MultiStatementQueries.MultiStatementQueryTests+<>c__DisplayClass11_0).customerActions.Where(ca => (ca.CustomerId == c.Id)).Any(ca => (ca.ActionTemplateId == 10)))
+
+****************************** SQL result *******************************************
+DECLARE @tabledirectcrm_Customers TABLE(
     Id int not null
 )
 DECLARE @tabledirectcrm_CustomerActions TABLE(
@@ -18,3 +22,6 @@ INSERT INTO @tabledirectcrm_CustomerActions(ActionTemplateId, CustomerId)
             INNER JOIN @tabledirectcrm_Customers AS previous ON
                 previous.Id = current.CustomerId
 SELECT * FROM @tabledirectcrm_CustomerActions
+
+****************************** Rewritten expression **********************************
+resultSet => resultSet.GetTable("directcrm.Customers").Where(c => resultSet.GetTable("directcrm.CustomerActions").Where(ca => (ca.GetValue("CustomerId") == c.GetValue("Id"))).Any(ca => (ca.GetValue("ActionTemplateId") == 10))).Any()

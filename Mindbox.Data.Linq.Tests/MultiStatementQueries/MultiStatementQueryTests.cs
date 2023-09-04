@@ -209,9 +209,10 @@ public class MultiStatementQueryTests
             .Where(c => customerActions.Where(ca => ca.CustomerId == c.Id).Any(ca => ca.ActionTemplateId == 10))
             .Expression;
         var query = SqlQueryTranslator.Translate(queryExpression, new DbColumnTypeProvider());
+        var rewrittenExpression = new Rewriter().Rewrite(queryExpression);
 
         // Assert
-        query.CommandText.MatchSnapshot();
+        AssertTranslation(query.CommandText, queryExpression, rewrittenExpression);
     }
 
     [TestMethod]
@@ -227,9 +228,10 @@ public class MultiStatementQueryTests
             .Where(c => customerActions.Where(ca => ca.ActionTemplateId == 10).Where(ca => ca.Customer == c).Any())
             .Expression;
         var query = SqlQueryTranslator.Translate(queryExpression, new DbColumnTypeProvider());
+        var rewrittenExpression = new Rewriter().Rewrite(queryExpression);
 
         // Assert
-        query.CommandText.MatchSnapshot();
+        AssertTranslation(query.CommandText, queryExpression, rewrittenExpression);
     }
 
     [TestMethod]

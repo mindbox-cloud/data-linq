@@ -1,16 +1,12 @@
 ﻿using Mindbox.Data.Linq.Tests.MultiStatementQueries.SleTypes;
 using Mindbox.Data.Linq.Tests.MultiStatementQueries.SqlTranslatorTypes;
 using System;
-using System.Collections;
 using System.Collections.Generic;
-using System.Collections.ObjectModel;
 using System.Data.Linq.Mapping;
-using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Linq.Expressions;
 using System.Reflection;
-using System.Security.AccessControl;
 
 namespace Mindbox.Data.Linq.Tests.MultiStatementQueries.RewriterTypes;
 
@@ -20,7 +16,7 @@ internal class Rewriter
     {
         var enumerableRewriter = new EnumerableRewriter();
         var enumerableExpression = enumerableRewriter.Visit(expression);
-
+        
         var parameter = Expression.Parameter(typeof(ResultSet), "resultSet");
         var visitor = new RewriterVisitor(parameter);
         var rewrittenExpression = visitor.Visit(enumerableExpression);
@@ -60,6 +56,10 @@ internal class RewriterVisitor : ExpressionVisitor
 
     protected override Expression VisitMember(MemberExpression node)
     {
+        var tableName = ExpressionHelpers.GetTableName(node);
+        if (!string.IsNullOrEmpty(tableName))
+            return Expression.Call(_resultSetParameter, _getTableMethodInfo, Expression.Constant(tableName));
+
         var tableAttribute = node.Member.DeclaringType.CustomAttributes.SingleOrDefault(c => c.AttributeType == typeof(TableAttribute));
         if (tableAttribute != null)
         {
