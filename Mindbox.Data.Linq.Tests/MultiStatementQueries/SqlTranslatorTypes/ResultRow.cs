@@ -16,13 +16,25 @@ class ResultRow
 
     public ResultTable Table { get; private set; }
 
+
     /// <summary>
     /// Retrieves rows from another table by id.
     /// </summary>
     /// <param name="tableName">Table name.</param>
     /// <param name="id">Id</param>
     /// <returns>Row.</returns>
-    public IEnumerable<ResultRow> GetReferenced(string referenceTableName, string referenceColumnName, string columnName)
+    public ResultRow GetReferencedRow(string referenceTableName, string referenceColumnName, string columnName)
+    {
+        return GetReferencedRows(referenceTableName, referenceColumnName, columnName).FirstOrDefault();
+    }
+
+    /// <summary>
+    /// Retrieves rows from another table by id.
+    /// </summary>
+    /// <param name="tableName">Table name.</param>
+    /// <param name="id">Id</param>
+    /// <returns>Row.</returns>
+    public IEnumerable<ResultRow> GetReferencedRows(string referenceTableName, string referenceColumnName, string columnName)
     {
         if (IsNull(columnName))
             return Enumerable.Empty<ResultRow>();

@@ -156,9 +156,10 @@ public class MultiStatementQueryTests
         var queryExpression = contextAndConnection.DataContext
             .GetTable<Customer>().Where(c => c.Area.Name == "SomeArea").Expression;
         var query = SqlQueryTranslator.Translate(queryExpression, new DbColumnTypeProvider());
+        var rewrittenExpression = new Rewriter().Rewrite(queryExpression);
 
         // Assert
-        query.CommandText.MatchSnapshot();
+        AssertTranslation(query.CommandText, queryExpression, rewrittenExpression);
     }
 
     [TestMethod]
@@ -171,9 +172,10 @@ public class MultiStatementQueryTests
         var queryExpression = contextAndConnection.DataContext
             .GetTable<Customer>().Where(c => c.Area.SubArea.Name == "SomeSubArea").Expression;
         var query = SqlQueryTranslator.Translate(queryExpression, new DbColumnTypeProvider());
+        var rewrittenExpression = new Rewriter().Rewrite(queryExpression);
 
         // Assert
-        query.CommandText.MatchSnapshot();
+        AssertTranslation(query.CommandText, queryExpression, rewrittenExpression);
     }
 
     [TestMethod]
@@ -188,9 +190,10 @@ public class MultiStatementQueryTests
             .Where(c => c.Area.Name == "SomeArea")
             .Where(c => c.Area.SubArea.Name == "SomeSubArea").Expression;
         var query = SqlQueryTranslator.Translate(queryExpression, new DbColumnTypeProvider());
+        var rewrittenExpression = new Rewriter().Rewrite(queryExpression);
 
         // Assert
-        query.CommandText.MatchSnapshot();
+        AssertTranslation(query.CommandText, queryExpression, rewrittenExpression);
     }
 
     [TestMethod]

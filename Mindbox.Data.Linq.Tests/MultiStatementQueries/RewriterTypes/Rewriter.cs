@@ -37,6 +37,8 @@ internal class RewriterVisitor : ExpressionVisitor
     private readonly ParameterExpression _resultSetParameter;
     private readonly MethodInfo _getTableMethodInfo;
     private readonly MethodInfo _getValueMethodInfo;
+    private readonly MethodInfo _getReferencedRowsMethodInfo;
+    private readonly MethodInfo _getReferencedRowMethodInfo;
     private Dictionary<ParameterExpression, ParameterExpression> _parameterMapping = new();
 
     public RewriterVisitor(ParameterExpression resultSetParameter)
@@ -44,6 +46,8 @@ internal class RewriterVisitor : ExpressionVisitor
         _resultSetParameter = resultSetParameter;
         _getTableMethodInfo = typeof(ResultSet).GetMethod(nameof(ResultSet.GetTable));
         _getValueMethodInfo = typeof(ResultRow).GetMethod(nameof(ResultRow.GetValue));
+        _getReferencedRowsMethodInfo = typeof(ResultRow).GetMethod(nameof(ResultRow.GetReferencedRows));
+        _getReferencedRowMethodInfo = typeof(ResultRow).GetMethod(nameof(ResultRow.GetReferencedRow));
     }
 
     protected override Expression VisitConstant(ConstantExpression node)
@@ -60,9 +64,43 @@ internal class RewriterVisitor : ExpressionVisitor
         if (tableAttribute != null)
         {
             var objectExpression = Visit(node.Expression);
+            if (node.Member is PropertyInfo property)
+            {
+                var associationAttribute = property.CustomAttributes.SingleOrDefault(c => c.AttributeType == typeof(AssociationAttribute));
+                if (associationAttribute != null)
+                {
+                    var otherTable = GetTypeOrElementType(property.PropertyType).CustomAttributes.SingleOrDefault(c => c.AttributeType == typeof(TableAttribute))
+                        .NamedArguments.Single(a => a.MemberName == nameof(TableAttribute.Name)).TypedValue.Value.ToString();
+                    var currentTableField = associationAttribute.NamedArguments.Single(a => a.MemberName == nameof(AssociationAttribute.ThisKey)).TypedValue.Value.ToString();
+                    var otherTableField = associationAttribute.NamedArguments.Single(a => a.MemberName == nameof(AssociationAttribute.OtherKey)).TypedValue.Value.ToString();
+                    if (IsCollection(property.PropertyType))
+                        return Expression.Call(objectExpression, _getReferencedRowsMethodInfo, Expression.Constant(otherTable), Expression.Constant(currentTableField), Expression.Constant(otherTableField));
+                    else
+                        return Expression.Call(objectExpression, _getReferencedRowMethodInfo, Expression.Constant(otherTable), Expression.Constant(currentTableField), Expression.Constant(otherTableField));
+                }
+            }
+
             return Expression.Call(objectExpression, _getValueMethodInfo.MakeGenericMethod(node.Type), Expression.Constant(node.Member.Name));
         }
         return base.VisitMember(node);
+
+        static Type GetTypeOrElementType(Type type)
+        {
+            if (type.IsArray)
+                return type.GetElementType();
+            if (type.IsGenericType && type.GetGenericTypeDefinition().IsAssignableTo(typeof(IEnumerable<>)))
+                throw new NotImplementedException();
+            return type;
+        }
+
+        static bool IsCollection(Type type)
+        {
+            if (type.IsArray)
+                return true;
+            if (type.IsGenericType)
+                return type.GetGenericTypeDefinition().IsAssignableTo(typeof(IEnumerable<>));
+            return false;
+        }
     }
 
     protected override Expression VisitParameter(ParameterExpression node)
