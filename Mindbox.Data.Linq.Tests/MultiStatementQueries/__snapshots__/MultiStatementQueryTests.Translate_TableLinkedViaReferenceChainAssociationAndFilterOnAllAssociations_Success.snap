@@ -1,4 +1,8 @@
-﻿DECLARE @tabledirectcrm_Customers TABLE(
+﻿****************************** Original expression **********************************
+Table(Customer).Where(c => (c.Area.Name == "SomeArea")).Where(c => (c.Area.SubArea.Name == "SomeSubArea"))
+
+****************************** SQL result *******************************************
+DECLARE @tabledirectcrm_Customers TABLE(
     AreaId int not null,
     Id int not null
 )
@@ -31,3 +35,6 @@ INSERT INTO @tabledirectcrm_SubAreas(Id, Name)
             INNER JOIN (SELECT DISTINCT SubAreaId FROM @tabledirectcrm_Areas) AS previous ON
                 previous.SubAreaId = current.Id
 SELECT * FROM @tabledirectcrm_SubAreas
+
+****************************** Rewritten expression **********************************
+resultSet => resultSet.GetTable("directcrm.Customers").Where(c => (c.GetReferencedRow("directcrm.Areas", "AreaId", "Id").GetValue("Name") == "SomeArea")).Where(c => (c.GetReferencedRow("directcrm.Areas", "AreaId", "Id").GetReferencedRow("directcrm.SubAreas", "SubAreaId", "Id").GetValue("Name") == "SomeSubArea")).Any()
