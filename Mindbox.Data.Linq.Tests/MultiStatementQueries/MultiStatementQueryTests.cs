@@ -28,7 +28,7 @@ public class MultiStatementQueryTests
         var rewrittenExpression = new Rewriter().Rewrite(queryExpression);
 
         // Assert
-        MatchSnapshot(query.CommandText, queryExpression, rewrittenExpression);
+        AssertTranslation(query.CommandText, queryExpression, rewrittenExpression);
     }
 
     [TestMethod]
@@ -44,7 +44,7 @@ public class MultiStatementQueryTests
         var rewrittenExpression = new Rewriter().Rewrite(queryExpression);
 
         // Assert
-        MatchSnapshot(query.CommandText, queryExpression, rewrittenExpression);
+        AssertTranslation(query.CommandText, queryExpression, rewrittenExpression);
     }
 
     [TestMethod]
@@ -57,9 +57,10 @@ public class MultiStatementQueryTests
         var queryExpression = contextAndConnection.DataContext
             .GetTable<Customer>().Where(c1 => c1.AreaId == 10).Where(c2 => c2.TempPasswordEmail == "123").Expression;
         var query = SqlQueryTranslator.Translate(queryExpression, new DbColumnTypeProvider());
+        var rewrittenExpression = new Rewriter().Rewrite(queryExpression);
 
         // Assert
-        query.CommandText.MatchSnapshot();
+        AssertTranslation(query.CommandText, queryExpression, rewrittenExpression);
     }
 
     [TestMethod]
@@ -73,9 +74,10 @@ public class MultiStatementQueryTests
         var queryExpression = contextAndConnection.DataContext
             .GetTable<Customer>().Where(c => c.TempPasswordEmail == someEmail).Expression;
         var query = SqlQueryTranslator.Translate(queryExpression, new DbColumnTypeProvider());
+        var rewrittenExpression = new Rewriter().Rewrite(queryExpression);
 
         // Assert
-        query.CommandText.MatchSnapshot();
+        AssertTranslation(query.CommandText, queryExpression, rewrittenExpression);
     }
 
     [TestMethod]
@@ -414,7 +416,7 @@ public class MultiStatementQueryTests
     }
 
 
-    private void MatchSnapshot(string commandText, Expression expression, Expression<Func<ResultSet, bool>> rewrittenExpression)
+    private void AssertTranslation(string commandText, Expression expression, Expression<Func<ResultSet, bool>> rewrittenExpression)
     {
         StringBuilder sb = new();
         sb.AppendLine("****************************** Original expression **********************************");
