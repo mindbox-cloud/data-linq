@@ -1,4 +1,8 @@
-﻿DECLARE @tabledirectcrm_Customers TABLE(
+﻿****************************** Original expression **********************************
+Table(Customer).Where(c => (((c.TempPasswordEmail == value(Mindbox.Data.Linq.Tests.MultiStatementQueries.MultiStatementQueryTests+<>c__DisplayClass6_0).someEmail) AndAlso (c.Id > 10)) AndAlso Not(c.IsDeleted)))
+
+****************************** SQL result *******************************************
+DECLARE @tabledirectcrm_Customers TABLE(
     Id int not null,
     IsDeleted bit not null,
     TempPasswordEmail nvarchar(256) not null
@@ -9,3 +13,6 @@ INSERT INTO @tabledirectcrm_Customers(Id, IsDeleted, TempPasswordEmail)
         FROM directcrm.Customers AS current
             WHERE Id = @__id
 SELECT * FROM @tabledirectcrm_Customers
+
+****************************** Rewritten expression **********************************
+resultSet => resultSet.GetTable("directcrm.Customers").Where(c => (((c.GetValue("TempPasswordEmail") == value(Mindbox.Data.Linq.Tests.MultiStatementQueries.MultiStatementQueryTests+<>c__DisplayClass6_0).someEmail) AndAlso (c.GetValue("Id") > 10)) AndAlso Not(c.GetValue("IsDeleted")))).Any()

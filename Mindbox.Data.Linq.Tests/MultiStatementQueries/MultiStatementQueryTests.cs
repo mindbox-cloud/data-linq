@@ -109,7 +109,6 @@ public class MultiStatementQueryTests
         var rewrittenExpression = new Rewriter().Rewrite(queryExpression);
 
         // Assert
-        query.CommandText.MatchSnapshot();
         AssertTranslation(query.CommandText, queryExpression, rewrittenExpression);
     }
 
@@ -124,9 +123,10 @@ public class MultiStatementQueryTests
         var queryExpression = contextAndConnection.DataContext
             .GetTable<Customer>().Where(c => c.TempPasswordEmail == someEmail && c.Id > 10 && !c.IsDeleted).Expression;
         var query = SqlQueryTranslator.Translate(queryExpression, new DbColumnTypeProvider());
+        var rewrittenExpression = new Rewriter().Rewrite(queryExpression);
 
         // Assert
-        query.CommandText.MatchSnapshot();
+        AssertTranslation(query.CommandText, queryExpression, rewrittenExpression);
     }
 
     [TestMethod]
@@ -140,9 +140,10 @@ public class MultiStatementQueryTests
         var queryExpression = contextAndConnection.DataContext
             .GetTable<Customer>().Where(c => c.TempPasswordEmail == someEmail).Where(c => c.Id > 10).Where(c => c.Id > 10 && !c.IsDeleted).Expression;
         var query = SqlQueryTranslator.Translate(queryExpression, new DbColumnTypeProvider());
+        var rewrittenExpression = new Rewriter().Rewrite(queryExpression);
 
         // Assert
-        query.CommandText.MatchSnapshot();
+        AssertTranslation(query.CommandText, queryExpression, rewrittenExpression);
     }
 
     [TestMethod]
