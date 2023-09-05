@@ -64,6 +64,10 @@ internal class EnumerableRewriter : ExpressionVisitor
                 args = FixupQuotedArgs(seqMethod, args);
                 return Expression.Call(obj, seqMethod, args);
             }
+            else if (mInfo.Name.StartsWith("ValueAsQueryable"))
+            {
+                return Expression.Call(obj, mInfo, args);
+            }
             else
             {
                 // rebind to new method

@@ -146,6 +146,8 @@ internal class RewriterVisitor : ExpressionVisitor
 
     private MethodInfo RewriteMethodDefinition(MethodInfo method, IEnumerable<Type> genericArgs)
     {
+        if (genericArgs.Count() == 0)
+            return method;
         return method.GetGenericMethodDefinition().MakeGenericMethod(genericArgs.ToArray());
     }
 
@@ -156,21 +158,45 @@ internal class RewriterVisitor : ExpressionVisitor
 
     protected override Expression VisitMemberInit(MemberInitExpression node)
     {
+        var newExpression = (NewExpression)Visit(node.NewExpression);
+
+        if (newExpression != node.NewExpression)
+        {
+            List<MemberBinding> bindings = new();
+            foreach (var binding in node.Bindings)
+            {
+                if (binding is not MemberAssignment memberAssignment)
+                    throw new NotSupportedException();
+                bindings.Add(Expression.Bind(newExpression.Type.GetProperty(memberAssignment.Member.Name), Visit(memberAssignment.Expression)));
+            }
+            return Expression.MemberInit(newExpression, bindings.ToArray());
+        }
+
         return base.VisitMemberInit(node);
     }
 
     protected override Expression VisitNew(NewExpression node)
     {
         bool hasMembersToRewrite = false;
-        foreach (var item in node.Members)
-        {
-            if (item is not PropertyInfo property)
-                continue;
-            if (property.PropertyType.CustomAttributes.SingleOrDefault(c => c.AttributeType == typeof(TableAttribute)) == null)
-                continue;
-            hasMembersToRewrite = true;
-            break;
-        }
+        if (node.Members != null)
+            foreach (var item in node.Members)
+            {
+                if (item is not PropertyInfo property)
+                    continue;
+                if (property.PropertyType.CustomAttributes.SingleOrDefault(c => c.AttributeType == typeof(TableAttribute)) == null)
+                    continue;
+                hasMembersToRewrite = true;
+                break;
+            }
+
+        if (!hasMembersToRewrite)
+            foreach (var property in node.Type.GetProperties())
+            {
+                if (property.PropertyType.CustomAttributes.SingleOrDefault(c => c.AttributeType == typeof(TableAttribute)) == null)
+                    continue;
+                hasMembersToRewrite = true;
+                break;
+            }
 
         if (!hasMembersToRewrite)
             return node;
@@ -184,13 +210,33 @@ internal class RewriterVisitor : ExpressionVisitor
 
             // Create types
             TypeBuilder dynamicAnonymousType = _dynamicModule.DefineType($"MyAnon_{_dynamicTypeCounter++}", TypeAttributes.Public);
-            List<Type> propertyTypes = new();
-            List<FieldBuilder> fields = new();
             // Add fields and properties
-            foreach (var item in node.Members)
+            List<Type> constructorParameterTypes = new();
+            List<FieldBuilder> backingFieldsForConstructorAssignment = new();
+            if (node.Members != null)
+                foreach (var item in node.Members)
+                {
+                    if (item is not PropertyInfo property)
+                        throw new NotSupportedException();
+                    Type fieldType;
+                    if (IsCollection(property.PropertyType) && GetTypeOrElementType(property.PropertyType).CustomAttributes.SingleOrDefault(c => c.AttributeType == typeof(TableAttribute)) != null)
+                    {
+                        if (property.PropertyType.IsArray)
+                            fieldType = typeof(ResultRow[]);
+                        else
+                            fieldType = typeof(IEnumerable<ResultRow>);
+                    }
+                    else if (property.PropertyType.CustomAttributes.SingleOrDefault(c => c.AttributeType == typeof(TableAttribute)) != null)
+                        fieldType = typeof(ResultRow);
+                    else
+                        fieldType = property.PropertyType;
+                    constructorParameterTypes.Add(fieldType);
+                    var backingField = GenerateProperty(dynamicAnonymousType, property, fieldType);
+                    backingFieldsForConstructorAssignment.Add(backingField);
+                }
+            // Other properties
+            foreach (var property in node.Type.GetProperties())
             {
-                if (item is not PropertyInfo property)
-                    throw new NotSupportedException();
                 Type fieldType;
                 if (IsCollection(property.PropertyType) && GetTypeOrElementType(property.PropertyType).CustomAttributes.SingleOrDefault(c => c.AttributeType == typeof(TableAttribute)) != null)
                 {
@@ -203,59 +249,32 @@ internal class RewriterVisitor : ExpressionVisitor
                     fieldType = typeof(ResultRow);
                 else
                     fieldType = property.PropertyType;
-
-                propertyTypes.Add(fieldType);
-                var field = dynamicAnonymousType.DefineField($"__{property.Name}", fieldType, FieldAttributes.Private);
-                fields.Add(field);
-                var propertyBuilder = dynamicAnonymousType.DefineProperty(property.Name, property.Attributes, fieldType, null);
-                // The property set and property get methods require a special set of attributes.
-                MethodAttributes getSetAttr = MethodAttributes.Public | MethodAttributes.SpecialName | MethodAttributes.HideBySig;
-
-                // Define the "get" accessor method for CustomerName.
-                MethodBuilder getBuilder = dynamicAnonymousType.DefineMethod($"get_{property.Name}", getSetAttr, fieldType, Type.EmptyTypes);
-
-                ILGenerator getBuilderIL = getBuilder.GetILGenerator();
-                getBuilderIL.Emit(OpCodes.Ldarg_0);
-                getBuilderIL.Emit(OpCodes.Ldfld, field);
-                getBuilderIL.Emit(OpCodes.Ret);
-
-                // Define the "set" accessor method for CustomerName.
-                MethodBuilder setBuilder = dynamicAnonymousType.DefineMethod($"set_{property.Name}", getSetAttr, null, new Type[] { fieldType });
-
-                ILGenerator setBuilderIL = setBuilder.GetILGenerator();
-                setBuilderIL.Emit(OpCodes.Ldarg_0);
-                setBuilderIL.Emit(OpCodes.Ldarg_1);
-                setBuilderIL.Emit(OpCodes.Stfld, field);
-                setBuilderIL.Emit(OpCodes.Ret);
-
-                // Last, we must map the two methods created above to our PropertyBuilder to
-                // their corresponding behaviors, "get" and "set" respectively.
-                propertyBuilder.SetGetMethod(getBuilder);
-                propertyBuilder.SetSetMethod(setBuilder);
+                GenerateProperty(dynamicAnonymousType, property, fieldType);
             }
-            var typeConstructor = dynamicAnonymousType.DefineConstructor(MethodAttributes.Public, CallingConventions.Standard, propertyTypes.ToArray());
+
+            var typeConstructor = dynamicAnonymousType.DefineConstructor(MethodAttributes.Public, CallingConventions.Standard, constructorParameterTypes.ToArray());
 
             var ctorIL = typeConstructor.GetILGenerator();
-            for (var x = 0; x < fields.Count; x++)
+            for (var x = 0; x < backingFieldsForConstructorAssignment.Count; x++)
             {
                 ctorIL.Emit(OpCodes.Ldarg_0);
                 ctorIL.Emit(OpCodes.Ldarg_S, x + 1);
-                ctorIL.Emit(OpCodes.Stfld, fields[x]);
+                ctorIL.Emit(OpCodes.Stfld, backingFieldsForConstructorAssignment[x]);
             }
             ctorIL.Emit(OpCodes.Ret);
-
             var createdType = dynamicAnonymousType.CreateType();
             _anonToRewrittenType.Add(node.Type, createdType);
         }
         var type = _anonToRewrittenType[node.Type];
 
         List<MemberInfo> members = new();
-        foreach (var item in node.Members)
-        {
-            if (item is not PropertyInfo property)
-                throw new NotSupportedException();
-            members.Add(type.GetProperty(property.Name));
-        }
+        if (node.Members != null)
+            foreach (var item in node.Members)
+            {
+                if (item is not PropertyInfo property)
+                    throw new NotSupportedException();
+                members.Add(type.GetProperty(property.Name));
+            }
 
         List<Expression> arguments = new();
         foreach (var arg in node.Arguments)
@@ -263,6 +282,37 @@ internal class RewriterVisitor : ExpressionVisitor
 
         // Return the type to the caller
         return Expression.New(type.GetConstructors().Single(), arguments.ToArray(), members.ToArray());
+    }
+
+    private static FieldBuilder GenerateProperty(TypeBuilder dynamicAnonymousType, PropertyInfo templateProperty, Type fieldType)
+    {
+        var field = dynamicAnonymousType.DefineField($"__{templateProperty.Name}", fieldType, FieldAttributes.Private);
+        var propertyBuilder = dynamicAnonymousType.DefineProperty(templateProperty.Name, templateProperty.Attributes, fieldType, null);
+        // The property set and property get methods require a special set of attributes.
+        MethodAttributes getSetAttr = MethodAttributes.Public | MethodAttributes.SpecialName | MethodAttributes.HideBySig;
+
+        // Define the "get" accessor method for CustomerName.
+        MethodBuilder getBuilder = dynamicAnonymousType.DefineMethod($"get_{templateProperty.Name}", getSetAttr, fieldType, Type.EmptyTypes);
+
+        ILGenerator getBuilderIL = getBuilder.GetILGenerator();
+        getBuilderIL.Emit(OpCodes.Ldarg_0);
+        getBuilderIL.Emit(OpCodes.Ldfld, field);
+        getBuilderIL.Emit(OpCodes.Ret);
+
+        // Define the "set" accessor method for CustomerName.
+        MethodBuilder setBuilder = dynamicAnonymousType.DefineMethod($"set_{templateProperty.Name}", getSetAttr, null, new Type[] { fieldType });
+
+        ILGenerator setBuilderIL = setBuilder.GetILGenerator();
+        setBuilderIL.Emit(OpCodes.Ldarg_0);
+        setBuilderIL.Emit(OpCodes.Ldarg_1);
+        setBuilderIL.Emit(OpCodes.Stfld, field);
+        setBuilderIL.Emit(OpCodes.Ret);
+
+        // Last, we must map the two methods created above to our PropertyBuilder to
+        // their corresponding behaviors, "get" and "set" respectively.
+        propertyBuilder.SetGetMethod(getBuilder);
+        propertyBuilder.SetSetMethod(setBuilder);
+        return field;
     }
 
     private static Type GetTypeOrElementType(Type type)
