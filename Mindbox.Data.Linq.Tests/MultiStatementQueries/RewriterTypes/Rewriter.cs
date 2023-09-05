@@ -21,8 +21,6 @@ internal class Rewriter
         var anyExpression = Expression.Call(null, methodInfo, rewrittenExpression);
         return Expression.Lambda<Func<ResultSet, bool>>(anyExpression, parameter);
     }
-
-
 }
 
 internal static class EnumerableExtensions

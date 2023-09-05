@@ -49,15 +49,28 @@ internal class EnumerableRewriter : ExpressionVisitor
     protected override Expression VisitMethodCall(MethodCallExpression m)
     {
         var mInfo = m.Method;
-        var typeArgs = (mInfo.IsGenericMethod) ? mInfo.GetGenericArguments() : null;
-        if (mInfo.DeclaringType == typeof(Queryable))
+        // var typeArgs = (mInfo.IsGenericMethod) ? mInfo.GetGenericArguments() : null;
+
+        var obj = Visit(m.Object);
+        var args = Visit(m.Arguments);
+        if (obj != m.Object || args != m.Arguments || mInfo.DeclaringType == typeof(Queryable))
         {
-            var obj = Visit(m.Object);
-            var args = Visit(m.Arguments);
-            // convert Queryable method to Enumerable method
-            var seqMethod = FindEnumerableMethod(mInfo.Name, args, typeArgs);
-            args = FixupQuotedArgs(seqMethod, args);
-            return Expression.Call(obj, seqMethod, args);
+            var typeArgs = (mInfo.IsGenericMethod) ? mInfo.GetGenericArguments() : null;
+
+            if (mInfo.DeclaringType == typeof(Queryable))
+            {
+                // convert Queryable method to Enumerable method
+                var seqMethod = FindEnumerableMethod(mInfo.Name, args, typeArgs);
+                args = FixupQuotedArgs(seqMethod, args);
+                return Expression.Call(obj, seqMethod, args);
+            }
+            else
+            {
+                // rebind to new method
+                var method = FindMethod(mInfo.DeclaringType, mInfo.Name, args, typeArgs);
+                args = FixupQuotedArgs(method, args);
+                return Expression.Call(obj, method, args);
+            }
         }
         return m;
         /*
