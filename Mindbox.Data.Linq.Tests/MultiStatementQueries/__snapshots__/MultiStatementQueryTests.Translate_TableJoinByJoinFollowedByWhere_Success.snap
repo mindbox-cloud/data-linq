@@ -1,4 +1,8 @@
-﻿DECLARE @tabledirectcrm_Customers TABLE(
+﻿****************************** Original expression **********************************
+Table(Customer).Join(Table(RetailOrder), c => c.Id, o => o.CustomerId, (c, o) => new <>f__AnonymousType3`2(c = c, o = o)).Where(j => (j.c.AreaId == 10)).Where(j => (j.o.TotalSum > 100))
+
+****************************** SQL result *******************************************
+DECLARE @tabledirectcrm_Customers TABLE(
     AreaId int not null,
     Id int not null
 )
@@ -19,3 +23,6 @@ INSERT INTO @tabledirectcrm_RetailOrders(CustomerId, TotalSum)
             INNER JOIN @tabledirectcrm_Customers AS previous ON
                 previous.Id = current.CustomerId
 SELECT * FROM @tabledirectcrm_RetailOrders
+
+****************************** Rewritten expression **********************************
+resultSet => resultSet.GetTable("directcrm.Customers").Join(resultSet.GetTable("directcrm.RetailOrders"), c => c.GetValue("Id"), o => o.GetValue("CustomerId"), (c, o) => new MyAnon_0(c = c, o = o)).Where(j => (j.c.GetValue("AreaId") == 10)).Where(j => (j.o.GetValue("TotalSum") > 100)).Any()

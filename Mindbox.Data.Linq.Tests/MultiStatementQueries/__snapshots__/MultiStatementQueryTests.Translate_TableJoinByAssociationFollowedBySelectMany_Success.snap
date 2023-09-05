@@ -1,4 +1,8 @@
-﻿DECLARE @tabledirectcrm_Customers TABLE(
+﻿****************************** Original expression **********************************
+Table(Customer).Where(c => value(Mindbox.Data.Linq.Tests.MultiStatementQueries.MultiStatementQueryTests+<>c__DisplayClass17_0).orders.Where(o => (o.CurrentCustomer == c)).SelectMany(o => o.History.Single(hi => (hi.IsCurrentOtherwiseNull != null)).Purchases).Where(p => (((p.PriceForCustomerOfLine / p.Count) != null) AndAlso ((p.PriceForCustomerOfLine / p.Count) >= Convert(Convert(123, Decimal), Nullable`1)))).Any())
+
+****************************** SQL result *******************************************
+DECLARE @tabledirectcrm_Customers TABLE(
     Id int not null
 )
 DECLARE @tabledirectcrm_RetailOrders TABLE(
@@ -42,3 +46,6 @@ INSERT INTO @tabledirectcrm_RetailOrderPurchases(Count, PriceForCustomerOfLine, 
             INNER JOIN @tabledirectcrm_RetailOrderHistoryItems AS previous ON
                 previous.Id = current.RetailOrderHistoryItemId
 SELECT * FROM @tabledirectcrm_RetailOrderPurchases
+
+****************************** Rewritten expression **********************************
+resultSet => resultSet.GetTable("directcrm.Customers").Where(c => resultSet.GetTable("directcrm.RetailOrders").Where(o => (o.GetReferencedRow("directcrm.Customers", "CustomerId", "Id") == c)).SelectMany(o => o.GetReferencedRows("directcrm.RetailOrderHistoryItems", "Id", "RetailOrderId").Single(hi => (hi.GetValue("IsCurrentOtherwiseNull") != null)).GetReferencedRows("directcrm.RetailOrderPurchases", "Id", "RetailOrderHistoryItemId")).Where(p => (((p.GetValue("PriceForCustomerOfLine") / p.GetValue("Count")) != null) AndAlso ((p.GetValue("PriceForCustomerOfLine") / p.GetValue("Count")) >= Convert(Convert(123, Decimal), Nullable`1)))).Any()).Any()
