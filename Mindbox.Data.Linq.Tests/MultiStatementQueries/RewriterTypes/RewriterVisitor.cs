@@ -19,6 +19,7 @@ internal class RewriterVisitor : ExpressionVisitor
     private readonly MethodInfo _getTableMethodInfo;
     private readonly MethodInfo _getValueMethodInfo;
     private readonly MethodInfo _getReferencedRowsMethodInfo;
+    private readonly MethodInfo _getReferencedRowsArrayMethodInfo;
     private readonly MethodInfo _getReferencedRowMethodInfo;
     private Dictionary<ParameterExpression, ParameterExpression> _parameterMapping = new();
     private AssemblyName _dynamicAssemblyName;
@@ -33,6 +34,7 @@ internal class RewriterVisitor : ExpressionVisitor
         _getTableMethodInfo = typeof(ResultSet).GetMethod(nameof(ResultSet.GetTable));
         _getValueMethodInfo = typeof(ResultRow).GetMethod(nameof(ResultRow.GetValue));
         _getReferencedRowsMethodInfo = typeof(ResultRow).GetMethod(nameof(ResultRow.GetReferencedRows));
+        _getReferencedRowsArrayMethodInfo = typeof(ResultRow).GetMethod(nameof(ResultRow.GetReferencedRowsArray));
         _getReferencedRowMethodInfo = typeof(ResultRow).GetMethod(nameof(ResultRow.GetReferencedRow));
     }
 
@@ -64,7 +66,12 @@ internal class RewriterVisitor : ExpressionVisitor
                     var currentTableField = associationAttribute.NamedArguments.Single(a => a.MemberName == nameof(AssociationAttribute.ThisKey)).TypedValue.Value.ToString();
                     var otherTableField = associationAttribute.NamedArguments.Single(a => a.MemberName == nameof(AssociationAttribute.OtherKey)).TypedValue.Value.ToString();
                     if (IsCollection(property.PropertyType))
-                        return Expression.Call(objectExpression, _getReferencedRowsMethodInfo, Expression.Constant(otherTable), Expression.Constant(currentTableField), Expression.Constant(otherTableField));
+                    {
+                        if (property.PropertyType.IsArray)
+                            return Expression.Call(objectExpression, _getReferencedRowsArrayMethodInfo, Expression.Constant(otherTable), Expression.Constant(currentTableField), Expression.Constant(otherTableField));
+                        else
+                            return Expression.Call(objectExpression, _getReferencedRowsMethodInfo, Expression.Constant(otherTable), Expression.Constant(currentTableField), Expression.Constant(otherTableField));
+                    }
                     else
                         return Expression.Call(objectExpression, _getReferencedRowMethodInfo, Expression.Constant(otherTable), Expression.Constant(currentTableField), Expression.Constant(otherTableField));
                 }
@@ -185,12 +192,17 @@ internal class RewriterVisitor : ExpressionVisitor
                 if (item is not PropertyInfo property)
                     throw new NotSupportedException();
                 Type fieldType;
-                if (property.PropertyType.CustomAttributes.SingleOrDefault(c => c.AttributeType == typeof(TableAttribute)) == null)
-                    fieldType = property.PropertyType;
-                else if (IsCollection(property.PropertyType))
-                    fieldType = typeof(IEnumerable<ResultRow>);
-                else
+                if (IsCollection(property.PropertyType) && GetTypeOrElementType(property.PropertyType).CustomAttributes.SingleOrDefault(c => c.AttributeType == typeof(TableAttribute)) != null)
+                {
+                    if (property.PropertyType.IsArray)
+                        fieldType = typeof(ResultRow[]);
+                    else
+                        fieldType = typeof(IEnumerable<ResultRow>);
+                }
+                else if (property.PropertyType.CustomAttributes.SingleOrDefault(c => c.AttributeType == typeof(TableAttribute)) != null)
                     fieldType = typeof(ResultRow);
+                else
+                    fieldType = property.PropertyType;
 
                 propertyTypes.Add(fieldType);
                 var field = dynamicAnonymousType.DefineField($"__{property.Name}", fieldType, FieldAttributes.Private);

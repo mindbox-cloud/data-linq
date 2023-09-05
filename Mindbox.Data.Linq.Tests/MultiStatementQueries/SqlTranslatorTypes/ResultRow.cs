@@ -48,6 +48,15 @@ class ResultRow
             throw new NotSupportedException();
     }
 
+    /// <summary>
+    /// Retrieves rows from another table by id.
+    /// </summary>
+    /// <param name="tableName">Table name.</param>
+    /// <param name="id">Id</param>
+    /// <returns>Row.</returns>
+    public ResultRow[] GetReferencedRowsArray(string referenceTableName, string referenceColumnName, string columnName)
+        => GetReferencedRows(referenceTableName, referenceColumnName, columnName).ToArray();
+
     public static ResultRow Read(ResultTable table, IDataReader dataReader)
     {
         ResultRow toReturn = new();
