@@ -7,6 +7,8 @@ using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Linq.Expressions;
 using System.Reflection;
+using System.Reflection.Emit;
+using System.Xml.Linq;
 
 namespace Mindbox.Data.Linq.Tests.MultiStatementQueries.RewriterTypes;
 
@@ -19,6 +21,11 @@ internal class RewriterVisitor : ExpressionVisitor
     private readonly MethodInfo _getReferencedRowsMethodInfo;
     private readonly MethodInfo _getReferencedRowMethodInfo;
     private Dictionary<ParameterExpression, ParameterExpression> _parameterMapping = new();
+    private AssemblyName _dynamicAssemblyName;
+    private AssemblyBuilder _dynamicAssembly;
+    private ModuleBuilder _dynamicModule;
+    private int _dynamicTypeCounter;
+    private Dictionary<Type, Type> _anonToRewrittenType = new();
 
     public RewriterVisitor(ParameterExpression resultSetParameter)
     {
@@ -65,25 +72,15 @@ internal class RewriterVisitor : ExpressionVisitor
 
             return Expression.Call(objectExpression, _getValueMethodInfo.MakeGenericMethod(node.Type), Expression.Constant(node.Member.Name));
         }
+        else if (_anonToRewrittenType.ContainsKey(node.Member.DeclaringType))
+        {
+            var rewrittenType = _anonToRewrittenType[node.Member.DeclaringType];
+            if (node.Member is not PropertyInfo property)
+                throw new NotSupportedException();
+            var objectExpression = Visit(node.Expression);
+            return Expression.MakeMemberAccess(objectExpression, rewrittenType.GetProperty(property.Name));
+        }
         return base.VisitMember(node);
-
-        static Type GetTypeOrElementType(Type type)
-        {
-            if (type.IsArray)
-                return type.GetElementType();
-            if (type.IsGenericType && type.GetGenericTypeDefinition().IsAssignableTo(typeof(IEnumerable<>)))
-                throw new NotImplementedException();
-            return type;
-        }
-
-        static bool IsCollection(Type type)
-        {
-            if (type.IsArray)
-                return true;
-            if (type.IsGenericType)
-                return type.GetGenericTypeDefinition().IsAssignableTo(typeof(IEnumerable<>));
-            return false;
-        }
     }
 
     protected override Expression VisitParameter(ParameterExpression node)
@@ -97,6 +94,13 @@ internal class RewriterVisitor : ExpressionVisitor
             _parameterMapping.Add(node, mappedParameter);
             return mappedParameter;
         }
+        else if (_anonToRewrittenType.ContainsKey(node.Type))
+        {
+            var mappedParameter = Expression.Parameter(_anonToRewrittenType[node.Type], node.Name);
+            _parameterMapping.Add(node, mappedParameter);
+            return mappedParameter;
+        }
+
         return base.VisitParameter(node);
     }
 
@@ -104,15 +108,6 @@ internal class RewriterVisitor : ExpressionVisitor
     {
         if (node.Method.DeclaringType == typeof(Enumerable))
         {
-            List<Type> genericArgs = new();
-            foreach (var argType in node.Method.GetGenericArguments())
-            {
-                var tableAttribute = argType.CustomAttributes.SingleOrDefault(c => c.AttributeType == typeof(TableAttribute));
-                if (tableAttribute != null)
-                    genericArgs.Add(typeof(ResultRow));
-                else
-                    genericArgs.Add(argType);
-            }
             List<Type> parameterTypes = new();
             foreach (var parameterInfo in node.Method.GetParameters())
             {
@@ -125,9 +120,26 @@ internal class RewriterVisitor : ExpressionVisitor
             List<Expression> parameters = new();
             foreach (var parameter in node.Arguments)
                 parameters.Add(Visit(parameter));
-            return Expression.Call(node.Object, node.Method.GetGenericMethodDefinition().MakeGenericMethod(genericArgs.ToArray()), parameters.ToArray());
+
+            List<Type> genericArgs = new();
+            foreach (var argType in node.Method.GetGenericArguments())
+            {
+                var tableAttribute = argType.CustomAttributes.SingleOrDefault(c => c.AttributeType == typeof(TableAttribute));
+                if (tableAttribute != null)
+                    genericArgs.Add(typeof(ResultRow));
+                else
+                    genericArgs.Add(_anonToRewrittenType.TryGetValue(argType, out var rewrittenType) ? rewrittenType : argType);
+            }
+
+            var rewrittenMethodInfo = RewriteMethodDefinition(node.Method, genericArgs.ToArray());
+            return Expression.Call(node.Object, rewrittenMethodInfo, parameters.ToArray());
         }
         return base.VisitMethodCall(node);
+    }
+
+    private MethodInfo RewriteMethodDefinition(MethodInfo method, IEnumerable<Type> genericArgs)
+    {
+        return method.GetGenericMethodDefinition().MakeGenericMethod(genericArgs.ToArray());
     }
 
     protected override Expression VisitUnary(UnaryExpression node)
@@ -142,8 +154,121 @@ internal class RewriterVisitor : ExpressionVisitor
 
     protected override Expression VisitNew(NewExpression node)
     {
-        Expression.New()
-        return base.VisitNew(node);
+        bool hasMembersToRewrite = false;
+        foreach (var item in node.Members)
+        {
+            if (item is not PropertyInfo property)
+                continue;
+            if (property.PropertyType.CustomAttributes.SingleOrDefault(c => c.AttributeType == typeof(TableAttribute)) == null)
+                continue;
+            hasMembersToRewrite = true;
+            break;
+        }
+
+        if (!hasMembersToRewrite)
+            return node;
+
+        if (!_anonToRewrittenType.ContainsKey(node.Type))
+        {
+            // Create new assembly
+            _dynamicAssemblyName ??= new AssemblyName("MyAsm");
+            _dynamicAssembly ??= AssemblyBuilder.DefineDynamicAssembly(_dynamicAssemblyName, AssemblyBuilderAccess.Run);
+            _dynamicModule ??= _dynamicAssembly.DefineDynamicModule("MyAsm");
+
+            // Create types
+            TypeBuilder dynamicAnonymousType = _dynamicModule.DefineType($"MyAnon_{_dynamicTypeCounter++}", TypeAttributes.Public);
+            List<Type> propertyTypes = new();
+            List<FieldBuilder> fields = new();
+            // Add fields and properties
+            foreach (var item in node.Members)
+            {
+                if (item is not PropertyInfo property)
+                    throw new NotSupportedException();
+                Type fieldType;
+                if (property.PropertyType.CustomAttributes.SingleOrDefault(c => c.AttributeType == typeof(TableAttribute)) == null)
+                    fieldType = property.PropertyType;
+                else if (IsCollection(property.PropertyType))
+                    fieldType = typeof(IEnumerable<ResultRow>);
+                else
+                    fieldType = typeof(ResultRow);
+
+                propertyTypes.Add(fieldType);
+                var field = dynamicAnonymousType.DefineField($"__{property.Name}", fieldType, FieldAttributes.Private);
+                fields.Add(field);
+                var propertyBuilder = dynamicAnonymousType.DefineProperty(property.Name, property.Attributes, fieldType, null);
+                // The property set and property get methods require a special set of attributes.
+                MethodAttributes getSetAttr = MethodAttributes.Public | MethodAttributes.SpecialName | MethodAttributes.HideBySig;
+
+                // Define the "get" accessor method for CustomerName.
+                MethodBuilder getBuilder = dynamicAnonymousType.DefineMethod($"get_{property.Name}", getSetAttr, fieldType, Type.EmptyTypes);
+
+                ILGenerator getBuilderIL = getBuilder.GetILGenerator();
+                getBuilderIL.Emit(OpCodes.Ldarg_0);
+                getBuilderIL.Emit(OpCodes.Ldfld, field);
+                getBuilderIL.Emit(OpCodes.Ret);
+
+                // Define the "set" accessor method for CustomerName.
+                MethodBuilder setBuilder = dynamicAnonymousType.DefineMethod($"set_{property.Name}", getSetAttr, null, new Type[] { fieldType });
+
+                ILGenerator setBuilderIL = setBuilder.GetILGenerator();
+                setBuilderIL.Emit(OpCodes.Ldarg_0);
+                setBuilderIL.Emit(OpCodes.Ldarg_1);
+                setBuilderIL.Emit(OpCodes.Stfld, field);
+                setBuilderIL.Emit(OpCodes.Ret);
+
+                // Last, we must map the two methods created above to our PropertyBuilder to
+                // their corresponding behaviors, "get" and "set" respectively.
+                propertyBuilder.SetGetMethod(getBuilder);
+                propertyBuilder.SetSetMethod(setBuilder);
+            }
+            var typeConstructor = dynamicAnonymousType.DefineConstructor(MethodAttributes.Public, CallingConventions.Standard, propertyTypes.ToArray());
+
+            var ctorIL = typeConstructor.GetILGenerator();
+            for (var x = 0; x < fields.Count; x++)
+            {
+                ctorIL.Emit(OpCodes.Ldarg_0);
+                ctorIL.Emit(OpCodes.Ldarg_S, x + 1);
+                ctorIL.Emit(OpCodes.Stfld, fields[x]);
+            }
+            ctorIL.Emit(OpCodes.Ret);
+
+            var createdType = dynamicAnonymousType.CreateType();
+            _anonToRewrittenType.Add(node.Type, createdType);
+        }
+        var type = _anonToRewrittenType[node.Type];
+
+        List<MemberInfo> members = new();
+        foreach (var item in node.Members)
+        {
+            if (item is not PropertyInfo property)
+                throw new NotSupportedException();
+            members.Add(type.GetProperty(property.Name));
+        }
+
+        List<Expression> arguments = new();
+        foreach (var arg in node.Arguments)
+            arguments.Add(Visit(arg));
+
+        // Return the type to the caller
+        return Expression.New(type.GetConstructors().Single(), arguments.ToArray(), members.ToArray());
+    }
+
+    private static Type GetTypeOrElementType(Type type)
+    {
+        if (type.IsArray)
+            return type.GetElementType();
+        if (type.IsGenericType && type.GetGenericTypeDefinition().IsAssignableTo(typeof(IEnumerable<>)))
+            throw new NotImplementedException();
+        return type;
+    }
+
+    private static bool IsCollection(Type type)
+    {
+        if (type.IsArray)
+            return true;
+        if (type.IsGenericType)
+            return type.GetGenericTypeDefinition().IsAssignableTo(typeof(IEnumerable<>));
+        return false;
     }
 
     [return: NotNullIfNotNull("node")]
