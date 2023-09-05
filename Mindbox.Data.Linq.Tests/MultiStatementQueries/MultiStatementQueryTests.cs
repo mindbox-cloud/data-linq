@@ -432,6 +432,45 @@ public class MultiStatementQueryTests
         AssertTranslation(query.CommandText, queryExpression, rewrittenExpression);
     }
 
+    [TestMethod]
+    public void Translate_WithFunction_FastCustomerDataSelect_Success()
+    {
+        // Arrange
+        using var contextAndConnection = new DataContextWithFunctionsAndConnection();
+
+        // Act
+        var orders = contextAndConnection.DataContext.GetTable<RetailOrder>();
+        var history = contextAndConnection.DataContext.GetTable<RetailOrderHistoryItem>();
+        var queryExpression = contextAndConnection.DataContext
+            .GetTable<Customer>()
+            .Where(c =>
+                contextAndConnection.DataContext.ValueAsQueryableDecimal(
+                        orders
+                            .Where(o => o.CurrentCustomer == c)
+                            .Join(
+                                history,
+                                order => order.Id,
+                                history => history.RetailOrderId,
+                                (order, history) => new RetailOrderCurrentHistoryItemData
+                                {
+                                    RetailOrder = order,
+                                    RetailOrderHistoryItem = history
+                                })
+                            .Where(x => x.RetailOrderHistoryItem.IsCurrentOtherwiseNull != null)
+                            .Where(
+                                item => item.RetailOrderHistoryItem.Purchases.Where(item => item.Count != null).Any())
+                        .Select(entity => (decimal?)entity.RetailOrderHistoryItem.Amount)
+                        .Sum())
+                    .Any(v => v.Value > 10)
+            )
+            .Expression;
+        var query = SqlQueryTranslator.Translate(queryExpression, new DbColumnTypeProvider(), true);
+        var rewrittenExpression = new Rewriter().Rewrite(queryExpression);
+
+        // Assert
+        AssertTranslation(query.CommandText, queryExpression, rewrittenExpression);
+    }
+
 
     private void AssertTranslation(string commandText, Expression expression, Expression<Func<ResultSet, bool>> rewrittenExpression)
     {

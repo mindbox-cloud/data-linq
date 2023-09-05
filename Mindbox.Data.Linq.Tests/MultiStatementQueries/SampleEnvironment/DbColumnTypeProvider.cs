@@ -24,6 +24,12 @@ public class DbColumnTypeProvider : IDbColumnTypeProvider
     }
 
     public string GetSqlType(string tableName, string columnName)
+        => GetSqlTypeCore(tableName, columnName) ?? throw new NotSupportedException();
+
+    public bool HasField(string tableName, string columnName)
+        => GetSqlTypeCore(tableName, columnName) != null;
+
+    private string? GetSqlTypeCore(string tableName, string columnName)
     {
         return (tableName, columnName) switch
         {
@@ -46,6 +52,7 @@ public class DbColumnTypeProvider : IDbColumnTypeProvider
             ("directcrm.CustomerActions", "OriginalCustomerId") => "int not null",
             ("directcrm.CustomerActions", "TransactionalId") => "bigint null",
             ("directcrm.CustomerActionCustomFieldValues", "Id") => "int not null",
+            ("directcrm.CustomerActionCustomFieldValues", "CustomerId") => "int not null",
             ("directcrm.CustomerActionCustomFieldValues", "CustomerActionId") => "bigint not null",
             ("directcrm.CustomerActionCustomFieldValues", "FieldName") => "nvarchar(32) not null",
             ("directcrm.CustomerActionCustomFieldValues", "FieldValue") => "nvarchar(32) not null",
@@ -64,13 +71,15 @@ public class DbColumnTypeProvider : IDbColumnTypeProvider
             ("directcrm.RetailOrders", "CustomerId") => "int null",
             ("directcrm.RetailOrders", "TotalSum") => "float not null",
             ("directcrm.RetailOrderHistoryItems", "Id") => "int not null",
+            ("directcrm.RetailOrderHistoryItems", "CustomerId") => "int not null",
             ("directcrm.RetailOrderHistoryItems", "IsCurrentOtherwiseNull") => "bit null",
             ("directcrm.RetailOrderHistoryItems", "RetailOrderId") => "int not null",
             ("directcrm.RetailOrderHistoryItems", "Amount") => "decimal(18,2) null",
             ("directcrm.RetailOrderPurchases", "Count") => "decimal(18,2) not null",
+            ("directcrm.RetailOrderPurchases", "CustomerId") => "int not null",
             ("directcrm.RetailOrderPurchases", "PriceForCustomerOfLine") => "decimal(18,2) not null",
             ("directcrm.RetailOrderPurchases", "RetailOrderHistoryItemId") => "bigint not null",
-            _ => throw new NotSupportedException()
+            _ => null
         };
     }
 }

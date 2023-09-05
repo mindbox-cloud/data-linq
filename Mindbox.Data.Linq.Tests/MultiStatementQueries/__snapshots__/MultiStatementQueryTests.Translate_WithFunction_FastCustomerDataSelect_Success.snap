@@ -1,0 +1,48 @@
+﻿****************************** Original expression **********************************
+Table(Customer).Where(c => value(Mindbox.Data.Linq.Tests.MultiStatementQueries.MultiStatementQueryTests+<>c__DisplayClass21_0).contextAndConnection.DataContext.ValueAsQueryableDecimal(value(Mindbox.Data.Linq.Tests.MultiStatementQueries.MultiStatementQueryTests+<>c__DisplayClass21_0).orders.Where(o => (o.CurrentCustomer == c)).Join(value(Mindbox.Data.Linq.Tests.MultiStatementQueries.MultiStatementQueryTests+<>c__DisplayClass21_0).history, order => order.Id, history => history.RetailOrderId, (order, history) => new RetailOrderCurrentHistoryItemData() {RetailOrder = order, RetailOrderHistoryItem = history}).Where(x => (x.RetailOrderHistoryItem.IsCurrentOtherwiseNull != null)).Where(item => item.RetailOrderHistoryItem.Purchases.Where(item => (item.Count != null)).Any()).Select(entity => Convert(entity.RetailOrderHistoryItem.Amount, Nullable`1)).Sum()).Any(v => (v.Value > Convert(Convert(10, Decimal), Nullable`1))))
+
+****************************** SQL result *******************************************
+DECLARE @tabledirectcrm_Customers TABLE(
+    Id int not null
+)
+DECLARE @tabledirectcrm_RetailOrders TABLE(
+    CustomerId int null,
+    Id int not null
+)
+DECLARE @tabledirectcrm_RetailOrderHistoryItems TABLE(
+    Amount decimal(18,2) null,
+    Id int not null,
+    IsCurrentOtherwiseNull bit null,
+    RetailOrderId int not null
+)
+DECLARE @tabledirectcrm_RetailOrderPurchases TABLE(
+    Count decimal(18,2) not null,
+    RetailOrderHistoryItemId bigint not null
+)
+
+INSERT INTO @tabledirectcrm_Customers(Id)
+    SELECT current.Id
+        FROM directcrm.Customers AS current
+            WHERE Id = @__id
+SELECT * FROM @tabledirectcrm_Customers
+
+INSERT INTO @tabledirectcrm_RetailOrders(CustomerId, Id)
+    SELECT current.CustomerId, current.Id
+        FROM directcrm.RetailOrders AS current
+        WHERE current.CustomerId = @__id
+SELECT * FROM @tabledirectcrm_RetailOrders
+
+INSERT INTO @tabledirectcrm_RetailOrderHistoryItems(Amount, Id, IsCurrentOtherwiseNull, RetailOrderId)
+    SELECT current.Amount, current.Id, current.IsCurrentOtherwiseNull, current.RetailOrderId
+        FROM directcrm.RetailOrderHistoryItems AS current
+        WHERE current.CustomerId = @__id
+SELECT * FROM @tabledirectcrm_RetailOrderHistoryItems
+
+INSERT INTO @tabledirectcrm_RetailOrderPurchases(Count, RetailOrderHistoryItemId)
+    SELECT current.Count, current.RetailOrderHistoryItemId
+        FROM directcrm.RetailOrderPurchases AS current
+        WHERE current.CustomerId = @__id
+SELECT * FROM @tabledirectcrm_RetailOrderPurchases
+
+****************************** Rewritten expression **********************************
+resultSet => resultSet.GetTable("directcrm.Customers").Where(c => value(Mindbox.Data.Linq.Tests.MultiStatementQueries.MultiStatementQueryTests+<>c__DisplayClass21_0).contextAndConnection.DataContext.ValueAsQueryableDecimal(resultSet.GetTable("directcrm.RetailOrders").Where(o => (o.GetReferencedRow("directcrm.Customers", "CustomerId", "Id") == c)).Join(resultSet.GetTable("directcrm.RetailOrderHistoryItems"), order => order.GetValue("Id"), history => history.GetValue("RetailOrderId"), (order, history) => new MyAnon_0() {RetailOrder = order, RetailOrderHistoryItem = history}).Where(x => (x.RetailOrderHistoryItem.GetValue("IsCurrentOtherwiseNull") != null)).Where(item => item.RetailOrderHistoryItem.GetReferencedRowsArray("directcrm.RetailOrderPurchases", "Id", "RetailOrderHistoryItemId").Where(item => (item.GetValue("Count") != null)).Any()).Select(entity => Convert(entity.RetailOrderHistoryItem.GetValue("Amount"), Nullable`1)).Sum()).Any(v => (v.Value > Convert(Convert(10, Decimal), Nullable`1)))).Any()

@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics.Eventing.Reader;
 using System.Linq;
 using System.Text;
 
@@ -7,7 +8,9 @@ namespace Mindbox.Data.Linq.Tests.MultiStatementQueries.SqlTranslatorTypes;
 
 internal class SqlTreeCommandBuilder
 {
-    public static SqlTreeCommandBuilderResult Build(TableNode query, IDbColumnTypeProvider columnTypeProvider)
+    private const string _customerParameterName = "@__id";
+
+    public static SqlTreeCommandBuilderResult Build(TableNode query, IDbColumnTypeProvider columnTypeProvider, bool fastCustomerSelect)
     {
         // Unify columns across same tables
         UnifySameTableFields(query);
@@ -26,52 +29,64 @@ internal class SqlTreeCommandBuilder
             INSERT INTO {rootVariableName}({string.Join(", ", GetUsedColumns(query, true))})
                 SELECT {string.Join(", ", GetUsedColumns(query).Order().Select(c => $"current.{c}"))}
                     FROM {query.Name} AS current
-                        WHERE Id = @__id
+                        WHERE Id = {_customerParameterName}
             SELECT * FROM {rootVariableName}
             """);
 
 
         foreach (var connection in query.Connections)
-            BuildCore(context, queryParts, variableDefinitions, connection, columnTypeProvider, tableReadOrder);
+            BuildCore(context, queryParts, variableDefinitions, connection, columnTypeProvider, tableReadOrder, fastCustomerSelect);
 
         var variableDefinition = string.Join("\r\n", variableDefinitions);
         var queries = string.Join("\r\n\r\n", queryParts);
         return new(string.Join("\r\n\r\n", new[] { variableDefinition, queries }), tableReadOrder);
 
-        static void BuildCore(BuilderContext context, List<string> queryParts, List<string> variableDefinitions, Connection connection, IDbColumnTypeProvider columnTypeProvider, List<string> tableReadOrder)
+        static void BuildCore(BuilderContext context, List<string> queryParts, List<string> variableDefinitions, Connection connection, IDbColumnTypeProvider columnTypeProvider, List<string> tableReadOrder, bool fastCustomerSelect)
         {
             var otherTable = connection.OtherTable;
             tableReadOrder.Add(otherTable.Name);
             var variableName = context.CreateVariableName(otherTable);
             variableDefinitions.Add(BuildTableVariableDefinition(variableName, otherTable, columnTypeProvider));
 
-            var joinConditionParts = connection.MappedFields
-                .Select(c => $"previous.{c.Field} = current.{c.OtherField}")
-                .ToArray();
-            if (!IsPKJoin(otherTable.Name, connection.TableFields, columnTypeProvider) &&
-                !IsPKJoin(otherTable.Name, connection.OtherTableFields, columnTypeProvider))
+            if (columnTypeProvider.HasField(otherTable.Name, "CustomerId") && fastCustomerSelect)
             {
-                throw new NotSupportedException("At least one part of join must point to PK.");
+                var query = $"""
+                    INSERT INTO {variableName}({string.Join(", ", GetUsedColumns(otherTable))})
+                        SELECT {string.Join(", ", GetUsedColumns(otherTable).Order().Select(c => $"current.{c}"))}
+                            FROM {otherTable.Name} AS current
+                            WHERE current.CustomerId = {_customerParameterName}
+                    SELECT * FROM {variableName}
+                    """;
+                queryParts.Add(query);
             }
-            string previousSource;
-            if (IsPKJoin(connection.Table.Name, connection.TableFields, columnTypeProvider))
-                previousSource = context.GetVariableName(connection.Table);
             else
-                previousSource = $"(SELECT DISTINCT {string.Join(", ", connection.TableFields)} FROM {context.GetVariableName(connection.Table)})";
-
-
-            var query = $"""
-                INSERT INTO {variableName}({string.Join(", ", GetUsedColumns(otherTable))})
-                    SELECT {string.Join(", ", GetUsedColumns(otherTable).Order().Select(c => $"current.{c}"))}
-                        FROM {otherTable.Name} AS current
-                            INNER JOIN {previousSource} AS previous ON
-                                {string.Join(" AND\r\n                ", joinConditionParts)}
-                SELECT * FROM {variableName}
-                """;
-            queryParts.Add(query);
+            {
+                var joinConditionParts = connection.MappedFields
+                    .Select(c => $"previous.{c.Field} = current.{c.OtherField}")
+                    .ToArray();
+                if (!IsPKJoin(otherTable.Name, connection.TableFields, columnTypeProvider) &&
+                    !IsPKJoin(otherTable.Name, connection.OtherTableFields, columnTypeProvider))
+                {
+                    throw new NotSupportedException("At least one part of join must point to PK.");
+                }
+                string previousSource;
+                if (IsPKJoin(connection.Table.Name, connection.TableFields, columnTypeProvider))
+                    previousSource = context.GetVariableName(connection.Table);
+                else
+                    previousSource = $"(SELECT DISTINCT {string.Join(", ", connection.TableFields)} FROM {context.GetVariableName(connection.Table)})";
+                var query = $"""
+                    INSERT INTO {variableName}({string.Join(", ", GetUsedColumns(otherTable))})
+                        SELECT {string.Join(", ", GetUsedColumns(otherTable).Order().Select(c => $"current.{c}"))}
+                            FROM {otherTable.Name} AS current
+                                INNER JOIN {previousSource} AS previous ON
+                                    {string.Join(" AND\r\n                ", joinConditionParts)}
+                    SELECT * FROM {variableName}
+                    """;
+                queryParts.Add(query);
+            }
 
             foreach (var nextConnection in connection.OtherTable.Connections)
-                BuildCore(context, queryParts, variableDefinitions, nextConnection, columnTypeProvider, tableReadOrder);
+                BuildCore(context, queryParts, variableDefinitions, nextConnection, columnTypeProvider, tableReadOrder, fastCustomerSelect);
         }
     }
 
