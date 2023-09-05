@@ -1,4 +1,8 @@
-﻿DECLARE @tabledirectcrm_Customers TABLE(
+﻿****************************** Original expression **********************************
+Table(Customer).Select(c => new <>f__AnonymousType1`2(CA = value(Mindbox.Data.Linq.Tests.MultiStatementQueries.MultiStatementQueryTests+<>c__DisplayClass16_0).customerActions.Where(ca => (ca.Customer == c)).FirstOrDefault(), CustomerArea = c.Area)).Where(c => ((c.CA.ActionTemplate.Name == "dummy") AndAlso (c.CA.StaffId == Convert(10, Nullable`1)))).Where(c => (c.CustomerArea.Id == 20))
+
+****************************** SQL result *******************************************
+DECLARE @tabledirectcrm_Customers TABLE(
     AreaId int not null,
     Id int not null
 )
@@ -41,3 +45,6 @@ INSERT INTO @tabledirectcrm_Areas(Id)
             INNER JOIN (SELECT DISTINCT AreaId FROM @tabledirectcrm_Customers) AS previous ON
                 previous.AreaId = current.Id
 SELECT * FROM @tabledirectcrm_Areas
+
+****************************** Rewritten expression **********************************
+resultSet => resultSet.GetTable("directcrm.Customers").Select(c => new MyAnon_0(CA = resultSet.GetTable("directcrm.CustomerActions").Where(ca => (ca.GetReferencedRow("directcrm.Customers", "CustomerId", "Id") == c)).FirstOrDefault(), CustomerArea = c.GetReferencedRow("directcrm.Areas", "AreaId", "Id"))).Where(c => ((c.CA.GetReferencedRow("directcrm.ActionTemplates", "ActionTemplateId", "Id").GetValue("Name") == "dummy") AndAlso (c.CA.GetValue("StaffId") == Convert(10, Nullable`1)))).Where(c => (c.CustomerArea.GetValue("Id") == 20)).Any()
