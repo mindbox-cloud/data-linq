@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Data.Linq.SqlClient;
 using System.Diagnostics;
 using System.Linq;
 
@@ -28,7 +29,7 @@ class TableNode
         _usedFields.Sort();
     }
 
-    public void AddConnection(IEnumerable<string> fields, TableNode otherTable, IEnumerable<string> otherTableFields)
+    public Connection AddConnection(IEnumerable<string> fields, TableNode otherTable, IEnumerable<string> otherTableFields)
     {
         foreach (var connection in _connections)
         {
@@ -36,14 +37,16 @@ class TableNode
                 connection.OtherTable == otherTable && connection.OtherTableFields.SequenceEqual(otherTableFields) ||
                 connection.Table == otherTable && connection.TableFields.SequenceEqual(otherTableFields) &&
                 connection.OtherTable == this && connection.OtherTableFields.SequenceEqual(fields))
-                return;
+                return connection;
         }
         foreach (var field in fields)
             AddField(field);
         foreach (var otherField in otherTableFields)
             otherTable.AddField(otherField);
 
-        _connections.Add(new(this, fields, otherTable, otherTableFields));
+        var newConnection = new Connection(this, fields, otherTable, otherTableFields);
+        _connections.Add(newConnection);
+        return newConnection;
     }
 
     public bool OptimizeConnections()
@@ -68,7 +71,7 @@ class TableNode
 
         // if we have connections like Customer->CustomerAction->Customer->SomeOtherTable
         // We can actually remove second Customer connection(move all its connections to top Customer) and have something like this
-        // Custmoer -> CustomerAction
+        // Customer -> CustomerAction
         //        \ -> SomeOtherTable
         bool lifted = false;
         foreach (var connection in _connections)
@@ -108,6 +111,23 @@ class TableNode
 
                 }
             }
+        }
+    }
+
+    internal void Merge(TableNode table)
+    {
+        if (Name != table.Name)
+            throw new InvalidOperationException();
+
+        foreach (var usedField in table.UsedFields)
+            AddField(usedField);
+
+        foreach (var otherConnection in table.Connections)
+        {
+            var matchingConnection = _connections.FirstOrDefault(c => c.Equals(otherConnection));
+            if (matchingConnection == null)
+                matchingConnection = AddConnection(otherConnection.TableFields, new TableNode(otherConnection.OtherTable.Name), otherConnection.OtherTableFields);
+            matchingConnection.OtherTable.Merge(otherConnection.OtherTable);
         }
     }
 }

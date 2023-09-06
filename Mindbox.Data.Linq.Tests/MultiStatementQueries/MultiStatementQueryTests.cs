@@ -471,9 +471,57 @@ public class MultiStatementQueryTests
         AssertTranslation(query.CommandText, queryExpression, rewrittenExpression);
     }
 
+    [TestMethod]
+    public void TranslateMany_Success()
+    {
+        // Arrange
+        using var contextAndConnection = new DataContextAndConnection();
+
+        // Act
+        var orders = contextAndConnection.DataContext.GetTable<RetailOrder>();
+        var queryExpressionA = contextAndConnection.DataContext
+            .GetTable<Customer>()
+            .Where(c =>
+                orders.Where(o => o.CurrentCustomer == c)
+                   .SelectMany(o => o.History.Single(hi => hi.IsCurrentOtherwiseNull != null).Purchases)
+                   .Where(p => p.PriceForCustomerOfLine / p.Count != null && p.PriceForCustomerOfLine / p.Count >= 123)
+                   .Any()
+            )
+            .Expression;
+        var queryExpressionB = contextAndConnection.DataContext
+            .GetTable<Customer>()
+            .Where(c => c.CustomFieldValues.Any(f => f.FieldValue == "ASDF"))
+            .Expression;
+        var query = SqlQueryTranslator.TranslateMany(new[] { queryExpressionA, queryExpressionB }, new DbColumnTypeProvider());
+        var rewrittenExpressionA = new Rewriter().Rewrite(queryExpressionA);
+        var rewrittenExpressionB = new Rewriter().Rewrite(queryExpressionB);
+
+        // Assert
+        _ = rewrittenExpressionA.Compile();
+        _ = rewrittenExpressionB.Compile();
+        StringBuilder sb = new();
+        sb.AppendLine("****************************** Original expression A **********************************");
+        sb.AppendLine(queryExpressionA.ToString());
+        sb.AppendLine();
+        sb.AppendLine("****************************** Original expression B **********************************");
+        sb.AppendLine(queryExpressionB.ToString());
+        sb.AppendLine();
+        sb.AppendLine("****************************** SQL result *********************************************");
+        sb.AppendLine(query.CommandText);
+        sb.AppendLine();
+        sb.AppendLine("****************************** Rewritten expression A *********************************");
+        sb.AppendLine(rewrittenExpressionA.ToString());
+        sb.AppendLine();
+        sb.AppendLine("****************************** Rewritten expression B *********************************");
+        sb.AppendLine(rewrittenExpressionB.ToString());
+        sb.AppendLine();
+        sb.ToString().MatchSnapshot();
+    }
+
 
     private void AssertTranslation(string commandText, Expression expression, Expression<Func<ResultSet, bool>> rewrittenExpression)
     {
+        _ = rewrittenExpression.Compile();
         StringBuilder sb = new();
         sb.AppendLine("****************************** Original expression **********************************");
         sb.AppendLine(expression.ToString());
@@ -484,8 +532,6 @@ public class MultiStatementQueryTests
         sb.AppendLine("****************************** Rewritten expression **********************************");
         sb.AppendLine(rewrittenExpression.ToString());
         sb.ToString().MatchSnapshot();
-
-        rewrittenExpression.Compile();
     }
 }
 

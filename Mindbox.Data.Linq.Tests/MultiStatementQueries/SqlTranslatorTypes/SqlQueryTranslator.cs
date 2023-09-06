@@ -10,12 +10,23 @@ namespace Mindbox.Data.Linq.Tests.MultiStatementQueries.SqlTranslatorTypes;
 class SqlQueryTranslator
 {
     public static SqlQueryTranslatorResult Translate(Expression node, IDbColumnTypeProvider columnTypeProvider, bool fastCustomerSelect = false)
+        => TranslateMany(new[] { node }, columnTypeProvider, fastCustomerSelect);
+
+    public static SqlQueryTranslatorResult TranslateMany(IEnumerable<Expression> nodes, IDbColumnTypeProvider columnTypeProvider, bool fastCustomerSelect = false)
     {
-        var table = TranslateCore(node, columnTypeProvider);
-        OptimizeTree(table);
+        TableNode tableSummary = null;
+        foreach (var node in nodes)
+        {
+            var table = TranslateCore(node, columnTypeProvider);
+            OptimizeTree(table);
+            if (tableSummary == null)
+                tableSummary = table;
+            else
+                tableSummary.Merge(table);
+        }
+        OptimizeTree(tableSummary);
 
-        var result = SqlTreeCommandBuilder.Build(table, columnTypeProvider, fastCustomerSelect);
-
+        var result = SqlTreeCommandBuilder.Build(tableSummary, columnTypeProvider, fastCustomerSelect);
         return new SqlQueryTranslatorResult(result.CommandText, result.TableReadOrder);
     }
 

@@ -1,0 +1,69 @@
+﻿****************************** Original expression A **********************************
+Table(Customer).Where(c => value(Mindbox.Data.Linq.Tests.MultiStatementQueries.MultiStatementQueryTests+<>c__DisplayClass22_0).orders.Where(o => (o.CurrentCustomer == c)).SelectMany(o => o.History.Single(hi => (hi.IsCurrentOtherwiseNull != null)).Purchases).Where(p => (((p.PriceForCustomerOfLine / p.Count) != null) AndAlso ((p.PriceForCustomerOfLine / p.Count) >= Convert(Convert(123, Decimal), Nullable`1)))).Any())
+
+****************************** Original expression B **********************************
+Table(Customer).Where(c => c.CustomFieldValues.Any(f => (f.FieldValue == "ASDF")))
+
+****************************** SQL result *********************************************
+DECLARE @tabledirectcrm_Customers TABLE(
+    Id int not null
+)
+DECLARE @tabledirectcrm_RetailOrders TABLE(
+    CustomerId int null,
+    Id int not null
+)
+DECLARE @tabledirectcrm_RetailOrderHistoryItems TABLE(
+    Id int not null,
+    IsCurrentOtherwiseNull bit null,
+    RetailOrderId int not null
+)
+DECLARE @tabledirectcrm_RetailOrderPurchases TABLE(
+    Count decimal(18,2) not null,
+    PriceForCustomerOfLine decimal(18,2) not null,
+    RetailOrderHistoryItemId bigint not null
+)
+DECLARE @tabledirectcrm_CustomerCustomFieldValues TABLE(
+    CustomerId int not null,
+    FieldValue nvarchar(32) not null
+)
+
+INSERT INTO @tabledirectcrm_Customers(Id)
+    SELECT current.Id
+        FROM directcrm.Customers AS current
+            WHERE Id = @__id
+SELECT * FROM @tabledirectcrm_Customers
+
+INSERT INTO @tabledirectcrm_RetailOrders(CustomerId, Id)
+    SELECT current.CustomerId, current.Id
+        FROM directcrm.RetailOrders AS current
+            INNER JOIN @tabledirectcrm_Customers AS previous ON
+                previous.Id = current.CustomerId
+SELECT * FROM @tabledirectcrm_RetailOrders
+
+INSERT INTO @tabledirectcrm_RetailOrderHistoryItems(Id, IsCurrentOtherwiseNull, RetailOrderId)
+    SELECT current.Id, current.IsCurrentOtherwiseNull, current.RetailOrderId
+        FROM directcrm.RetailOrderHistoryItems AS current
+            INNER JOIN @tabledirectcrm_RetailOrders AS previous ON
+                previous.Id = current.RetailOrderId
+SELECT * FROM @tabledirectcrm_RetailOrderHistoryItems
+
+INSERT INTO @tabledirectcrm_RetailOrderPurchases(Count, PriceForCustomerOfLine, RetailOrderHistoryItemId)
+    SELECT current.Count, current.PriceForCustomerOfLine, current.RetailOrderHistoryItemId
+        FROM directcrm.RetailOrderPurchases AS current
+            INNER JOIN @tabledirectcrm_RetailOrderHistoryItems AS previous ON
+                previous.Id = current.RetailOrderHistoryItemId
+SELECT * FROM @tabledirectcrm_RetailOrderPurchases
+
+INSERT INTO @tabledirectcrm_CustomerCustomFieldValues(CustomerId, FieldValue)
+    SELECT current.CustomerId, current.FieldValue
+        FROM directcrm.CustomerCustomFieldValues AS current
+            INNER JOIN @tabledirectcrm_Customers AS previous ON
+                previous.Id = current.CustomerId
+SELECT * FROM @tabledirectcrm_CustomerCustomFieldValues
+
+****************************** Rewritten expression A *********************************
+resultSet => resultSet.GetTable("directcrm.Customers").Where(c => resultSet.GetTable("directcrm.RetailOrders").Where(o => (o.GetReferencedRow("directcrm.Customers", "CustomerId", "Id") == c)).SelectMany(o => o.GetReferencedRowsArray("directcrm.RetailOrderHistoryItems", "Id", "RetailOrderId").Single(hi => (hi.GetValue("IsCurrentOtherwiseNull") != null)).GetReferencedRowsArray("directcrm.RetailOrderPurchases", "Id", "RetailOrderHistoryItemId")).Where(p => (((p.GetValue("PriceForCustomerOfLine") / p.GetValue("Count")) != null) AndAlso ((p.GetValue("PriceForCustomerOfLine") / p.GetValue("Count")) >= Convert(Convert(123, Decimal), Nullable`1)))).Any()).Any()
+
+****************************** Rewritten expression B *********************************
+resultSet => resultSet.GetTable("directcrm.Customers").Where(c => c.GetReferencedRowsArray("directcrm.CustomerCustomFieldValues", "Id", "CustomerId").Any(f => (f.GetValue("FieldValue") == "ASDF"))).Any()
+
