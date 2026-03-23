@@ -1884,10 +1884,7 @@ namespace System.Data.Linq.SqlClient {
                 // Translate the same as Enumerable.Contains(array, value).
                 else if (mc.Method.DeclaringType == typeof(MemoryExtensions)
                     && mc.Method.Name == "Contains"
-                    && mc.Arguments.Count == 2
-                    && mc.Arguments[0] is MethodCallExpression spanConversion
-                    && spanConversion.Method.Name == "op_Implicit"
-                    && spanConversion.Arguments.Count == 1) {
+                    && mc.Arguments[0] is MethodCallExpression { Method.Name: "op_Implicit" } spanConversion) {
                     return this.VisitContains(spanConversion.Arguments[0], mc.Arguments[1]);
                 }
                 else if (IsDataManipulationCall(mc)) {
