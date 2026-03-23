@@ -3,7 +3,7 @@ using System.Data.Linq;
 using System.Linq;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
-namespace Mindbox.Data.Linq.Tests.SqlGeneration
+namespace Mindbox.Data.Linq.Tests
 {
 	/// <summary>
 	/// Tests that array.Contains(value) in LINQ queries is correctly translated to SQL IN clause.
