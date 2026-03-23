@@ -1,12 +1,10 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
     <PackageId>Mindbox.Data.Linq</PackageId>
-    <Company>Mindbox</Company>
     <Version>3.2.0</Version>
     <Description>A clone of Microsoft System.Data.Linq to allow multi-DLL extensibility and EF compatibility.</Description>
     <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
-    <Copyright>Copyright 2019 (c) Mindbox</Copyright>
-    <Authors>Mindbox</Authors>
     <PublishRepositoryUrl>true</PublishRepositoryUrl>
     <IncludeSymbols>true</IncludeSymbols>
     <SymbolPackageFormat>snupkg</SymbolPackageFormat>

@@ -1,15 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-    <RootNamespace>Mindbox.Data.Linq.Tests</RootNamespace>
-    <TargetFramework />
     <TargetFrameworks>net8.0;net10.0</TargetFrameworks>
+    <RootNamespace>Mindbox.Data.Linq.Tests</RootNamespace>
     <AssemblyName>Mindbox.Data.Linq.Tests</AssemblyName>
     <Deterministic>false</Deterministic>
     <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
-    <Company>mindbox.ru</Company>
-    <Product>Itc.Nexus</Product>
-    <NeutralLanguage>ru</NeutralLanguage>
     <AppendTargetFrameworkToOutputPath>true</AppendTargetFrameworkToOutputPath>
     <AutoGenerateBindingRedirects>true</AutoGenerateBindingRedirects>
     <GenerateBindingRedirectsOutputType>true</GenerateBindingRedirectsOutputType>

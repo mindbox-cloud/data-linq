@@ -1,6 +1,9 @@
 <Project>
   <PropertyGroup>
-    <TargetFramework>net8.0</TargetFramework>
     <LangVersion>12</LangVersion>
+    <Company>Mindbox</Company>
+    <Authors>Mindbox</Authors>
+    <Copyright>Copyright 2019 (c) Mindbox</Copyright>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
   </PropertyGroup>
 </Project>
