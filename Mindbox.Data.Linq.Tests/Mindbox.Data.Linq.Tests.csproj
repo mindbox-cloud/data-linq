@@ -3,7 +3,7 @@
   <PropertyGroup>
     <RootNamespace>Mindbox.Data.Linq.Tests</RootNamespace>
     <AssemblyName>Mindbox.Data.Linq.Tests</AssemblyName>
-    <TargetFramework>net7.0</TargetFramework>
+    <TargetFramework>net8.0</TargetFramework>
     <Deterministic>false</Deterministic>
     <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
     <Company>mindbox.ru</Company>
@@ -12,6 +12,7 @@
     <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
     <AutoGenerateBindingRedirects>true</AutoGenerateBindingRedirects>
     <GenerateBindingRedirectsOutputType>true</GenerateBindingRedirectsOutputType>
+    <NoWarn>CS0169</NoWarn>
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="..\Mindbox.Data.Linq\Mindbox.Data.Linq.csproj" />

@@ -1879,6 +1879,17 @@ namespace System.Data.Linq.SqlClient {
                 if (this.IsSequenceOperatorCall(mc)) {
                     return this.VisitSequenceOperatorCall(mc);
                 }
+                // In .NET 10, array.Contains(value) in expression trees compiles to
+                // MemoryExtensions.Contains(ReadOnlySpan<T>.op_Implicit(array), value).
+                // Translate the same as Enumerable.Contains(array, value).
+                else if (mc.Method.DeclaringType == typeof(MemoryExtensions)
+                    && mc.Method.Name == "Contains"
+                    && mc.Arguments.Count == 2
+                    && mc.Arguments[0] is MethodCallExpression spanConversion
+                    && spanConversion.Method.Name == "op_Implicit"
+                    && spanConversion.Arguments.Count == 1) {
+                    return this.VisitContains(spanConversion.Arguments[0], mc.Arguments[1]);
+                }
                 else if (IsDataManipulationCall(mc)) {
                     return this.VisitDataManipulationCall(mc);
                 }
