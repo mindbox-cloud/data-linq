@@ -1,25 +1,24 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-    <TargetFramework>net8.0</TargetFramework>
-	<PackageId>Mindbox.Data.Linq</PackageId>
+    <PackageId>Mindbox.Data.Linq</PackageId>
     <Company>Mindbox</Company>
     <Version>3.2.0</Version>
     <Description>A clone of Microsoft System.Data.Linq to allow multi-DLL extensibility and EF compatibility.</Description>
     <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
     <Copyright>Copyright 2019 (c) Mindbox</Copyright>
     <Authors>Mindbox</Authors>
-    <LangVersion>12</LangVersion>
-    <NoWarn>SYSLIB0011</NoWarn>
     <PublishRepositoryUrl>true</PublishRepositoryUrl>
     <IncludeSymbols>true</IncludeSymbols>
     <SymbolPackageFormat>snupkg</SymbolPackageFormat>
     <PackageVersion>10.8.0$(VersionTag)</PackageVersion>
+    <NoWarn>SYSLIB0003;SYSLIB0011</NoWarn>
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Castle.Core" Version="5.1.1" />
-    <PackageReference Include="Microsoft.Data.SqlClient" Version="6.1.4" />
-    <PackageReference Include="Mindbox.Expressions" Version="3.3.0" />
-    <PackageReference Include="Microsoft.SourceLink.GitHub" Version="1.1.1" PrivateAssets="All" />
+    <PackageReference Include="Castle.Core" />
+    <PackageReference Include="Microsoft.Data.SqlClient" />
+    <PackageReference Include="Microsoft.SourceLink.GitHub" PrivateAssets="All" />
+    <PackageReference Include="Mindbox.Expressions" />
+    <PackageReference Include="System.Security.Permissions" />
   </ItemGroup>
 </Project>
