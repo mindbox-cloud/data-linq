@@ -37,32 +37,30 @@ namespace Mindbox.Data.Linq.Tests
 		}
 
 		/// <summary>
-		/// Reproduces the InvocationExpression pattern: when array is passed as a parameter
-		/// to a helper method and used in a Where clause, .NET 10 compiler may generate
-		/// InvocationExpression(ConstantExpression(pre_compiled_delegate), []) instead of
-		/// MethodCallExpression(op_Implicit, array_expr) for the implicit T[]→ReadOnlySpan conversion.
+		/// Reproduces the InvocationExpression pattern: when array is passed as a method parameter,
+		/// .NET 10 compiler pre-compiles the implicit T[]→ReadOnlySpan conversion to a zero-arg delegate
+		/// (InvocationExpression) instead of keeping it as MethodCallExpression(op_Implicit).
 		/// </summary>
 		[TestMethod]
 		public void ArrayContains_PassedAsParameter_TranslatesToSqlIn()
 		{
-			TranslateContainsQuery(new[] { 1, 2, 3 });
-		}
+			RunWithIds(new[] { 1, 2, 3 });
 
-		private static void TranslateContainsQuery(int[] ids)
-		{
-			using var connection = new DbConnectionStub();
-			using var context = new DataContext(connection);
+			static void RunWithIds(int[] ids)
+			{
+				using var connection = new DbConnectionStub();
+				using var context = new DataContext(connection);
 
-			var query = context.GetTable<SimpleEntity>()
-				.Where(t => ids.Contains(t.Id));
+				var query = context.GetTable<SimpleEntity>().Where(t => ids.Contains(t.Id));
 
-			using var command = context.GetCommand(query);
+				using var command = context.GetCommand(query);
 
-			Assert.AreEqual(
-				"SELECT [t0].[Id], [t0].[Discriminator], [t0].[X]" + Environment.NewLine +
-				"FROM [SimpleTable] AS [t0]" + Environment.NewLine +
-				"WHERE [t0].[Id] IN (@p0, @p1, @p2)",
-				command.CommandText);
+				Assert.AreEqual(
+					"SELECT [t0].[Id], [t0].[Discriminator], [t0].[X]" + Environment.NewLine +
+					"FROM [SimpleTable] AS [t0]" + Environment.NewLine +
+					"WHERE [t0].[Id] IN (@p0, @p1, @p2)",
+					command.CommandText);
+			}
 		}
 
 		[TestMethod]
