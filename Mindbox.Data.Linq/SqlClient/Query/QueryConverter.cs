@@ -1774,6 +1774,38 @@ namespace System.Data.Linq.SqlClient {
             return new SqlUnary(aggType, clrType, sqlType, exp, this.dominatingExpression);
         }
 
+        /// <summary>
+        /// Extracts the underlying array/collection expression from a ReadOnlySpan expression.
+        /// In .NET 10, array.Contains() may generate two patterns for the implicit T[]→ReadOnlySpan conversion:
+        ///   1. MethodCallExpression(op_Implicit, [array_expr]) — extract array_expr directly
+        ///   2. InvocationExpression(ConstantExpression(pre_compiled_delegate), []) — extract array
+        ///      from the delegate's closure target via reflection
+        /// </summary>
+        private static Expression TryExtractArrayFromSpanExpression(Expression spanExpr) {
+            // Pattern 1: MethodCallExpression — op_Implicit(array)
+            if (spanExpr is MethodCallExpression mc && mc.Arguments.Count == 1)
+                return mc.Arguments[0];
+
+            // Pattern 2: InvocationExpression(ConstantExpression(delegate), [])
+            // The compiler pre-compiled the implicit conversion to a zero-arg delegate.
+            // Extract the array from the delegate's closure.
+            if (spanExpr is InvocationExpression { Arguments.Count: 0 } invoke
+                && invoke.Expression is ConstantExpression constExpr
+                && constExpr.Value is Delegate del
+                && del.Target != null) {
+                var target = del.Target;
+                var elementType = spanExpr.Type.GetGenericArguments()[0];
+                var arrayType = elementType.MakeArrayType();
+                var arrayField = target.GetType()
+                    .GetFields(System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)
+                    .FirstOrDefault(f => f.FieldType == arrayType);
+                if (arrayField != null)
+                    return Expression.Constant(arrayField.GetValue(target), arrayType);
+            }
+
+            return null;
+        }
+
         private SqlNode VisitContains(Expression sequence, Expression value) {
             Type elemType = TypeSystem.GetElementType(sequence.Type);
             SqlNode seqNode = this.Visit(sequence);
@@ -1880,15 +1912,19 @@ namespace System.Data.Linq.SqlClient {
                     return this.VisitSequenceOperatorCall(mc);
                 }
                 // In .NET 10, array.Contains(value) in expression trees compiles to
-                // MemoryExtensions.Contains(ReadOnlySpan<T>.op_Implicit(array), value).
-                // Translate the same as Enumerable.Contains(array, value).
+                // MemoryExtensions.Contains(ReadOnlySpan<T> span, value).
+                // Two compiler patterns exist for the span argument:
+                //   1. MethodCallExpression(op_Implicit, [array]) — simple local capture
+                //   2. InvocationExpression(ConstantExpression(pre_compiled_delegate), []) — nested closure
+                // Both must be unwrapped to extract the underlying array for SQL IN translation.
                 else if (mc.Method.DeclaringType == typeof(MemoryExtensions)
                     && mc.Method.Name == "Contains"
-                    && mc.Arguments[0] is MethodCallExpression spanConversion
-                    && spanConversion.Method.ReturnType is { IsGenericType: true } returnType
-                    && returnType.GetGenericTypeDefinition() == typeof(ReadOnlySpan<>)
-                    && spanConversion.Arguments.Count == 1) {
-                    return this.VisitContains(spanConversion.Arguments[0], mc.Arguments[1]);
+                    && mc.Arguments[0].Type is { IsGenericType: true } spanType
+                    && spanType.GetGenericTypeDefinition() == typeof(ReadOnlySpan<>)) {
+                    var arrayExpr = TryExtractArrayFromSpanExpression(mc.Arguments[0]);
+                    if (arrayExpr != null) {
+                        return this.VisitContains(arrayExpr, mc.Arguments[1]);
+                    }
                 }
                 else if (IsDataManipulationCall(mc)) {
                     return this.VisitDataManipulationCall(mc);
