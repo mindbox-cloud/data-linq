@@ -1774,17 +1774,10 @@ namespace System.Data.Linq.SqlClient {
             return new SqlUnary(aggType, clrType, sqlType, exp, this.dominatingExpression);
         }
 
-        // In .NET 10, array.Contains() generates two compiler patterns for T[]→ReadOnlySpan<T>:
-        //   1. MethodCallExpression(op_Implicit, [array_expr]) — simple local capture
-        //   2. InvocationExpression(ConstantExpression(pre_compiled_delegate), []) — nested closure
         /// <summary>
-        /// Searches for an array of the given type in a delegate's closure using BFS.
-        /// Handles two closure structures produced by the .NET runtime:
-        /// <list type="bullet">
-        ///   <item>Display class — a generated class with a direct T[] field (regular C# closure)</item>
-        ///   <item>Runtime Closure — Object[] fields (Constants/Locals) used by compiled expression lambdas,
-        ///         may be nested: outer Closure → inner Delegate → inner Closure with the actual array</item>
-        /// </list>
+        /// Searches for an array of the given type in a delegate's closure (BFS).
+        /// Handles direct T[] fields (display class) and Object[] fields (runtime Closure),
+        /// including nested delegates whose closures contain the array.
         /// </summary>
         private static object FindArrayInClosure(object root, Type arrayType) {
             var queue = new System.Collections.Generic.Queue<object>();
