@@ -1793,8 +1793,9 @@ namespace System.Data.Linq.SqlClient {
                         if (item?.GetType() == arrayType) {
                             return item;
                         }
-                        if (item is Delegate nested && nested.Target != null) {
-                            var found = FindArrayInClosure(nested.Target, arrayType, depth + 1);
+                        var searchTarget = item is Delegate nested ? nested.Target : item;
+                        if (searchTarget != null) {
+                            var found = FindArrayInClosure(searchTarget, arrayType, depth + 1);
                             if (found != null) {
                                 return found;
                             }
