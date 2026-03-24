@@ -1,30 +1,22 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-    <TargetFramework>netstandard2.0</TargetFramework>
-	<PackageId>Mindbox.Data.Linq</PackageId>
-    <Company>Mindbox</Company>
+    <TargetFramework>net8.0</TargetFramework>
+    <PackageId>Mindbox.Data.Linq</PackageId>
     <Version>3.2.0</Version>
     <Description>A clone of Microsoft System.Data.Linq to allow multi-DLL extensibility and EF compatibility.</Description>
     <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
-    <Copyright>Copyright 2019 (c) Mindbox</Copyright>
-    <Authors>Mindbox</Authors>
-	<LangVersion>latest</LangVersion>
     <PublishRepositoryUrl>true</PublishRepositoryUrl>
     <IncludeSymbols>true</IncludeSymbols>
     <SymbolPackageFormat>snupkg</SymbolPackageFormat>
-    <PackageVersion>10.7.2$(VersionTag)</PackageVersion>
+    <PackageVersion>10.8.0$(VersionTag)</PackageVersion>
+    <NoWarn>SYSLIB0003;SYSLIB0011</NoWarn>
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Castle.Core" Version="5.1.1" />
-    <PackageReference Include="Microsoft.Data.SqlClient" Version="5.1.0" />
-    <PackageReference Include="Mindbox.Expressions" Version="3.3.0" />
-    <PackageReference Include="System.ComponentModel.Annotations" Version="5.0.0" />
-    <PackageReference Include="System.Reflection.Emit" Version="4.7.0" />
-    <PackageReference Include="System.Reflection.Emit.Lightweight" Version="4.7.0" />
-    <PackageReference Include="System.Runtime" Version="4.3.1" />
-    <PackageReference Include="System.Runtime.Extensions" Version="4.3.1" />
-    <PackageReference Include="Microsoft.SourceLink.GitHub" Version="1.1.1" PrivateAssets="All" />
-    <PackageReference Include="System.Security.Permissions" Version="7.0.0" />
+    <PackageReference Include="Castle.Core" />
+    <PackageReference Include="Microsoft.Data.SqlClient" />
+    <PackageReference Include="Microsoft.SourceLink.GitHub" PrivateAssets="All" />
+    <PackageReference Include="Mindbox.Expressions" />
+    <PackageReference Include="System.Security.Permissions" />
   </ItemGroup>
 </Project>
