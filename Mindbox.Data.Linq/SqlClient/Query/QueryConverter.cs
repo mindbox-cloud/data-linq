@@ -1775,30 +1775,28 @@ namespace System.Data.Linq.SqlClient {
         }
 
         /// <summary>
-        /// Searches for an array of the given type in a delegate's closure (BFS).
+        /// Searches for an array of the given type in a delegate's closure.
         /// Handles direct T[] fields (display class) and Object[] fields (runtime Closure),
-        /// including nested delegates whose closures contain the array.
+        /// including delegates nested inside Object[] fields (up to depth 3).
         /// </summary>
-        private static object FindArrayInClosure(object root, Type arrayType) {
-            var queue = new System.Collections.Generic.Queue<object>();
-            queue.Enqueue(root);
-            while (queue.Count > 0) {
-                var target = queue.Dequeue();
-                if (target == null) {
-                    continue;
+        private static object FindArrayInClosure(object target, Type arrayType, int depth = 0) {
+            if (target == null || depth > 3) {
+                return null;
+            }
+            foreach (var f in target.GetType().GetFields(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance)) {
+                var val = f.GetValue(target);
+                if (val?.GetType() == arrayType) {
+                    return val;
                 }
-                foreach (var f in target.GetType().GetFields(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance)) {
-                    var val = f.GetValue(target);
-                    if (val?.GetType() == arrayType) {
-                        return val;
-                    }
-                    if (val is object[] items) {
-                        foreach (var item in items) {
-                            if (item?.GetType() == arrayType) {
-                                return item;
-                            }
-                            if (item is Delegate nested && nested.Target != null) {
-                                queue.Enqueue(nested.Target);
+                if (val is object[] items) {
+                    foreach (var item in items) {
+                        if (item?.GetType() == arrayType) {
+                            return item;
+                        }
+                        if (item is Delegate nested && nested.Target != null) {
+                            var found = FindArrayInClosure(nested.Target, arrayType, depth + 1);
+                            if (found != null) {
+                                return found;
                             }
                         }
                     }
@@ -1815,7 +1813,7 @@ namespace System.Data.Linq.SqlClient {
             if (spanExpr is InvocationExpression { Arguments.Count: 0, Expression: ConstantExpression { Value: Delegate { Target: { } target } } }
                 && spanExpr.Type.GetGenericArguments() is [var elementType]) {
                 var arrayType = elementType.MakeArrayType();
-                var array = FindArrayInClosure(target, arrayType);
+                var array = FindArrayInClosure(target, arrayType, depth: 0);
                 if (array != null) {
                     return Expression.Constant(array, arrayType);
                 }
