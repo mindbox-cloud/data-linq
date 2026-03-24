@@ -1777,35 +1777,48 @@ namespace System.Data.Linq.SqlClient {
         // In .NET 10, array.Contains() generates two compiler patterns for T[]→ReadOnlySpan<T>:
         //   1. MethodCallExpression(op_Implicit, [array_expr]) — simple local capture
         //   2. InvocationExpression(ConstantExpression(pre_compiled_delegate), []) — nested closure
-        // Recursively searches for an array of the given type in a delegate's closure.
+        // Searches for an array of the given type in a delegate's closure using BFS.
         // Handles display class (direct field), runtime Closure (Object[] fields), and nested delegates.
-        private static object FindArrayInClosure(object target, Type arrayType, int depth) {
-            if (target == null || depth > 3) return null;
-            foreach (var f in target.GetType().GetFields(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance)) {
-                var val = f.GetValue(target);
-                if (val?.GetType() == arrayType) return val;
-                if (val is object[] items)
-                    foreach (var item in items) {
-                        if (item?.GetType() == arrayType) return item;
-                        if (item is Delegate nested && nested.Target != null) {
-                            var found = FindArrayInClosure(nested.Target, arrayType, depth + 1);
-                            if (found != null) return found;
+        private static object FindArrayInClosure(object root, Type arrayType) {
+            var queue = new System.Collections.Generic.Queue<object>();
+            queue.Enqueue(root);
+            while (queue.Count > 0) {
+                var target = queue.Dequeue();
+                if (target == null) {
+                    continue;
+                }
+                foreach (var f in target.GetType().GetFields(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance)) {
+                    var val = f.GetValue(target);
+                    if (val?.GetType() == arrayType) {
+                        return val;
+                    }
+                    if (val is object[] items) {
+                        foreach (var item in items) {
+                            if (item?.GetType() == arrayType) {
+                                return item;
+                            }
+                            if (item is Delegate nested && nested.Target != null) {
+                                queue.Enqueue(nested.Target);
+                            }
                         }
                     }
+                }
             }
             return null;
         }
 
         private static Expression TryExtractArrayFromSpanExpression(Expression spanExpr) {
-            if (spanExpr is MethodCallExpression { Arguments: [var arrayExpr] })
+            if (spanExpr is MethodCallExpression { Arguments: [var arrayExpr] }) {
                 return arrayExpr;
+            }
 
             if (spanExpr is InvocationExpression { Arguments.Count: 0, Expression: ConstantExpression { Value: Delegate { Target: { } target } } }
                 && spanExpr.Type.GetGenericArguments() is [var elementType]) {
                 var arrayType = elementType.MakeArrayType();
-                var array = FindArrayInClosure(target, arrayType, depth: 0);
-                if (array != null)
+                var array = FindArrayInClosure(target, arrayType);
+                if (array != null) {
                     return Expression.Constant(array, arrayType);
+                }
             }
 
             return null;

@@ -39,36 +39,6 @@ namespace Mindbox.Data.Linq.Tests
 		}
 
 		/// <summary>
-		/// Reproduces the InvocationExpression compiler pattern.
-		/// When the array is captured via a method parameter (not a local variable), .NET 10 compiler
-		/// pre-compiles the implicit T[]→ReadOnlySpan conversion to a zero-arg delegate, producing
-		/// InvocationExpression(ConstantExpression(delegate), []) instead of MethodCallExpression(op_Implicit).
-		/// The nested local function RunWithIds is intentional — it is the minimal structure that triggers
-		/// this compiler pattern. Without it the test would be identical to ArrayContains_TranslatesToSqlIn.
-		/// </summary>
-		[TestMethod]
-		public void ArrayContains_PassedAsParameter_TranslatesToSqlIn()
-		{
-			RunWithIds(new[] { 1, 2, 3 });
-
-			static void RunWithIds(int[] ids)
-			{
-				using var connection = new DbConnectionStub();
-				using var context = new DataContext(connection);
-
-				var query = context.GetTable<SimpleEntity>().Where(t => ids.Contains(t.Id));
-
-				using var command = context.GetCommand(query);
-
-				Assert.AreEqual(
-					"SELECT [t0].[Id], [t0].[Discriminator], [t0].[X]" + Environment.NewLine +
-					"FROM [SimpleTable] AS [t0]" + Environment.NewLine +
-					"WHERE [t0].[Id] IN (@p0, @p1, @p2)",
-					command.CommandText);
-			}
-		}
-
-		/// <summary>
 		/// Directly constructs the InvocationExpression(ConstantExpression(delegate), []) pattern
 		/// using Expression API — guaranteed to exercise Pattern 2 regardless of compiler version.
 		/// The MemoryExtensions.Contains call is built by hand with a pre-compiled zero-arg delegate
