@@ -1813,7 +1813,7 @@ namespace System.Data.Linq.SqlClient {
             if (spanExpr is InvocationExpression { Arguments.Count: 0, Expression: ConstantExpression { Value: Delegate { Target: { } target } } }
                 && spanExpr.Type.GetGenericArguments() is [var elementType]) {
                 var arrayType = elementType.MakeArrayType();
-                var array = FindArrayInClosure(target, arrayType, depth: 0);
+                var array = FindArrayInClosure(target, arrayType);
                 if (array != null) {
                     return Expression.Constant(array, arrayType);
                 }
