@@ -1774,54 +1774,6 @@ namespace System.Data.Linq.SqlClient {
             return new SqlUnary(aggType, clrType, sqlType, exp, this.dominatingExpression);
         }
 
-        /// <summary>
-        /// Searches for an array of the given type in a delegate's closure.
-        /// Handles direct T[] fields (display class) and Object[] fields (runtime Closure),
-        /// including delegates nested inside Object[] fields (up to depth 3).
-        /// </summary>
-        private static object FindArrayInClosure(object target, Type arrayType, int depth = 0) {
-            if (target == null || depth > 3) {
-                return null;
-            }
-            foreach (var f in target.GetType().GetFields(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance)) {
-                var val = f.GetValue(target);
-                if (val?.GetType() == arrayType) {
-                    return val;
-                }
-                if (val is object[] items) {
-                    foreach (var item in items) {
-                        if (item?.GetType() == arrayType) {
-                            return item;
-                        }
-                        if (item is Delegate nested && nested.Target != null) {
-                            var found = FindArrayInClosure(nested.Target, arrayType, depth + 1);
-                            if (found != null) {
-                                return found;
-                            }
-                        }
-                    }
-                }
-            }
-            return null;
-        }
-
-        private static Expression TryExtractArrayFromSpanExpression(Expression spanExpr) {
-            if (spanExpr is MethodCallExpression { Arguments: [var arrayExpr] }) {
-                return arrayExpr;
-            }
-
-            if (spanExpr is InvocationExpression { Arguments.Count: 0, Expression: ConstantExpression { Value: Delegate { Target: { } target } } }
-                && spanExpr.Type.GetGenericArguments() is [var elementType]) {
-                var arrayType = elementType.MakeArrayType();
-                var array = FindArrayInClosure(target, arrayType);
-                if (array != null) {
-                    return Expression.Constant(array, arrayType);
-                }
-            }
-
-            return null;
-        }
-
         private SqlNode VisitContains(Expression sequence, Expression value) {
             Type elemType = TypeSystem.GetElementType(sequence.Type);
             SqlNode seqNode = this.Visit(sequence);
@@ -1926,21 +1878,6 @@ namespace System.Data.Linq.SqlClient {
             if (mc.Method.IsStatic) {
                 if (this.IsSequenceOperatorCall(mc)) {
                     return this.VisitSequenceOperatorCall(mc);
-                }
-                // In .NET 10, array.Contains(value) in expression trees compiles to
-                // MemoryExtensions.Contains(ReadOnlySpan<T> span, value).
-                // Two compiler patterns exist for the span argument:
-                //   1. MethodCallExpression(op_Implicit, [array]) — simple local capture
-                //   2. InvocationExpression(ConstantExpression(pre_compiled_delegate), []) — nested closure
-                // Both must be unwrapped to extract the underlying array for SQL IN translation.
-                else if (mc.Method.DeclaringType == typeof(MemoryExtensions)
-                    && mc.Method.Name == "Contains"
-                    && mc.Arguments[0].Type is { IsGenericType: true } spanType
-                    && spanType.GetGenericTypeDefinition() == typeof(ReadOnlySpan<>)) {
-                    var arrayExpr = TryExtractArrayFromSpanExpression(mc.Arguments[0]);
-                    if (arrayExpr != null) {
-                        return this.VisitContains(arrayExpr, mc.Arguments[1]);
-                    }
                 }
                 else if (IsDataManipulationCall(mc)) {
                     return this.VisitDataManipulationCall(mc);
