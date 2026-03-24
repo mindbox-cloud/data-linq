@@ -1777,6 +1777,25 @@ namespace System.Data.Linq.SqlClient {
         // In .NET 10, array.Contains() generates two compiler patterns for T[]→ReadOnlySpan<T>:
         //   1. MethodCallExpression(op_Implicit, [array_expr]) — simple local capture
         //   2. InvocationExpression(ConstantExpression(pre_compiled_delegate), []) — nested closure
+        // Recursively searches for an array of the given type in a delegate's closure.
+        // Handles display class (direct field), runtime Closure (Object[] fields), and nested delegates.
+        private static object FindArrayInClosure(object target, Type arrayType, int depth) {
+            if (target == null || depth > 3) return null;
+            foreach (var f in target.GetType().GetFields(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance)) {
+                var val = f.GetValue(target);
+                if (val?.GetType() == arrayType) return val;
+                if (val is object[] items)
+                    foreach (var item in items) {
+                        if (item?.GetType() == arrayType) return item;
+                        if (item is Delegate nested && nested.Target != null) {
+                            var found = FindArrayInClosure(nested.Target, arrayType, depth + 1);
+                            if (found != null) return found;
+                        }
+                    }
+            }
+            return null;
+        }
+
         private static Expression TryExtractArrayFromSpanExpression(Expression spanExpr) {
             if (spanExpr is MethodCallExpression { Arguments: [var arrayExpr] })
                 return arrayExpr;
@@ -1784,10 +1803,8 @@ namespace System.Data.Linq.SqlClient {
             if (spanExpr is InvocationExpression { Arguments.Count: 0, Expression: ConstantExpression { Value: Delegate { Target: { } target } } }
                 && spanExpr.Type.GetGenericArguments() is [var elementType]) {
                 var arrayType = elementType.MakeArrayType();
-                var field = target.GetType()
-                    .GetFields(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance)
-                    .FirstOrDefault(f => f.FieldType == arrayType);
-                if (field?.GetValue(target) is { } array)
+                var array = FindArrayInClosure(target, arrayType, depth: 0);
+                if (array != null)
                     return Expression.Constant(array, arrayType);
             }
 
