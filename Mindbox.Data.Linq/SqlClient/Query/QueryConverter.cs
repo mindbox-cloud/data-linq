@@ -1774,33 +1774,21 @@ namespace System.Data.Linq.SqlClient {
             return new SqlUnary(aggType, clrType, sqlType, exp, this.dominatingExpression);
         }
 
-        /// <summary>
-        /// Extracts the underlying array/collection expression from a ReadOnlySpan expression.
-        /// In .NET 10, array.Contains() may generate two patterns for the implicit T[]→ReadOnlySpan conversion:
-        ///   1. MethodCallExpression(op_Implicit, [array_expr]) — extract array_expr directly
-        ///   2. InvocationExpression(ConstantExpression(pre_compiled_delegate), []) — extract array
-        ///      from the delegate's closure target via reflection
-        /// </summary>
+        // In .NET 10, array.Contains() generates two compiler patterns for T[]→ReadOnlySpan<T>:
+        //   1. MethodCallExpression(op_Implicit, [array_expr]) — simple local capture
+        //   2. InvocationExpression(ConstantExpression(pre_compiled_delegate), []) — nested closure
         private static Expression TryExtractArrayFromSpanExpression(Expression spanExpr) {
-            // Pattern 1: MethodCallExpression — op_Implicit(array)
-            if (spanExpr is MethodCallExpression mc && mc.Arguments.Count == 1)
-                return mc.Arguments[0];
+            if (spanExpr is MethodCallExpression { Arguments: [var arrayExpr] })
+                return arrayExpr;
 
-            // Pattern 2: InvocationExpression(ConstantExpression(delegate), [])
-            // The compiler pre-compiled the implicit conversion to a zero-arg delegate.
-            // Extract the array from the delegate's closure.
-            if (spanExpr is InvocationExpression { Arguments.Count: 0 } invoke
-                && invoke.Expression is ConstantExpression constExpr
-                && constExpr.Value is Delegate del
-                && del.Target != null) {
-                var target = del.Target;
-                var elementType = spanExpr.Type.GetGenericArguments()[0];
+            if (spanExpr is InvocationExpression { Arguments.Count: 0, Expression: ConstantExpression { Value: Delegate { Target: { } target } } }
+                && spanExpr.Type.GetGenericArguments() is [var elementType]) {
                 var arrayType = elementType.MakeArrayType();
-                var arrayField = target.GetType()
-                    .GetFields(System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)
+                var field = target.GetType()
+                    .GetFields(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance)
                     .FirstOrDefault(f => f.FieldType == arrayType);
-                if (arrayField != null)
-                    return Expression.Constant(arrayField.GetValue(target), arrayType);
+                if (field?.GetValue(target) is { } array)
+                    return Expression.Constant(array, arrayType);
             }
 
             return null;
