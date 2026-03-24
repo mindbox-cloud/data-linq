@@ -8,7 +8,7 @@
     <PublishRepositoryUrl>true</PublishRepositoryUrl>
     <IncludeSymbols>true</IncludeSymbols>
     <SymbolPackageFormat>snupkg</SymbolPackageFormat>
-    <PackageVersion>10.8.0$(VersionTag)</PackageVersion>
+    <PackageVersion>10.8.1$(VersionTag)</PackageVersion>
     <NoWarn>SYSLIB0003;SYSLIB0011</NoWarn>
   </PropertyGroup>
 
