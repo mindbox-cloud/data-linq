@@ -37,9 +37,12 @@ namespace Mindbox.Data.Linq.Tests
 		}
 
 		/// <summary>
-		/// Reproduces the InvocationExpression pattern: when array is passed as a method parameter,
-		/// .NET 10 compiler pre-compiles the implicit T[]→ReadOnlySpan conversion to a zero-arg delegate
-		/// (InvocationExpression) instead of keeping it as MethodCallExpression(op_Implicit).
+		/// Reproduces the InvocationExpression compiler pattern.
+		/// When the array is captured via a method parameter (not a local variable), .NET 10 compiler
+		/// pre-compiles the implicit T[]→ReadOnlySpan conversion to a zero-arg delegate, producing
+		/// InvocationExpression(ConstantExpression(delegate), []) instead of MethodCallExpression(op_Implicit).
+		/// The nested local function RunWithIds is intentional — it is the minimal structure that triggers
+		/// this compiler pattern. Without it the test would be identical to ArrayContains_TranslatesToSqlIn.
 		/// </summary>
 		[TestMethod]
 		public void ArrayContains_PassedAsParameter_TranslatesToSqlIn()
